@@ -93,6 +93,15 @@ CREATE TABLE IF NOT EXISTS signal_briefs (
     ai_brief TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- 8. Signal Alerts Sent
+-- Tracks which signals have been emailed — prevents duplicate alerts
+CREATE TABLE IF NOT EXISTS signal_alerts_sent (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    signal_id UUID NOT NULL UNIQUE,
+    alerted_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Maps event types and regions to historically correlated assets
 CREATE TABLE IF NOT EXISTS asset_mappings (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

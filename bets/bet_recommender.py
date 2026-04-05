@@ -99,8 +99,7 @@ def get_active_kalshi_questions(region, event_category):
 
     # Build OR query across question text
     conditions = " OR ".join(["LOWER(question_text) LIKE %s" for _ in keywords])
-    params = [f"%{k}%" for k in keywords]
-    params.append("kalshi")
+    params = ["kalshi"] + [f"%{k}%" for k in keywords]
 
     cur.execute(f"""
         SELECT platform_id, question_text, current_probability,
@@ -111,7 +110,7 @@ def get_active_kalshi_questions(region, event_category):
         AND ({conditions})
         ORDER BY resolution_date ASC
         LIMIT 10;
-    """, [params[-1]] + params[:-1])
+    """, params)
 
     rows = cur.fetchall()
     cur.close()

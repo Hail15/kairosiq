@@ -97,11 +97,12 @@ def run_full_cycle():
     except Exception as e:
         print(f"❌ Anomaly detection error: {e}")
 
-    if signals_generated > 0:
-        try:
-            run_email_alerts()
-        except Exception as e:
-            print(f"❌ Email alert error: {e}")
+    # Always check for unalerted signals — decoupled from generation count
+    # Uses signal_alerts_sent table so no duplicate emails ever
+    try:
+        run_email_alerts()
+    except Exception as e:
+        print(f"❌ Email alert error: {e}")
 
     try:
         expire_old_signals()
