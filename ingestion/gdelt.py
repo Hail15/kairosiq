@@ -79,11 +79,30 @@ def detect_anomalies(current_counts):
             print(f"   🚨 Anomaly: {country} — {count} articles ({ratio}x baseline)")
     return anomalies
 
-def save_gdelt_signal(cur, anomaly):
+def signal_recently_fired(cur, country, hours=2):
+    """
+    Check if a GDELT signal for this country already fired recently.
+    Prevents duplicate signals every 15 minutes for the same event.
+    """
+    cur.execute("""
+        SELECT id FROM signals
+        WHERE source_platform = 'gdelt'
+        AND region = %s
+        AND signal_time >= NOW() - INTERVAL '%s hours'
+        AND is_active = true;
+    """, (country, hours))
+    return cur.fetchone() is not None
+
+def save_gdelt_signal(cur, anomaly, top_headlines=None):
+    headline_context = ""
+    if top_headlines:
+        headline_context = " Key headlines: " + " | ".join(top_headlines[:3])
+
     description = (
         f"GDELT conflict event spike detected for {anomaly['country']}. "
         f"{anomaly['current_count']} conflict articles in 6 hours "
-        f"({anomaly['ratio']}x above baseline of {anomaly['baseline']})"
+        f"({anomaly['ratio']}x above baseline of {anomaly['baseline']})."
+        f"{headline_context}"
     )
 
     cur.execute("""
@@ -108,6 +127,20 @@ def save_gdelt_signal(cur, anomaly):
 
     return cur.fetchone()
 
+def get_top_headlines_by_country(articles, country):
+    """
+    Pull up to 3 most relevant article titles for a given country.
+    Used to enrich the signal description with real context.
+    """
+    headlines = []
+    for article in articles:
+        title = article.get("title", "")
+        if country.upper() in title.upper():
+            headlines.append(title.strip())
+        if len(headlines) >= 3:
+            break
+    return headlines
+
 def run_gdelt_ingestion():
     print("\n🔄 Starting GDELT ingestion...")
 
@@ -129,14 +162,22 @@ def run_gdelt_ingestion():
     conn = get_db_connection()
     cur = conn.cursor()
 
+    saved = 0
     for anomaly in anomalies:
-        save_gdelt_signal(cur, anomaly)
+        # Skip if same country signal fired in last 2 hours
+        if signal_recently_fired(cur, anomaly["country"], hours=2):
+            print(f"   ⏭ Skipping {anomaly['country']} — signal already fired recently")
+            continue
+
+        top_headlines = get_top_headlines_by_country(articles, anomaly["country"])
+        save_gdelt_signal(cur, anomaly, top_headlines)
+        saved += 1
 
     conn.commit()
     cur.close()
     conn.close()
 
-    print(f"✅ GDELT ingestion complete. {len(anomalies)} anomaly signals saved.")
+    print(f"✅ GDELT ingestion complete. {saved} new signals saved (deduped).")
 
 if __name__ == "__main__":
     run_gdelt_ingestion()

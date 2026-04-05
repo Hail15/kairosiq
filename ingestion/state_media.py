@@ -72,16 +72,44 @@ def analyze_tone(articles):
 
     return escalation_count, deescalation_count
 
-def save_state_media_signal(cur, source_name, escalation_count, deescalation_count):
+def signal_recently_fired(cur, source_name, net_score, hours=3):
+    """
+    Check if this source already fired a similar signal recently.
+    Suppresses duplicate state media signals within a 3-hour window
+    unless the escalation score has changed meaningfully (5+ points).
+    """
+    cur.execute("""
+        SELECT probability_shift FROM signals
+        WHERE source_platform = 'state_media'
+        AND region = %s
+        AND signal_time >= NOW() - INTERVAL '%s hours'
+        AND is_active = true
+        ORDER BY signal_time DESC
+        LIMIT 1;
+    """, (source_name, hours))
+    row = cur.fetchone()
+    if not row:
+        return False
+    last_score = row[0] or 0
+    # Only suppress if score hasn't changed by more than 5 points
+    return abs(net_score - last_score) < 5
+
+def save_state_media_signal(cur, source_name, escalation_count, deescalation_count, sample_headlines=None):
     """
     Save a state media escalation signal to the database.
     """
     net_score = escalation_count - deescalation_count
+
+    headline_context = ""
+    if sample_headlines:
+        headline_context = " Recent headlines: " + " | ".join(sample_headlines[:2])
+
     description = (
         f"State media linguistic shift detected in {source_name}. "
         f"Escalatory language count: {escalation_count}, "
         f"De-escalatory language count: {deescalation_count}. "
-        f"Net escalation score: {net_score}"
+        f"Net escalation score: {net_score}."
+        f"{headline_context}"
     )
 
     confidence = "high" if net_score > 20 else "medium" if net_score > 10 else "low"
@@ -106,9 +134,20 @@ def save_state_media_signal(cur, source_name, escalation_count, deescalation_cou
 
     return cur.fetchone()
 
+def get_sample_headlines(feed_url, max_headlines=2):
+    """
+    Pull raw article titles from feed for context in signal description.
+    """
+    try:
+        feed = feedparser.parse(feed_url)
+        return [e.get("title", "").strip() for e in feed.entries[:max_headlines] if e.get("title")]
+    except Exception:
+        return []
+
 def run_state_media_ingestion():
     """
     Main function — monitors all state media feeds for escalation signals.
+    Deduplicates signals — only fires if score changed meaningfully or 3h passed.
     """
     print("\n🔄 Starting state media ingestion...")
 
@@ -129,11 +168,19 @@ def run_state_media_ingestion():
 
         print(f"   {source_name}: escalation={escalation_count}, de-escalation={deescalation_count}, net={net_score}")
 
-        # Only save as signal if meaningfully escalatory
-        if net_score >= 10:
-            save_state_media_signal(cur, source_name, escalation_count, deescalation_count)
-            signals_saved += 1
-            print(f"   🚨 Signal saved for {source_name}")
+        # Only save if meaningfully escalatory
+        if net_score < 10:
+            continue
+
+        # Skip if same source fired recently with similar score
+        if signal_recently_fired(cur, source_name, net_score, hours=3):
+            print(f"   ⏭ Skipping {source_name} — similar signal fired recently")
+            continue
+
+        sample_headlines = get_sample_headlines(feed_url)
+        save_state_media_signal(cur, source_name, escalation_count, deescalation_count, sample_headlines)
+        signals_saved += 1
+        print(f"   🚨 Signal saved for {source_name}")
 
     conn.commit()
     cur.close()
