@@ -1,0 +1,2 @@
+libzlib1g-dev
+libpq-dev
