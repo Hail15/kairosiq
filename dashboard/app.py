@@ -498,11 +498,13 @@ with tab1:
             sig_id = signal[0]
             description = signal[1] or ""
             region = signal[2] or "Global"
+            event_category = signal[3] or ""
             prob_before = signal[4]
             prob_after = signal[5]
             prob_shift = signal[6]
             confidence = signal[7] or "low"
             platform = signal[8] or "—"
+            source_platform = signal[8] or ""
             assets_json = signal[9]
             signal_time = signal[10]
             expires_at = signal[11]
