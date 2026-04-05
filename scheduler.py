@@ -24,7 +24,6 @@ from signals.signal_engine import run_signal_engine
 from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
 from signals.signal_validator import run_signal_validator
-from processing.anomaly_detector import run_anomaly_detection
 from bets.alpaca_trader import execute_signal_trade, run_exit_check
 
 def run_full_cycle():
@@ -92,23 +91,22 @@ def run_full_cycle():
         print(f"❌ Signal engine error: {e}")
         signals_generated = 0
 
-    try:
-        anomalies_found = run_anomaly_detection()
-        signals_generated += anomalies_found
-    except Exception as e:
-        print(f"❌ Anomaly detection error: {e}")
-
-    # Always check for unalerted signals — decoupled from generation count
-    # Uses signal_alerts_sent table so no duplicate emails ever
-    try:
-        run_email_alerts()
-    except Exception as e:
-        print(f"❌ Email alert error: {e}")
+    if signals_generated > 0:
+        try:
+            run_email_alerts()
+        except Exception as e:
+            print(f"❌ Email alert error: {e}")
 
     try:
         expire_old_signals()
     except Exception as e:
         print(f"❌ Signal expiry error: {e}")
+
+    # ── Alpaca Trading ───────────────────────────────────────
+    try:
+        run_exit_check()
+    except Exception as e:
+        print(f"❌ Alpaca exit check error: {e}")
 
     print(f"\n✅ Cycle complete: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"   Next cycle in 15 minutes...")

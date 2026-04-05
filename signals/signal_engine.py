@@ -14,8 +14,13 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
-from processing.classifier import enrich_signal, generate_intelligence_brief
-from processing.second_order_engine import generate_second_order_effects
+
+try:
+    from bets.alpaca_trader import execute_signal_trade
+    ALPACA_ENABLED = True
+except Exception as _e:
+    print(f"⚠️  Alpaca trader not loaded: {_e}")
+    ALPACA_ENABLED = False
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
@@ -125,37 +130,15 @@ def generate_checksum(signal_data):
     data_str = json.dumps(signal_data, sort_keys=True, default=str)
     return hashlib.sha256(data_str.encode()).hexdigest()
 
-def save_brief(conn, signal_id, ai_brief):
-    """
-    Store the AI brief in the signal_briefs table.
-    Separate table avoids ALTER TABLE on the large signals table.
-    """
-    try:
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO signal_briefs (signal_id, ai_brief)
-            VALUES (%s, %s)
-            ON CONFLICT (signal_id) DO UPDATE SET ai_brief = EXCLUDED.ai_brief;
-        """, (str(signal_id), ai_brief))
-        cur.close()
-    except Exception as e:
-        print(f"   ⚠️ Could not save brief: {e}")
-
 def save_signal(cur, question, prob_before, prob_after, shift,
-                confidence, assets, event_category, classification=None):
+                confidence, assets, event_category):
     """
     Save a detected signal to the database with full details.
-    Generates and stores AI brief in signal_briefs table at creation time
-    so dashboard reads from DB instead of calling Claude per page load.
     """
     question_id = question[0]
     question_text = question[2]
     region = question[4] or "Global"
     platform = question[1]
-
-    # Use Claude's region if classification available
-    if classification and classification.get("region"):
-        region = classification["region"]
 
     # Build signal data for checksum
     signal_data = {
@@ -169,6 +152,7 @@ def save_signal(cur, question, prob_before, prob_after, shift,
     }
     checksum = generate_checksum(signal_data)
 
+    # Direction of shift
     direction = "UP" if prob_after > prob_before else "DOWN"
 
     event_description = (
@@ -189,83 +173,31 @@ def save_signal(cur, question, prob_before, prob_after, shift,
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
         RETURNING id;
     """, (
-        event_description, region, event_category,
-        prob_before, prob_after, shift, confidence,
-        platform, question_id, json.dumps(assets),
-        expires_at, True, checksum
+        event_description,
+        region,
+        event_category,
+        prob_before,
+        prob_after,
+        shift,
+        confidence,
+        platform,
+        question_id,
+        json.dumps(assets),
+        expires_at,
+        True,
+        checksum
     ))
 
     row = cur.fetchone()
-    signal_id = row[0] if row else None
+    return row[0] if row else None
 
-    # Generate and store brief in signal_briefs table
-    if signal_id:
-        try:
-            ai_brief = generate_intelligence_brief(
-                event_description=event_description,
-                platform=platform,
-                prob_before=prob_before,
-                prob_after=prob_after,
-                region=region,
-                assets=assets
-            )
-            if ai_brief:
-                save_brief(cur.connection, signal_id, ai_brief)
-                print(f"   📝 Brief stored for signal {signal_id}")
-        except Exception as e:
-            print(f"   ⚠️ Brief generation failed: {e}")
-
-        # Generate second-order chain reaction effects
-        try:
-            generate_second_order_effects(
-                signal_id=signal_id,
-                event_description=event_description,
-                region=region,
-                event_category=event_category,
-                prob_shift=shift,
-                confidence=confidence
-            )
-        except Exception as e:
-            print(f"   ⚠️ Second-order effects failed: {e}")
-
-    return signal_id
-
-def map_to_event_category(question_text, classification=None):
+def map_to_event_category(question_text):
     """
-    Map question text to one of our event categories.
-    Uses Claude classification result if available, otherwise falls back
-    to keyword matching as a safety net.
+    Map question text to one of our event categories
+    so we can look up the right asset mappings.
     """
-    # Use Claude classification if available
-    if classification:
-        event_type = classification.get("event_type", "")
-        mapping = {
-            "military_escalation": "middle_east_military_escalation",
-            "sanctions":           "us_sanctions_announcement",
-            "trade":               "us_china_trade_escalation",
-            "energy":              "opec_production_decision",
-            "nuclear":             "nuclear_wmd_escalation",
-            "election":            "election_outcome_surprise",
-            "coup":                "emerging_market_political_crisis",
-            "diplomatic":          "emerging_market_political_crisis",
-            "economic_crisis":     "emerging_market_political_crisis",
-        }
-        if event_type in mapping:
-            return mapping[event_type]
-
-        # Also use region from Claude to refine category
-        region = classification.get("region", "").lower()
-        if "taiwan" in region or "china" in region:
-            return "china_taiwan_tension"
-        if "russia" in region or "ukraine" in region or "eastern europe" in region:
-            return "russia_eastern_europe_conflict"
-        if "middle east" in region or "iran" in region or "israel" in region:
-            return "middle_east_military_escalation"
-        if "strait" in region or "canal" in region or "sea" in region:
-            return "shipping_lane_disruption"
-
-    # Keyword fallback if Claude classification unavailable
     text = question_text.lower()
+
     if any(w in text for w in ["oil", "opec", "petroleum", "crude"]):
         return "opec_production_decision"
     elif any(w in text for w in ["taiwan", "strait"]):
@@ -332,21 +264,12 @@ def run_signal_engine():
         # Get confidence score
         confidence = get_confidence_score(shift)
 
-        # Classify with Claude (Sonnet) — enriches event_type and region
+        # Map to event category
         question_text = question[2]
-        platform = question[1]
-        classification = enrich_signal(
-            question_id, question_text, platform, prob_before, prob_after
-        )
+        event_category = map_to_event_category(question_text)
 
-        # Map to event category — uses Claude result, falls back to keywords
-        event_category = map_to_event_category(question_text, classification)
-
-        # Use Claude's region if available, otherwise fall back to DB value
-        if classification and classification.get("region"):
-            region = classification["region"]
-        else:
-            region = question[4] or "Global"
+        # Get asset mappings
+        region = question[4] or "Global"
         assets = get_asset_mappings(cur, event_category, region)
 
         # Save signal
@@ -361,6 +284,22 @@ def run_signal_engine():
             print(f"      Shift: {prob_before:.1f}% → {prob_after:.1f}% ({shift:.1f}%)")
             print(f"      Confidence: {confidence}")
             print(f"      Assets mapped: {len(assets)}")
+
+            # ── Fire Alpaca trade ─────────────────────────────
+            if ALPACA_ENABLED and assets:
+                try:
+                    from processing.asset_mapper import get_best_performer, get_signal_metadata
+                    metadata = get_signal_metadata(assets, shift, confidence, question[1])
+                    best = get_best_performer(assets)
+                    execute_signal_trade({
+                        "id":               signal_id,
+                        "signal_strength":  metadata.get("signal_strength", 0),
+                        "convergence_tier": metadata.get("convergence_tier", 1),
+                        "best_performer":   best,
+                        "event_description": question_text
+                    })
+                except Exception as te:
+                    print(f"⚠️  Alpaca trade error for signal {signal_id}: {te}")
 
     conn.commit()
     cur.close()
