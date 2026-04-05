@@ -16,64 +16,64 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
 # ============================================================
-# ABSOLUTE SPORTS BLOCK — No sports ever
+# GEOPOLITICAL EVENT TICKERS — hardcoded from Kalshi /events
+# These are the specific events we want to track
 # ============================================================
-SPORTS_BLACKLIST = [
-    "nba", "nfl", "mlb", "nhl", "ncaa", "ncaab", "ncaaf", "ncaaw",
-    "mls", "ufc", "mma", "pga", "lpga", "atp", "wta",
-    "fifa", "uefa", "epl", "premier league", "la liga", "bundesliga",
-    "serie a", "ligue 1", "champions league", "europa league",
-    "super bowl", "world series", "stanley cup", "march madness",
-    "basketball", "football", "baseball", "hockey", "soccer",
-    "tennis", "golf", "boxing", "wrestling", "esports",
-    "cricket", "rugby", "volleyball", "formula 1", "nascar",
-    "horse racing", "kentucky derby",
-    "rebounds", "assists", "touchdowns", "home runs", "strikeouts",
-    "pitching", "batting", "rushing yards", "passing yards",
-    "field goals", "free throws", "three pointers",
-    "hat trick", "power play", "penalty kick",
-    "birdie", "eagle", "bogey", "par",
-    "knockout", "submission",
-    "moneyline", "spread", "over/under", "player props",
-    "game time", "box score", "first half", "second half",
-    "lakers", "celtics", "warriors", "bulls", "heat", "nets",
-    "knicks", "sixers", "bucks", "suns", "nuggets", "clippers",
-    "yankees", "red sox", "dodgers", "cubs", "astros",
-    "patriots", "chiefs", "cowboys", "49ers", "packers",
-    "maple leafs", "canadiens", "bruins", "rangers", "penguins",
-    "jayhawks", "wildcats", "bulldogs", "hoosiers",
-    "wimbledon", "us open", "french open", "australian open",
-    "masters", "ryder cup", "olympics", "world cup",
-    " vs. ", "game 1", "game 2", "game 3", "game 4",
-    "game 5", "game 6", "game 7",
-    "kxmv", "kxsport", "kxnba", "kxnfl", "kxmlb", "kxnhl",
-]
-
-GEOPOLITICAL_KEYWORDS = [
-    "war", "military", "conflict", "nuclear", "missile",
-    "invasion", "ceasefire", "coup", "crisis", "treaty",
-    "escalation", "attack", "airstrike", "troops", "soldiers",
-    "sanction", "embargo", "tariff", "trade war", "trade deal",
-    "nato", "sovereignty", "territorial", "diplomat", "diplomacy",
-    "opec", "oil price", "crude oil", "natural gas", "energy crisis",
-    "iran", "russia", "ukraine", "china", "taiwan",
-    "israel", "gaza", "hamas", "hezbollah", "north korea",
-    "venezuela", "syria", "lebanon", "saudi arabia",
-    "president", "prime minister", "government", "parliament",
-    "congress", "senate", "election", "referendum", "regime",
-    "federal reserve", "interest rate", "inflation", "recession",
-    "geopolit", "alliance", "accord", "revolution", "civil war",
+GEOPOLITICAL_EVENT_TICKERS = [
+    # Leadership / Political transitions
+    "KXXISUCCESSOR-45JAN01",
+    "KXNEXTISRAELPM-45JAN01",
+    "KXG7LEADEROUT-45JAN01",
+    "KXNEXTUKPM-30",
+    "KXAFRICALEADEROUT-35",
+    "KXNEXTSPEAKER-31",
+    "KXFULLTERMSKPRES-29",
+    "KXUKPARTY-29",
+    "KXPERSONPRESMAM-45",
+    # Taiwan / China
+    "KXTAIWANLVL4",
+    "CHINAUSGDP",
+    # EU / Europe
+    "KXEUREF-30",
+    "KXEUEXITCOUNTRY-30",
+    "EUEXPANSION",
+    "EUEXIT",
+    "KXBRUVSEAT-35",
+    "KXALBERTAREFYES-29",
+    # US Policy / Economy
+    "KXBALANCE-29",
+    "KXGDPSHAREMANU-29",
+    "KXGOVTCUTS-28",
+    "KXDEBTGROWTH-28DEC31",
+    "KXEOTRUMPTERM-29JAN20",
+    "KXECCOMPACT-30",
+    "KXU3MAX-30",
+    # Nuclear / Energy
+    "KXFUSION",
+    "KXWARMING-50",
+    "KXDATACENTER-30",
+    "KXCO2LEVEL-30",
+    "EUCLIMATE",
+    "INDIACLIMATE-30",
+    "USCLIMATE",
+    "KXPRIMEENGCONSUMPTION-30",
+    # Tech / Economy
+    "KXOAIANTH-40",
+    "KXUSTAKEOVER-30",
+    "KXJPMCEONEW",
+    "AMAZONFTC-29DEC31",
+    "APPLEUS",
+    # Space / Science
+    "KXMOONMAN-31",
+    "STARSHIPMARS",
+    "KXSPACEXMARS-30",
+    "KXPOLIOELIM-30",
+    "KXEARTHQUAKEJAPAN-30",
+    "KXEARTHQUAKECALIFORNIA-35",
 ]
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
-
-def is_geopolitical(question_text):
-    text_lower = question_text.lower()
-    for sport in SPORTS_BLACKLIST:
-        if sport in text_lower:
-            return False
-    return any(keyword in text_lower for keyword in GEOPOLITICAL_KEYWORDS)
 
 def get_auth_headers(method, path):
     timestamp_ms = int(datetime.datetime.now().timestamp() * 1000)
@@ -109,26 +109,52 @@ def get_auth_headers(method, path):
         print(f"❌ Error generating auth headers: {e}")
         return None
 
-def fetch_kalshi_markets():
-    print("📡 Fetching Kalshi markets...")
+def fetch_markets_for_event(event_ticker, headers):
+    """Fetch all markets under a specific event ticker."""
     path = "/trade-api/v2/markets"
     url = f"https://api.elections.kalshi.com{path}"
-    params = {"status": "open", "limit": 100}
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            params={"status": "open", "event_ticker": event_ticker, "limit": 50},
+            timeout=15
+        )
+        if response.status_code == 200:
+            return response.json().get("markets", [])
+        return []
+    except Exception:
+        return []
+
+def fetch_kalshi_markets():
+    print("📡 Fetching Kalshi geopolitical markets via events API...")
+
+    path = "/trade-api/v2/markets"
     headers = get_auth_headers("GET", path)
     if not headers:
         print("❌ Could not generate auth headers.")
         return []
-    try:
-        response = requests.get(url, params=params,
-                               headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        markets = data.get("markets", [])
-        print(f"   Found {len(markets)} open markets")
-        return markets
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Error fetching Kalshi data: {e}")
-        return []
+
+    all_markets = []
+    found_events = 0
+
+    for event_ticker in GEOPOLITICAL_EVENT_TICKERS:
+        markets = fetch_markets_for_event(event_ticker, headers)
+        if markets:
+            found_events += 1
+            all_markets.extend(markets)
+
+    # Deduplicate
+    seen = set()
+    unique = []
+    for m in all_markets:
+        mid = m.get("ticker", "")
+        if mid not in seen:
+            seen.add(mid)
+            unique.append(m)
+
+    print(f"   Found {len(unique)} markets across {found_events} geopolitical events")
+    return unique
 
 def extract_probability(market):
     try:
@@ -186,19 +212,13 @@ def run_kalshi_ingestion():
         print("   No markets returned. Skipping.")
         return
 
-    geo_markets = [m for m in markets
-                   if is_geopolitical(m.get("title", ""))]
-    print(f"   {len(geo_markets)} geopolitical markets found")
-
-    if not geo_markets:
-        print("   No geopolitical markets found. Skipping.")
-        return
+    print(f"   Saving {len(markets)} geopolitical markets...")
 
     conn = get_db_connection()
     cur = conn.cursor()
 
     saved = 0
-    for market in geo_markets:
+    for market in markets:
         question_id = save_question(cur, market)
         if question_id:
             probability = extract_probability(market)
