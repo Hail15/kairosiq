@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
+from classifier import enrich_signal
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
@@ -184,13 +185,42 @@ def save_signal(cur, question, prob_before, prob_after, shift,
     row = cur.fetchone()
     return row[0] if row else None
 
-def map_to_event_category(question_text):
+def map_to_event_category(question_text, classification=None):
     """
-    Map question text to one of our event categories
-    so we can look up the right asset mappings.
+    Map question text to one of our event categories.
+    Uses Claude classification result if available, otherwise falls back
+    to keyword matching as a safety net.
     """
-    text = question_text.lower()
+    # Use Claude classification if available
+    if classification:
+        event_type = classification.get("event_type", "")
+        mapping = {
+            "military_escalation": "middle_east_military_escalation",
+            "sanctions":           "us_sanctions_announcement",
+            "trade":               "us_china_trade_escalation",
+            "energy":              "opec_production_decision",
+            "nuclear":             "nuclear_wmd_escalation",
+            "election":            "election_outcome_surprise",
+            "coup":                "emerging_market_political_crisis",
+            "diplomatic":          "emerging_market_political_crisis",
+            "economic_crisis":     "emerging_market_political_crisis",
+        }
+        if event_type in mapping:
+            return mapping[event_type]
 
+        # Also use region from Claude to refine category
+        region = classification.get("region", "").lower()
+        if "taiwan" in region or "china" in region:
+            return "china_taiwan_tension"
+        if "russia" in region or "ukraine" in region or "eastern europe" in region:
+            return "russia_eastern_europe_conflict"
+        if "middle east" in region or "iran" in region or "israel" in region:
+            return "middle_east_military_escalation"
+        if "strait" in region or "canal" in region or "sea" in region:
+            return "shipping_lane_disruption"
+
+    # Keyword fallback if Claude classification unavailable
+    text = question_text.lower()
     if any(w in text for w in ["oil", "opec", "petroleum", "crude"]):
         return "opec_production_decision"
     elif any(w in text for w in ["taiwan", "strait"]):
@@ -257,12 +287,21 @@ def run_signal_engine():
         # Get confidence score
         confidence = get_confidence_score(shift)
 
-        # Map to event category
+        # Classify with Claude (Sonnet) — enriches event_type and region
         question_text = question[2]
-        event_category = map_to_event_category(question_text)
+        platform = question[1]
+        classification = enrich_signal(
+            question_id, question_text, platform, prob_before, prob_after
+        )
 
-        # Get asset mappings
-        region = question[4] or "Global"
+        # Map to event category — uses Claude result, falls back to keywords
+        event_category = map_to_event_category(question_text, classification)
+
+        # Use Claude's region if available, otherwise fall back to DB value
+        if classification and classification.get("region"):
+            region = classification["region"]
+        else:
+            region = question[4] or "Global"
         assets = get_asset_mappings(cur, event_category, region)
 
         # Save signal

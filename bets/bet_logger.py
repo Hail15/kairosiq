@@ -8,6 +8,8 @@ warnings.filterwarnings("ignore")
 import psycopg2
 import sys
 import os
+import hashlib
+import json
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,8 +18,26 @@ from config import settings
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
 
+def generate_bet_hash(platform, question_text, direction, stake, odds, timestamp, kalshi_order_id=None):
+    """
+    Generate a SHA256 verification hash for bets that have no blockchain receipt.
+    Used for Kalshi bets. Hash is deterministic — same inputs always produce
+    the same hash, so it can be independently verified later.
+    """
+    payload = {
+        "platform": platform,
+        "question": question_text,
+        "direction": direction,
+        "stake": str(stake),
+        "odds": str(odds),
+        "timestamp": timestamp.isoformat(),
+        "kalshi_order_id": kalshi_order_id or ""
+    }
+    data_str = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(data_str.encode()).hexdigest()
+
 def log_bet(platform, question_text, direction, stake, odds,
-            signal_id=None, blockchain_hash=None):
+            signal_id=None, blockchain_hash=None, kalshi_order_id=None):
     """
     Log a prediction market bet to the database.
 
@@ -29,17 +49,29 @@ def log_bet(platform, question_text, direction, stake, odds,
         odds: probability as decimal (e.g. 0.65 for 65%)
         signal_id: UUID of the signal that triggered this bet
         blockchain_hash: Polymarket transaction hash if available
+        kalshi_order_id: Kalshi order ID returned by their API (optional)
     """
     conn = get_db_connection()
     cur = conn.cursor()
 
     potential_payout = stake / odds if odds > 0 else 0
+    bet_time = datetime.now()
+
+    # For Kalshi bets, auto-generate a SHA256 verification hash
+    # since Kalshi is a regulated exchange with no blockchain receipt.
+    # Hash is deterministic and tamper-proof — same inputs = same hash.
+    if not blockchain_hash and platform.lower() == "kalshi":
+        blockchain_hash = generate_bet_hash(
+            platform, question_text, direction, stake, odds,
+            bet_time, kalshi_order_id
+        )
+        print(f"   🔐 Kalshi verification hash generated: {blockchain_hash[:16]}...")
 
     cur.execute("""
         INSERT INTO bets (
             signal_id, platform, question_text, direction,
             stake, odds, potential_payout, bet_time, blockchain_hash
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), %s)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
     """, (
         str(signal_id) if signal_id else None,
@@ -49,6 +81,7 @@ def log_bet(platform, question_text, direction, stake, odds,
         stake,
         odds,
         potential_payout,
+        bet_time,
         blockchain_hash
     ))
 
@@ -59,9 +92,12 @@ def log_bet(platform, question_text, direction, stake, odds,
     cur.close()
     conn.close()
 
+    hash_label = "Blockchain hash" if platform.lower() == "polymarket" else "Verification hash"
     print(f"✅ Bet logged: {platform} | {direction} | ${stake} at {odds:.2f}")
     print(f"   Potential payout: ${potential_payout:.2f}")
     print(f"   Bet ID: {bet_id}")
+    if blockchain_hash:
+        print(f"   {hash_label}: {blockchain_hash[:16]}...")
 
     return bet_id
 
