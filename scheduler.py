@@ -90,11 +90,11 @@ def run_full_cycle():
         print(f"❌ Signal engine error: {e}")
         signals_generated = 0
 
-    if signals_generated > 0:
-        try:
-            run_email_alerts()
-        except Exception as e:
-            print(f"❌ Email alert error: {e}")
+    # Always run email alerts every cycle — catches news/GDELT/Cloudflare signals too
+    try:
+        run_email_alerts()
+    except Exception as e:
+        print(f"❌ Email alert error: {e}")
 
     try:
         expire_old_signals()

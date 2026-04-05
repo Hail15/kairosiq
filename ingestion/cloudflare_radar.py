@@ -109,8 +109,7 @@ def save_disruption_signal(cur, disruption):
             probability_before, probability_after, probability_shift,
             confidence_score, source_platform, signal_time,
             expires_at, is_active, checksum
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (checksum) DO NOTHING;
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """, (
         description, country_name, category,
         0.0, 65.0, 65.0,

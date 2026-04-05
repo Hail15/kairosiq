@@ -258,24 +258,11 @@ def send_signal_email(signal):
         print(f"❌ Failed to send email alert: {e}")
         return False
 
-def mark_signal_alerted(signal_id):
-    """Mark a signal as alerted so we never send duplicate emails."""
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO signal_alerts_sent (signal_id)
-        VALUES (%s)
-        ON CONFLICT (signal_id) DO NOTHING;
-    """, (str(signal_id),))
-    conn.commit()
-    cur.close()
-    conn.close()
-
 def get_unalerted_signals():
     """
-    Get high and medium confidence active signals
-    that haven't been emailed yet.
-    Uses signal_alerts_sent table to track what's been sent.
+    Get high and medium confidence signals from the last 24 hours
+    that haven't been emailed yet. Uses signal_alerts_sent for dedup.
+    Covers all sources: signal engine, news, GDELT, Cloudflare.
     """
     conn = get_db_connection()
     cur = conn.cursor()
@@ -286,17 +273,22 @@ def get_unalerted_signals():
                s.confidence_score, s.source_platform, s.affected_assets,
                s.signal_time, s.expires_at
         FROM signals s
-        LEFT JOIN signal_alerts_sent sa ON s.id = sa.signal_id
         WHERE s.is_active = true
         AND s.expires_at > NOW()
         AND s.confidence_score IN ('high', 'medium')
-        AND sa.signal_id IS NULL
+        AND s.signal_time >= NOW() - INTERVAL '24 hours'
+        AND s.id NOT IN (
+            SELECT signal_id::uuid
+            FROM signal_alerts_sent
+            WHERE sent_at >= NOW() - INTERVAL '24 hours'
+        )
         ORDER BY
             CASE s.confidence_score
                 WHEN 'high' THEN 1
                 WHEN 'medium' THEN 2
             END,
-            s.signal_time DESC;
+            s.signal_time DESC
+        LIMIT 10;
     """)
 
     rows = cur.fetchall()
@@ -304,11 +296,27 @@ def get_unalerted_signals():
     conn.close()
     return rows
 
+
+def mark_signal_alerted(signal_id):
+    """Mark a signal as alerted in signal_alerts_sent so we don't duplicate."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO signal_alerts_sent (signal_id, sent_at)
+            VALUES (%s, NOW())
+            ON CONFLICT DO NOTHING;
+        """, (str(signal_id),))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"⚠️  mark_signal_alerted error: {e}")
+
 def run_email_alerts():
     """
-    Main function — sends email alerts for new unalerted signals.
+    Main function — sends email alerts for new signals.
     Called by the scheduler every 15 minutes.
-    Decoupled from signal generation count — checks DB directly.
     """
     print("\n📧 Running email alert check...")
 
@@ -317,7 +325,7 @@ def run_email_alerts():
         print("   No new signals to alert.")
         return
 
-    print(f"   Found {len(signals)} unalerted signals")
+    print(f"   Found {len(signals)} signals to alert")
     sent = 0
     for signal in signals:
         if send_signal_email(signal):
