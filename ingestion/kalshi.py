@@ -15,27 +15,54 @@ from cryptography.hazmat.backends import default_backend
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
+# ============================================================
+# ABSOLUTE SPORTS BLOCK — No sports ever
+# ============================================================
+SPORTS_BLACKLIST = [
+    "nba", "nfl", "mlb", "nhl", "ncaa", "ncaab", "ncaaf", "ncaaw",
+    "mls", "ufc", "mma", "pga", "lpga", "atp", "wta",
+    "fifa", "uefa", "epl", "premier league", "la liga", "bundesliga",
+    "serie a", "ligue 1", "champions league", "europa league",
+    "super bowl", "world series", "stanley cup", "march madness",
+    "basketball", "football", "baseball", "hockey", "soccer",
+    "tennis", "golf", "boxing", "wrestling", "esports",
+    "cricket", "rugby", "volleyball", "formula 1", "nascar",
+    "horse racing", "kentucky derby",
+    "rebounds", "assists", "touchdowns", "home runs", "strikeouts",
+    "pitching", "batting", "rushing yards", "passing yards",
+    "field goals", "free throws", "three pointers",
+    "hat trick", "power play", "penalty kick",
+    "birdie", "eagle", "bogey", "par",
+    "knockout", "submission",
+    "moneyline", "spread", "over/under", "player props",
+    "game time", "box score", "first half", "second half",
+    "lakers", "celtics", "warriors", "bulls", "heat", "nets",
+    "knicks", "sixers", "bucks", "suns", "nuggets", "clippers",
+    "yankees", "red sox", "dodgers", "cubs", "astros",
+    "patriots", "chiefs", "cowboys", "49ers", "packers",
+    "maple leafs", "canadiens", "bruins", "rangers", "penguins",
+    "jayhawks", "wildcats", "bulldogs", "hoosiers",
+    "wimbledon", "us open", "french open", "australian open",
+    "masters", "ryder cup", "olympics", "world cup",
+    " vs. ", "game 1", "game 2", "game 3", "game 4",
+    "game 5", "game 6", "game 7",
+    "kxmv", "kxsport", "kxnba", "kxnfl", "kxmlb", "kxnhl",
+]
+
 GEOPOLITICAL_KEYWORDS = [
     "war", "military", "conflict", "nuclear", "missile",
     "invasion", "ceasefire", "coup", "crisis", "treaty",
-    "escalation", "attack", "strike", "sanction", "embargo",
-    "nato", "opec", "oil price", "crude", "troops",
-    "federal reserve", "fed rate", "interest rate", "inflation",
-    "recession", "gdp", "trade war", "tariff",
-    "iran", "russia", "ukraine", "china", "taiwan", "israel",
-    "gaza", "hamas", "hezbollah", "north korea", "venezuela",
-    "election", "president", "prime minister", "government",
-    "congress", "senate", "supreme court", "policy"
-]
-
-SPORTS_KEYWORDS = [
-    "nba", "nfl", "mlb", "nhl", "soccer", "football", "basketball",
-    "baseball", "hockey", "tennis", "golf", "ufc", "mma",
-    "player", "points", "rebounds", "assists", "touchdown", "homerun",
-    "pitcher", "quarterback", "mvp", "championship", "playoffs",
-    "kxmv", "schwarber", "tatum", "durant", "lebron", "curry",
-    "lakers", "celtics", "yankees", "dodgers", "warriors",
-    "maple leafs", "oilers", "thunder", "knicks"
+    "escalation", "attack", "airstrike", "troops", "soldiers",
+    "sanction", "embargo", "tariff", "trade war", "trade deal",
+    "nato", "sovereignty", "territorial", "diplomat", "diplomacy",
+    "opec", "oil price", "crude oil", "natural gas", "energy crisis",
+    "iran", "russia", "ukraine", "china", "taiwan",
+    "israel", "gaza", "hamas", "hezbollah", "north korea",
+    "venezuela", "syria", "lebanon", "saudi arabia",
+    "president", "prime minister", "government", "parliament",
+    "congress", "senate", "election", "referendum", "regime",
+    "federal reserve", "interest rate", "inflation", "recession",
+    "geopolit", "alliance", "accord", "revolution", "civil war",
 ]
 
 def get_db_connection():
@@ -43,17 +70,15 @@ def get_db_connection():
 
 def is_geopolitical(question_text):
     text_lower = question_text.lower()
-    # Block sports first
-    if any(sport in text_lower for sport in SPORTS_KEYWORDS):
-        return False
-    # Then check for geopolitical keywords
+    for sport in SPORTS_BLACKLIST:
+        if sport in text_lower:
+            return False
     return any(keyword in text_lower for keyword in GEOPOLITICAL_KEYWORDS)
 
 def get_auth_headers(method, path):
     timestamp_ms = int(datetime.datetime.now().timestamp() * 1000)
     timestamp_str = str(timestamp_ms)
     message = f"{timestamp_str}{method}{path}"
-
     try:
         key_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -63,7 +88,6 @@ def get_auth_headers(method, path):
             private_key = serialization.load_pem_private_key(
                 f.read(), password=None, backend=default_backend()
             )
-
         signature = private_key.sign(
             message.encode("utf-8"),
             asym_padding.PSS(
@@ -73,7 +97,6 @@ def get_auth_headers(method, path):
             hashes.SHA256()
         )
         signature_b64 = base64.b64encode(signature).decode("utf-8")
-
         return {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -88,18 +111,16 @@ def get_auth_headers(method, path):
 
 def fetch_kalshi_markets():
     print("📡 Fetching Kalshi markets...")
-
     path = "/trade-api/v2/markets"
     url = f"https://api.elections.kalshi.com{path}"
     params = {"status": "open", "limit": 100}
-
     headers = get_auth_headers("GET", path)
     if not headers:
         print("❌ Could not generate auth headers.")
         return []
-
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=30)
+        response = requests.get(url, params=params,
+                               headers=headers, timeout=30)
         response.raise_for_status()
         data = response.json()
         markets = data.get("markets", [])
@@ -160,13 +181,13 @@ def save_snapshot(cur, question_id, probability):
 
 def run_kalshi_ingestion():
     print("\n🔄 Starting Kalshi ingestion...")
-
     markets = fetch_kalshi_markets()
     if not markets:
         print("   No markets returned. Skipping.")
         return
 
-    geo_markets = [m for m in markets if is_geopolitical(m.get("title", ""))]
+    geo_markets = [m for m in markets
+                   if is_geopolitical(m.get("title", ""))]
     print(f"   {len(geo_markets)} geopolitical markets found")
 
     if not geo_markets:
@@ -187,7 +208,6 @@ def run_kalshi_ingestion():
     conn.commit()
     cur.close()
     conn.close()
-
     print(f"✅ Kalshi ingestion complete. {saved} questions saved/updated.")
 
 if __name__ == "__main__":
