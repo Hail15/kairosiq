@@ -1,0 +1,66 @@
+event_type,region,asset_ticker,asset_name,asset_class,historical_direction,avg_move_24h,avg_move_72h,avg_move_168h,directional_accuracy,sample_size,confidence_rating
+middle_east_military_escalation,Middle East,USO,United States Oil Fund,commodity_etf,up,2.1,4.3,6.8,0.71,47,high
+middle_east_military_escalation,Middle East,BNO,United States Brent Oil Fund,commodity_etf,up,1.9,3.8,5.9,0.68,47,high
+middle_east_military_escalation,Middle East,XOM,Exxon Mobil Corporation,equity,up,1.2,2.8,4.1,0.65,47,high
+middle_east_military_escalation,Middle East,CVX,Chevron Corporation,equity,up,1.1,2.5,3.8,0.63,47,high
+middle_east_military_escalation,Middle East,LMT,Lockheed Martin Corporation,equity,up,1.8,3.2,5.1,0.72,47,high
+middle_east_military_escalation,Middle East,RTX,Raytheon Technologies,equity,up,1.6,3.0,4.8,0.70,47,high
+middle_east_military_escalation,Middle East,NOC,Northrop Grumman,equity,up,1.5,2.9,4.5,0.68,47,high
+middle_east_military_escalation,Middle East,JETS,US Global Jets ETF,equity,down,-1.8,-3.2,-4.9,0.66,47,high
+middle_east_military_escalation,Middle East,GLD,SPDR Gold Shares,commodity_etf,up,0.9,1.8,2.7,0.61,47,medium
+middle_east_military_escalation,Middle East,GC=F,Gold Futures,commodity,up,1.1,2.1,3.2,0.63,47,medium
+russia_eastern_europe_conflict,Eastern Europe,BOIL,ProShares Ultra DJ-AIG Natural Gas,commodity_etf,up,3.2,6.1,9.8,0.73,38,high
+russia_eastern_europe_conflict,Eastern Europe,UNG,United States Natural Gas Fund,commodity_etf,up,2.8,5.4,8.6,0.71,38,high
+russia_eastern_europe_conflict,Eastern Europe,WEAT,Teucrium Wheat Fund,commodity_etf,up,2.1,4.2,6.8,0.68,38,high
+russia_eastern_europe_conflict,Eastern Europe,CORN,Teucrium Corn Fund,commodity_etf,up,1.4,2.8,4.5,0.62,38,medium
+russia_eastern_europe_conflict,Eastern Europe,EWG,iShares MSCI Germany ETF,equity,down,-1.9,-3.6,-5.8,0.69,38,high
+russia_eastern_europe_conflict,Eastern Europe,FXE,Invesco CurrencyShares Euro Trust,fx,down,-0.8,-1.6,-2.4,0.64,38,medium
+russia_eastern_europe_conflict,Eastern Europe,LMT,Lockheed Martin Corporation,equity,up,1.6,3.1,4.9,0.71,38,high
+russia_eastern_europe_conflict,Eastern Europe,GLD,SPDR Gold Shares,commodity_etf,up,1.2,2.3,3.6,0.67,38,high
+china_taiwan_tension,Asia Pacific,SOXX,iShares Semiconductor ETF,equity,down,-2.8,-5.4,-8.6,0.74,29,high
+china_taiwan_tension,Asia Pacific,SMH,VanEck Semiconductor ETF,equity,down,-2.6,-5.1,-8.1,0.72,29,high
+china_taiwan_tension,Asia Pacific,TSM,Taiwan Semiconductor Manufacturing,equity,down,-3.2,-6.1,-9.8,0.76,29,high
+china_taiwan_tension,Asia Pacific,NVDA,NVIDIA Corporation,equity,down,-2.1,-4.2,-6.8,0.68,29,high
+china_taiwan_tension,Asia Pacific,AMAT,Applied Materials,equity,down,-1.9,-3.8,-6.1,0.66,29,high
+china_taiwan_tension,Asia Pacific,LMT,Lockheed Martin Corporation,equity,up,1.4,2.8,4.5,0.69,29,high
+china_taiwan_tension,Asia Pacific,REMX,VanEck Rare Earth ETF,commodity_etf,up,2.1,4.1,6.6,0.67,29,medium
+china_taiwan_tension,Asia Pacific,GLD,SPDR Gold Shares,commodity_etf,up,1.1,2.2,3.5,0.65,29,medium
+china_taiwan_tension,Asia Pacific,BDRY,Breakwave Dry Bulk Shipping ETF,equity,down,-1.8,-3.5,-5.6,0.63,29,medium
+us_china_trade_escalation,Global,SOXX,iShares Semiconductor ETF,equity,down,-2.2,-4.3,-6.9,0.71,42,high
+us_china_trade_escalation,Global,SMH,VanEck Semiconductor ETF,equity,down,-2.0,-3.9,-6.3,0.69,42,high
+us_china_trade_escalation,Global,KWEB,KraneShares CSI China Internet ETF,equity,down,-2.8,-5.4,-8.7,0.73,42,high
+us_china_trade_escalation,Global,FXI,iShares China Large-Cap ETF,equity,down,-2.1,-4.1,-6.6,0.70,42,high
+us_china_trade_escalation,Global,SOYB,Teucrium Soybean Fund,commodity_etf,down,-1.6,-3.1,-5.0,0.65,42,medium
+us_china_trade_escalation,Global,CORN,Teucrium Corn Fund,commodity_etf,down,-1.2,-2.4,-3.8,0.62,42,medium
+us_china_trade_escalation,Global,WMT,Walmart Inc,equity,up,0.8,1.6,2.5,0.61,42,medium
+opec_production_decision,Global,USO,United States Oil Fund,commodity_etf,up,3.1,5.8,8.9,0.78,63,high
+opec_production_decision,Global,BNO,United States Brent Oil Fund,commodity_etf,up,2.9,5.4,8.3,0.76,63,high
+opec_production_decision,Global,XOM,Exxon Mobil Corporation,equity,up,1.6,3.1,4.9,0.72,63,high
+opec_production_decision,Global,CVX,Chevron Corporation,equity,up,1.5,2.9,4.6,0.70,63,high
+opec_production_decision,Global,JETS,US Global Jets ETF,equity,down,-2.1,-4.0,-6.4,0.71,63,high
+opec_production_decision,Global,UPS,United Parcel Service,equity,down,-0.9,-1.8,-2.8,0.62,63,medium
+opec_production_decision,Global,XLE,Energy Select Sector SPDR,equity,up,1.8,3.5,5.6,0.74,63,high
+nuclear_wmd_escalation,Global,GLD,SPDR Gold Shares,commodity_etf,up,2.8,5.3,8.5,0.81,18,high
+nuclear_wmd_escalation,Global,GC=F,Gold Futures,commodity,up,3.1,5.9,9.4,0.83,18,high
+nuclear_wmd_escalation,Global,SLV,iShares Silver Trust,commodity_etf,up,1.9,3.6,5.8,0.72,18,high
+nuclear_wmd_escalation,Global,LMT,Lockheed Martin Corporation,equity,up,2.1,4.0,6.4,0.78,18,high
+nuclear_wmd_escalation,Global,NOC,Northrop Grumman,equity,up,1.9,3.6,5.8,0.75,18,high
+nuclear_wmd_escalation,Global,FXY,Invesco CurrencyShares Japanese Yen,fx,up,1.2,2.3,3.7,0.69,18,high
+nuclear_wmd_escalation,Global,TLT,iShares 20+ Year Treasury Bond ETF,fixed_income,up,1.4,2.7,4.3,0.71,18,high
+nuclear_wmd_escalation,Global,SPY,SPDR S&P 500 ETF,equity,down,-2.8,-5.4,-8.6,0.76,18,high
+shipping_lane_disruption,Global,BDRY,Breakwave Dry Bulk Shipping ETF,equity,up,3.8,7.2,11.6,0.74,22,high
+shipping_lane_disruption,Global,ZIM,ZIM Integrated Shipping,equity,up,3.2,6.1,9.8,0.71,22,high
+shipping_lane_disruption,Global,USO,United States Oil Fund,commodity_etf,up,2.1,4.0,6.4,0.68,22,high
+shipping_lane_disruption,Global,BNO,United States Brent Oil Fund,commodity_etf,up,1.9,3.6,5.8,0.66,22,high
+shipping_lane_disruption,Global,AMZN,Amazon.com Inc,equity,down,-0.9,-1.8,-2.9,0.61,22,medium
+emerging_market_political_crisis,Emerging Markets,EEM,iShares MSCI Emerging Markets ETF,equity,down,-1.8,-3.5,-5.6,0.67,51,high
+emerging_market_political_crisis,Emerging Markets,GLD,SPDR Gold Shares,commodity_etf,up,0.9,1.8,2.9,0.63,51,medium
+emerging_market_political_crisis,Emerging Markets,TLT,iShares 20+ Year Treasury Bond ETF,fixed_income,up,1.1,2.1,3.4,0.65,51,medium
+emerging_market_political_crisis,Emerging Markets,UUP,Invesco DB US Dollar Index,fx,up,0.7,1.4,2.2,0.64,51,medium
+us_sanctions_announcement,Global,GLD,SPDR Gold Shares,commodity_etf,up,0.8,1.6,2.6,0.62,34,medium
+us_sanctions_announcement,Global,UUP,Invesco DB US Dollar Index,fx,up,0.6,1.2,1.9,0.61,34,medium
+us_sanctions_announcement,Global,USO,United States Oil Fund,commodity_etf,up,1.2,2.3,3.7,0.64,34,medium
+election_outcome_surprise,Global,EEM,iShares MSCI Emerging Markets ETF,equity,down,-1.6,-3.1,-5.0,0.65,44,medium
+election_outcome_surprise,Global,GLD,SPDR Gold Shares,commodity_etf,up,0.8,1.6,2.6,0.62,44,medium
+election_outcome_surprise,Global,VIX,CBOE Volatility Index,index,up,3.2,6.1,9.8,0.71,44,high
+election_outcome_surprise,Global,TLT,iShares 20+ Year Treasury Bond ETF,fixed_income,up,0.9,1.8,2.9,0.63,44,medium

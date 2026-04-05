@@ -1,0 +1,39 @@
+# Database
+supabase==2.3.4
+
+# Web / API
+fastapi==0.109.2
+uvicorn==0.27.1
+requests==2.31.0
+
+# Dashboard
+streamlit==1.31.1
+plotly==5.18.0
+pandas==2.2.0
+
+# Asset Price Data
+yfinance==0.2.36
+alpha-vantage==2.3.1
+
+# Alerts
+twilio==8.12.0
+sendgrid==6.11.0
+
+# Scheduling
+schedule==1.2.1
+apscheduler==3.10.4
+
+# Environment Variables
+python-dotenv==1.0.1
+
+# AI Classification
+anthropic==0.18.1
+
+# RSS Feed Parsing (State Media)
+feedparser==6.0.11
+
+# Utilities
+numpy==1.26.4
+python-dateutil==2.8.2
+pytz==2024.1
+httpx==0.25.2
