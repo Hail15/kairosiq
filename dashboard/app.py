@@ -1,5 +1,5 @@
 # dashboard/app.py
-# KairosIQ Streamlit Dashboard — 5 tabs
+# KairosIQ — Geopolitical Intelligence Dashboard
 # Run with: streamlit run dashboard/app.py
 
 import warnings
@@ -21,7 +21,7 @@ from config import settings
 
 # --- Page Config ---
 st.set_page_config(
-    page_title="KairosIQ",
+    page_title="KairosIQ | Geopolitical Intelligence",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -30,65 +30,350 @@ st.set_page_config(
 # --- Custom CSS ---
 st.markdown("""
 <style>
-    .main { background-color: #0a0a0f; }
-    .stApp { background-color: #0a0a0f; }
-    .signal-high {
-        background: linear-gradient(135deg, #1a0a0a, #2d0000);
-        border-left: 4px solid #ff3333;
-        padding: 16px;
-        border-radius: 8px;
-        margin: 8px 0;
-    }
-    .signal-medium {
-        background: linear-gradient(135deg, #1a1200, #2d2000);
-        border-left: 4px solid #ffaa00;
-        padding: 16px;
-        border-radius: 8px;
-        margin: 8px 0;
-    }
-    .signal-low {
-        background: linear-gradient(135deg, #0a1a0a, #002d00);
-        border-left: 4px solid #33ff33;
-        padding: 16px;
-        border-radius: 8px;
-        margin: 8px 0;
-    }
-    .asset-card {
-        background: #12121a;
-        border: 1px solid #2a2a3a;
-        border-radius: 8px;
-        padding: 12px;
-        margin: 4px 0;
-    }
-    .asset-up { color: #00ff88; font-weight: bold; }
-    .asset-down { color: #ff4444; font-weight: bold; }
-    .market-link {
-        background: #1a1a2e;
-        border: 1px solid #3a3a5e;
-        border-radius: 6px;
-        padding: 10px;
-        margin: 4px 0;
-    }
-    .disclaimer {
-        background: #1a1500;
-        border: 1px solid #3a3000;
-        border-radius: 6px;
-        padding: 10px;
-        color: #aaa;
-        font-size: 0.8em;
-    }
-    .summary-box {
-        background: #0d1117;
-        border: 1px solid #2a2a3a;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 8px 0;
-        color: #e0e0e0;
-    }
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+/* Base */
+html, body, [class*="css"] {
+    font-family: 'IBM Plex Mono', monospace;
+    background-color: #060608;
+    color: #c8c8c8;
+}
+.stApp {
+    background-color: #060608;
+}
+.main .block-container {
+    padding: 1.5rem 2rem;
+    max-width: 1600px;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: #08080c;
+    border-right: 1px solid #1a1a24;
+}
+[data-testid="stSidebar"] * {
+    font-family: 'IBM Plex Mono', monospace !important;
+}
+
+/* Header */
+.kiq-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #1e1e2e;
+    padding-bottom: 12px;
+}
+.kiq-logo {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #e8b84b;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+.kiq-tagline {
+    font-size: 0.65em;
+    color: #555;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* Signal Cards */
+.signal-card-high {
+    background: #0c0608;
+    border: 1px solid #3a1010;
+    border-left: 3px solid #cc2200;
+    padding: 14px 16px;
+    border-radius: 2px;
+    margin: 6px 0;
+    position: relative;
+}
+.signal-card-medium {
+    background: #0c0b06;
+    border: 1px solid #3a2e10;
+    border-left: 3px solid #e8b84b;
+    padding: 14px 16px;
+    border-radius: 2px;
+    margin: 6px 0;
+}
+.signal-card-low {
+    background: #060c08;
+    border: 1px solid #0e2e18;
+    border-left: 3px solid #1a7a3a;
+    padding: 14px 16px;
+    border-radius: 2px;
+    margin: 6px 0;
+}
+.signal-title {
+    font-size: 0.82em;
+    font-weight: 500;
+    color: #e0e0e0;
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+.signal-meta {
+    font-size: 0.68em;
+    color: #555;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.signal-prob {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #e8b84b;
+    font-family: 'IBM Plex Mono', monospace;
+}
+.signal-shift-up {
+    color: #cc2200;
+    font-weight: 600;
+}
+.signal-shift-down {
+    color: #1a7a3a;
+    font-weight: 600;
+}
+
+/* Confidence badges */
+.badge-high {
+    display: inline-block;
+    background: #1a0505;
+    border: 1px solid #cc2200;
+    color: #cc2200;
+    font-size: 0.6em;
+    padding: 2px 6px;
+    border-radius: 1px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.badge-medium {
+    display: inline-block;
+    background: #1a1505;
+    border: 1px solid #e8b84b;
+    color: #e8b84b;
+    font-size: 0.6em;
+    padding: 2px 6px;
+    border-radius: 1px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.badge-low {
+    display: inline-block;
+    background: #051a0a;
+    border: 1px solid #1a7a3a;
+    color: #1a7a3a;
+    font-size: 0.6em;
+    padding: 2px 6px;
+    border-radius: 1px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* Asset rows */
+.asset-row-up {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: #06100a;
+    border: 1px solid #0e2a14;
+    border-radius: 2px;
+    margin: 3px 0;
+    font-size: 0.75em;
+}
+.asset-row-down {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: #100606;
+    border: 1px solid #2a0e0e;
+    border-radius: 2px;
+    margin: 3px 0;
+    font-size: 0.75em;
+}
+.asset-ticker {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #e0e0e0;
+    min-width: 50px;
+}
+.asset-name {
+    color: #666;
+    flex: 1;
+    padding: 0 10px;
+    font-size: 0.85em;
+}
+.asset-move-up { color: #2a9a4a; font-weight: 600; }
+.asset-move-down { color: #cc2200; font-weight: 600; }
+.asset-acc { color: #777; }
+
+/* Market link */
+.market-link-card {
+    background: #08080e;
+    border: 1px solid #1a1a2a;
+    padding: 10px 14px;
+    border-radius: 2px;
+    margin: 4px 0;
+    font-size: 0.75em;
+}
+
+/* AI summary */
+.ai-summary {
+    background: #080c10;
+    border: 1px solid #0e1e2e;
+    border-left: 2px solid #2a5a8a;
+    padding: 12px 14px;
+    border-radius: 2px;
+    font-size: 0.78em;
+    color: #aab8c8;
+    line-height: 1.6;
+    margin: 8px 0;
+    font-family: 'IBM Plex Sans', sans-serif;
+}
+
+/* Stat boxes */
+.stat-box {
+    background: #08080c;
+    border: 1px solid #1a1a24;
+    padding: 14px 16px;
+    border-radius: 2px;
+    text-align: center;
+}
+.stat-value {
+    font-size: 1.6em;
+    font-weight: 600;
+    color: #e8b84b;
+    font-family: 'IBM Plex Mono', monospace;
+    display: block;
+}
+.stat-label {
+    font-size: 0.62em;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: block;
+    margin-top: 4px;
+}
+
+/* Alert banner */
+.alert-banner {
+    background: #100404;
+    border: 1px solid #cc2200;
+    padding: 10px 16px;
+    border-radius: 2px;
+    margin-bottom: 12px;
+    font-size: 0.75em;
+    color: #cc2200;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* Divider */
+.kiq-divider {
+    border: none;
+    border-top: 1px solid #1a1a24;
+    margin: 12px 0;
+}
+
+/* Disclaimer */
+.disclaimer {
+    font-size: 0.62em;
+    color: #333;
+    letter-spacing: 0.03em;
+    padding: 8px 0;
+    border-top: 1px solid #111;
+    margin-top: 8px;
+}
+
+/* Tab styling */
+.stTabs [data-baseweb="tab-list"] {
+    background: transparent;
+    border-bottom: 1px solid #1a1a24;
+    gap: 0;
+}
+.stTabs [data-baseweb="tab"] {
+    background: transparent;
+    color: #555;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+}
+.stTabs [aria-selected="true"] {
+    color: #e8b84b !important;
+    border-bottom: 2px solid #e8b84b !important;
+    background: transparent !important;
+}
+
+/* Metric overrides */
+[data-testid="metric-container"] {
+    background: #08080c;
+    border: 1px solid #1a1a24;
+    padding: 12px;
+    border-radius: 2px;
+}
+[data-testid="metric-container"] label {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.65em !important;
+    color: #555 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+[data-testid="metric-container"] [data-testid="metric-value"] {
+    font-family: 'IBM Plex Mono', monospace !important;
+    color: #e8b84b !important;
+    font-size: 1.4em !important;
+}
+
+/* Buttons */
+.stButton button {
+    background: transparent;
+    border: 1px solid #333;
+    color: #777;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    padding: 6px 14px;
+}
+.stButton button:hover {
+    border-color: #e8b84b;
+    color: #e8b84b;
+    background: transparent;
+}
+
+/* Dataframe */
+[data-testid="stDataFrame"] {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75em;
+}
+
+/* Form inputs */
+.stSelectbox label, .stTextInput label, .stNumberInput label, .stTextArea label {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.7em !important;
+    color: #555 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #060608; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #333; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Database Connection ---
+# --- Database ---
 @st.cache_resource
 def get_connection():
     return psycopg2.connect(settings.DATABASE_URL)
@@ -102,92 +387,48 @@ def get_db():
         st.cache_resource.clear()
         return psycopg2.connect(settings.DATABASE_URL)
 
-# --- AI Summary Generator ---
+# --- AI Summary ---
 @st.cache_data(ttl=3600)
 def generate_signal_summary(event_description, region, prob_before,
                              prob_after, prob_shift, assets_json):
-    """
-    Use Claude to generate a plain English summary of what this signal means
-    and what historical data shows — without giving investment advice.
-    """
     try:
         assets = []
         if assets_json:
-            if isinstance(assets_json, list):
-                assets = assets_json
-            else:
-                assets = json.loads(assets_json)
+            assets = (assets_json if isinstance(assets_json, list)
+                     else json.loads(assets_json))
 
         asset_text = ""
-        for a in assets[:5]:
+        for a in assets[:4]:
             asset_text += (
-                f"- {a.get('ticker')} ({a.get('name')}): historically moves "
-                f"{a.get('direction', 'up')} avg {a.get('avg_move_72h', 0):.1f}% "
-                f"in 72h with {a.get('accuracy', 0)*100:.0f}% directional accuracy "
-                f"across {a.get('sample_size', 0)} historical instances\n"
+                f"- {a.get('ticker')}: historically {a.get('direction')} "
+                f"avg {a.get('avg_move_72h', 0):.1f}% in 72h, "
+                f"{(a.get('accuracy', 0) or 0)*100:.0f}% accuracy, "
+                f"{a.get('sample_size', 0)} instances\n"
             )
 
-        prompt = f"""You are a geopolitical market intelligence analyst. 
-A signal has been detected. Provide a brief, factual 3-4 sentence summary of:
-1. What this signal means geopolitically
-2. What the historical data shows about related assets (present as historical facts only)
-3. What prediction market activity this corresponds to
-
-Signal: {event_description}
+        prompt = f"""You are a geopolitical market intelligence analyst.
+Signal detected: {event_description}
 Region: {region}
-Probability shift: {prob_before}% to {prob_after}% ({prob_shift}% move)
-
+Probability: {prob_before}% → {prob_after}% ({prob_shift}% shift)
 Historical asset data:
 {asset_text}
 
-IMPORTANT: Frame everything as historical data only. Never say "buy" or "sell". 
-Never give investment advice. Say things like "historically moved" and "in past instances".
-Keep it under 100 words. Be direct and analytical."""
+Write a 2-3 sentence factual intelligence brief. Be direct and analytical.
+Frame everything as historical data. Never say buy or sell.
+No investment advice. Just intelligence."""
 
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-opus-4-5",
-            max_tokens=200,
+            max_tokens=150,
             messages=[{"role": "user", "content": prompt}]
         )
         return message.content[0].text
     except Exception as e:
-        return f"Signal analysis unavailable: {e}"
+        return f"Analysis unavailable: {e}"
 
-# --- Related Markets Finder ---
-def find_related_markets(event_description, region, questions):
-    """
-    Find prediction market questions related to this signal.
-    Simple keyword matching against our question database.
-    """
-    keywords = []
-    desc_lower = event_description.lower()
-
-    # Extract key terms
-    if "iran" in desc_lower:
-        keywords = ["iran", "persian", "tehran", "nuclear"]
-    elif "russia" in desc_lower or "ukraine" in desc_lower:
-        keywords = ["russia", "ukraine", "nato", "zelensky", "putin"]
-    elif "china" in desc_lower or "taiwan" in desc_lower:
-        keywords = ["china", "taiwan", "xi", "beijing", "strait"]
-    elif "israel" in desc_lower or "gaza" in desc_lower:
-        keywords = ["israel", "gaza", "hamas", "middle east"]
-    elif "oil" in desc_lower or "opec" in desc_lower:
-        keywords = ["oil", "opec", "crude", "petroleum", "energy"]
-    else:
-        # Use first few words of region
-        keywords = [region.lower()] if region else []
-
-    related = []
-    for q in questions:
-        q_text = q[2].lower()
-        if any(kw in q_text for kw in keywords):
-            related.append(q)
-
-    return related[:5]
-
+# --- Market URLs ---
 def get_market_url(platform, platform_id):
-    """Generate direct link to prediction market question."""
     if platform == "polymarket":
         return f"https://polymarket.com/event/{platform_id}"
     elif platform == "kalshi":
@@ -195,6 +436,23 @@ def get_market_url(platform, platform_id):
     elif platform == "metaculus":
         return f"https://www.metaculus.com/questions/{platform_id}"
     return None
+
+# --- Related Markets ---
+def find_related_markets(event_description, region, questions):
+    keywords = []
+    desc_lower = (event_description or "").lower()
+    if "iran" in desc_lower: keywords = ["iran", "persian", "nuclear"]
+    elif "russia" in desc_lower or "ukraine" in desc_lower: keywords = ["russia", "ukraine", "nato"]
+    elif "china" in desc_lower or "taiwan" in desc_lower: keywords = ["china", "taiwan", "xi"]
+    elif "israel" in desc_lower or "gaza" in desc_lower: keywords = ["israel", "gaza", "hamas"]
+    elif "oil" in desc_lower or "opec" in desc_lower: keywords = ["oil", "opec", "crude"]
+    elif region: keywords = [region.lower()]
+
+    related = []
+    for q in questions:
+        if any(kw in (q[2] or "").lower() for kw in keywords):
+            related.append(q)
+    return related[:4]
 
 # --- Data Fetching ---
 def fetch_active_signals():
@@ -206,14 +464,10 @@ def fetch_active_signals():
                confidence_score, source_platform, affected_assets,
                signal_time, expires_at, source_question_id
         FROM signals
-        WHERE is_active = true
-        AND expires_at > NOW()
+        WHERE is_active = true AND expires_at > NOW()
         ORDER BY
-            CASE confidence_score
-                WHEN 'high' THEN 1
-                WHEN 'medium' THEN 2
-                WHEN 'low' THEN 3
-            END,
+            CASE confidence_score WHEN 'high' THEN 1
+            WHEN 'medium' THEN 2 ELSE 3 END,
             signal_time DESC;
     """)
     rows = cur.fetchall()
@@ -228,9 +482,7 @@ def fetch_all_signals():
                probability_before, probability_after, probability_shift,
                confidence_score, source_platform, affected_assets,
                signal_time, expires_at, is_active
-        FROM signals
-        ORDER BY signal_time DESC
-        LIMIT 100;
+        FROM signals ORDER BY signal_time DESC LIMIT 100;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -243,8 +495,7 @@ def fetch_bets():
         SELECT id, platform, question_text, direction, stake,
                odds, potential_payout, bet_time, result,
                actual_payout, blockchain_hash
-        FROM bets
-        ORDER BY bet_time DESC;
+        FROM bets ORDER BY bet_time DESC;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -258,8 +509,7 @@ def fetch_questions():
                resolution_date, updated_at, platform_id
         FROM prediction_questions
         WHERE is_active = true
-        ORDER BY updated_at DESC
-        LIMIT 200;
+        ORDER BY updated_at DESC LIMIT 200;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -295,149 +545,175 @@ def fetch_outcomes():
     cur.close()
     return rows
 
-# --- Helper Functions ---
-def confidence_color(confidence):
-    if confidence == "high":
-        return "🔴"
-    elif confidence == "medium":
-        return "🟡"
-    else:
-        return "🟢"
+# --- Helpers ---
+def safe_float(v, d=1):
+    if v is None: return "—"
+    try: return f"{float(v):.{d}f}"
+    except: return "—"
 
 def time_remaining(expires_at):
-    if expires_at is None:
-        return "Unknown"
+    if not expires_at: return "—"
     now = datetime.now()
-    if expires_at.tzinfo is not None:
+    if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo:
         from datetime import timezone
         now = datetime.now(timezone.utc)
-    remaining = expires_at - now
-    if remaining.total_seconds() < 0:
-        return "Expired"
-    hours = int(remaining.total_seconds() // 3600)
-    minutes = int((remaining.total_seconds() % 3600) // 60)
-    return f"{hours}h {minutes}m"
+    rem = expires_at - now
+    if rem.total_seconds() < 0: return "EXPIRED"
+    h = int(rem.total_seconds() // 3600)
+    m = int((rem.total_seconds() % 3600) // 60)
+    return f"{h:02d}:{m:02d}"
 
 def format_assets(assets_json):
-    if not assets_json:
-        return []
+    if not assets_json: return []
     try:
-        if isinstance(assets_json, list):
-            return assets_json
-        return json.loads(assets_json)
-    except (json.JSONDecodeError, TypeError):
-        return []
+        return assets_json if isinstance(assets_json, list) else json.loads(assets_json)
+    except: return []
 
-def safe_format_float(value, decimals=1):
-    """Safely format a float value that might be None."""
-    if value is None:
-        return "N/A"
-    try:
-        return f"{float(value):.{decimals}f}"
-    except (TypeError, ValueError):
-        return "N/A"
+def conf_badge(c):
+    return f'<span class="badge-{c}">{c}</span>'
 
-# --- Sidebar ---
-st.sidebar.markdown("# ⚡ KairosIQ")
-st.sidebar.markdown("*Intelligence before the market opens its eyes*")
-st.sidebar.markdown("---")
-
+# --- Load Data ---
 signals = fetch_active_signals()
 questions = fetch_questions()
+all_signals = fetch_all_signals()
+bets = fetch_bets()
 
-st.sidebar.metric("🔴 Active Signals", len(signals))
-st.sidebar.metric("📡 Questions Monitored", len(questions))
+# --- Sidebar ---
+with st.sidebar:
+    st.markdown("""
+    <div class="kiq-header">
+        <span class="kiq-logo">⚡ KairosIQ</span>
+    </div>
+    <div class="kiq-tagline" style="font-size:0.62em; color:#444; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:16px;">
+        Intelligence before the market opens its eyes
+    </div>
+    """, unsafe_allow_html=True)
 
-high_conf = len([s for s in signals if s[7] == "high"])
-if high_conf > 0:
-    st.sidebar.error(f"⚠️ {high_conf} HIGH CONFIDENCE SIGNAL{'S' if high_conf > 1 else ''}")
+    high_conf = [s for s in signals if s[7] == "high"]
+    if high_conf:
+        st.markdown(f"""
+        <div class="alert-banner">
+            ⚠ {len(high_conf)} HIGH CONFIDENCE SIGNAL{'S' if len(high_conf) > 1 else ''} ACTIVE
+        </div>
+        """, unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Last Updated**")
-st.sidebar.markdown(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    # Stats
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"""
+        <div class="stat-box">
+            <span class="stat-value">{len(signals)}</span>
+            <span class="stat-label">Active</span>
+        </div>""", unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+        <div class="stat-box">
+            <span class="stat-value">{len(questions)}</span>
+            <span class="stat-label">Monitored</span>
+        </div>""", unsafe_allow_html=True)
 
-if st.sidebar.button("🔄 Refresh Data"):
-    st.rerun()
+    st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("""
-<div style='font-size:0.75em; color:#666;'>
-⚠️ KairosIQ is a data platform. All information is historical data only.
-Not investment advice. Past performance does not guarantee future results.
-</div>
-""", unsafe_allow_html=True)
+    # Signal breakdown
+    h = len([s for s in signals if s[7] == "high"])
+    m = len([s for s in signals if s[7] == "medium"])
+    l = len([s for s in signals if s[7] == "low"])
 
-# --- Main Tabs ---
+    st.markdown(f"""
+    <div style="font-size:0.65em; color:#444; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Signal Distribution</div>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.72em;">
+            <span style="color:#cc2200;">HIGH</span><span style="color:#888;">{h}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.72em;">
+            <span style="color:#e8b84b;">MEDIUM</span><span style="color:#888;">{m}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.72em;">
+            <span style="color:#1a7a3a;">LOW</span><span style="color:#888;">{l}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div style="font-size:0.62em; color:#333; text-transform:uppercase; letter-spacing:0.06em;">
+        Last updated<br>
+        <span style="color:#555;">{datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("↺  Refresh"):
+        st.rerun()
+
+    st.markdown("""
+    <div class="disclaimer">
+    KairosIQ is a data provider. All data is historical.
+    Not investment advice. Past performance does not
+    guarantee future results.
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- Main Area ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "⚡ Live Signals",
-    "🔍 Signal Detail",
-    "💰 Bet Tracker",
-    "📊 Track Record",
-    "📈 Probability Charts"
+    "LIVE SIGNALS",
+    "SIGNAL DETAIL",
+    "BET TRACKER",
+    "TRACK RECORD",
+    "PROBABILITY CHARTS"
 ])
 
 # ============================================================
 # TAB 1 — LIVE SIGNALS
 # ============================================================
 with tab1:
-    st.markdown("## ⚡ Live Signals")
-    st.markdown("*Active geopolitical probability shifts ranked by confidence*")
-
     if not signals:
-        st.info("No active signals at this time. The system is monitoring prediction markets continuously.")
+        st.markdown("""
+        <div style="padding:40px; text-align:center; color:#333; font-size:0.8em; letter-spacing:0.1em; text-transform:uppercase;">
+            No active signals. System monitoring prediction markets continuously.
+        </div>
+        """, unsafe_allow_html=True)
     else:
         for signal in signals:
             sig_id = signal[0]
-            description = signal[1]
-            region = signal[2]
-            category = signal[3]
+            description = signal[1] or ""
+            region = signal[2] or "Global"
+            category = signal[3] or "—"
             prob_before = signal[4]
             prob_after = signal[5]
             prob_shift = signal[6]
-            confidence = signal[7]
-            platform = signal[8]
+            confidence = signal[7] or "low"
+            platform = signal[8] or "—"
             assets_json = signal[9]
             signal_time = signal[10]
             expires_at = signal[11]
-            source_question_id = signal[12]
 
             assets = format_assets(assets_json)
-            css_class = f"signal-{confidence}"
-            color = confidence_color(confidence)
+            pb = prob_before or 0
+            pa = prob_after or 0
+            direction = "▲" if pa > pb else "▼"
+            shift_class = "signal-shift-up" if pa > pb else "signal-shift-down"
+            time_str = signal_time.strftime("%Y-%m-%d %H:%M") if signal_time else "—"
 
-            prob_before_val = prob_before if prob_before is not None else 0
-            prob_after_val = prob_after if prob_after is not None else 0
-            direction = "▲" if prob_after_val > prob_before_val else "▼"
-
-            # Signal header
             st.markdown(f"""
-            <div class="{css_class}">
-                <h4>{color} {description[:120] if description else 'Signal detected'}...</h4>
-                <p>
-                    <b>Region:</b> {region or 'Global'} &nbsp;|&nbsp;
-                    <b>Platform:</b> {(platform or 'unknown').upper()} &nbsp;|&nbsp;
-                    <b>Confidence:</b> {(confidence or 'unknown').upper()} &nbsp;|&nbsp;
-                    <b>Expires:</b> {time_remaining(expires_at)}
-                </p>
-                <p>
-                    <b>Probability:</b> {safe_format_float(prob_before)}% →
-                    {safe_format_float(prob_after)}%
-                    {direction} <b>{safe_format_float(prob_shift)}% shift</b>
-                </p>
+            <div class="signal-card-{confidence}">
+                <div class="signal-meta">
+                    {time_str} UTC &nbsp;·&nbsp; {region.upper()} &nbsp;·&nbsp;
+                    {platform.upper()} &nbsp;·&nbsp; {conf_badge(confidence)}
+                    &nbsp;·&nbsp; EXPIRES {time_remaining(expires_at)}
+                </div>
+                <div class="signal-title">{description[:180]}</div>
+                <div style="display:flex; align-items:baseline; gap:16px; margin-top:6px;">
+                    <span class="signal-prob">{safe_float(prob_before)}%</span>
+                    <span style="color:#333; font-size:0.8em;">→</span>
+                    <span class="signal-prob">{safe_float(prob_after)}%</span>
+                    <span class="{shift_class}" style="font-size:0.85em;">
+                        {direction} {safe_float(prob_shift)}% SHIFT
+                    </span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
-
-            # AI Summary
-            with st.expander("🤖 AI Analysis — What This Signal Means"):
-                with st.spinner("Generating analysis..."):
-                    summary = generate_signal_summary(
-                        description, region, prob_before,
-                        prob_after, prob_shift, assets_json
-                    )
-                st.markdown(f"""
-                <div class="summary-box">{summary}</div>
-                """, unsafe_allow_html=True)
-                st.caption("⚠️ Historical data analysis only. Not investment advice.")
 
             # Asset Intelligence
             if assets:
@@ -447,247 +723,227 @@ with tab1:
                 col1, col2 = st.columns(2)
                 with col1:
                     if up_assets:
-                        st.markdown("**📈 Assets Historically UP after this signal type:**")
-                        for asset in up_assets[:4]:
-                            ticker = asset.get('ticker', 'N/A')
-                            name = asset.get('name', '')
-                            move = asset.get('avg_move_72h', 0) or 0
-                            acc = (asset.get('accuracy', 0) or 0) * 100
-                            samples = asset.get('sample_size', 0) or 0
+                        st.markdown("""
+                        <div style="font-size:0.65em; color:#2a9a4a; text-transform:uppercase;
+                             letter-spacing:0.1em; margin:8px 0 4px 0;">
+                            ▲ Historically Up
+                        </div>""", unsafe_allow_html=True)
+                        for a in up_assets[:4]:
+                            move = a.get('avg_move_72h', 0) or 0
+                            acc = (a.get('accuracy', 0) or 0) * 100
                             st.markdown(f"""
-                            <div class="asset-card">
-                                <span class="asset-up">▲ {ticker}</span> — {name}<br>
-                                <small>
-                                    Avg +{move:.1f}% in 72h &nbsp;|&nbsp;
-                                    {acc:.0f}% directional accuracy &nbsp;|&nbsp;
-                                    {samples} historical instances
-                                </small>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            <div class="asset-row-up">
+                                <span class="asset-ticker">{a.get('ticker','—')}</span>
+                                <span class="asset-name">{a.get('name','')[:28]}</span>
+                                <span class="asset-move-up">+{move:.1f}%</span>
+                                <span class="asset-acc" style="margin-left:8px;">{acc:.0f}%</span>
+                            </div>""", unsafe_allow_html=True)
 
                 with col2:
                     if down_assets:
-                        st.markdown("**📉 Assets Historically DOWN after this signal type:**")
-                        for asset in down_assets[:4]:
-                            ticker = asset.get('ticker', 'N/A')
-                            name = asset.get('name', '')
-                            move = asset.get('avg_move_72h', 0) or 0
-                            acc = (asset.get('accuracy', 0) or 0) * 100
-                            samples = asset.get('sample_size', 0) or 0
+                        st.markdown("""
+                        <div style="font-size:0.65em; color:#cc2200; text-transform:uppercase;
+                             letter-spacing:0.1em; margin:8px 0 4px 0;">
+                            ▼ Historically Down
+                        </div>""", unsafe_allow_html=True)
+                        for a in down_assets[:4]:
+                            move = a.get('avg_move_72h', 0) or 0
+                            acc = (a.get('accuracy', 0) or 0) * 100
                             st.markdown(f"""
-                            <div class="asset-card">
-                                <span class="asset-down">▼ {ticker}</span> — {name}<br>
-                                <small>
-                                    Avg {move:.1f}% in 72h &nbsp;|&nbsp;
-                                    {acc:.0f}% directional accuracy &nbsp;|&nbsp;
-                                    {samples} historical instances
-                                </small>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            <div class="asset-row-down">
+                                <span class="asset-ticker">{a.get('ticker','—')}</span>
+                                <span class="asset-name">{a.get('name','')[:28]}</span>
+                                <span class="asset-move-down">{move:.1f}%</span>
+                                <span class="asset-acc" style="margin-left:8px;">{acc:.0f}%</span>
+                            </div>""", unsafe_allow_html=True)
 
-            # Related Prediction Markets
-            related = find_related_markets(
-                description or "", region or "", questions
-            )
+            # AI Analysis
+            with st.expander("▸  INTELLIGENCE BRIEF"):
+                with st.spinner("Generating..."):
+                    summary = generate_signal_summary(
+                        description, region, prob_before,
+                        prob_after, prob_shift, assets_json
+                    )
+                st.markdown(f'<div class="ai-summary">{summary}</div>',
+                           unsafe_allow_html=True)
+                st.markdown("""
+                <div class="disclaimer">
+                Historical data analysis only. Not investment advice.
+                </div>""", unsafe_allow_html=True)
+
+            # Related Markets
+            related = find_related_markets(description, region, questions)
             if related:
-                with st.expander("🎯 Related Prediction Markets — Current Odds"):
-                    st.markdown("*These markets are currently pricing this event. "
-                               "Links go directly to the market.*")
+                with st.expander("▸  RELATED PREDICTION MARKETS"):
                     for q in related:
                         q_platform = q[1]
-                        q_text = q[2]
+                        q_text = q[2] or ""
                         q_prob = q[3]
                         q_platform_id = q[6] if len(q) > 6 else ""
                         market_url = get_market_url(q_platform, q_platform_id)
-
-                        prob_display = (f"{q_prob:.1f}%" if q_prob
-                                       else "No probability data")
-                        prob_color = ("#ff4444" if (q_prob or 0) > 60
-                                     else "#ffaa00" if (q_prob or 0) > 40
-                                     else "#00ff88")
+                        prob_color = ("#cc2200" if (q_prob or 0) > 60
+                                     else "#e8b84b" if (q_prob or 0) > 40
+                                     else "#2a9a4a")
+                        prob_str = f"{q_prob:.1f}%" if q_prob else "—"
 
                         if market_url:
                             st.markdown(f"""
-                            <div class="market-link">
-                                <b>{q_platform.upper()}</b> —
+                            <div class="market-link-card">
+                                <span style="color:#444; font-size:0.85em; margin-right:8px;">
+                                    {q_platform.upper()}
+                                </span>
                                 <a href="{market_url}" target="_blank"
-                                   style="color:#7799ff;">{q_text[:100]}</a><br>
-                                <small>Current probability:
-                                    <span style="color:{prob_color}; font-weight:bold;">
-                                        {prob_display}
-                                    </span>
-                                </small>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"""
-                            <div class="market-link">
-                                <b>{q_platform.upper()}</b> — {q_text[:100]}<br>
-                                <small>Current probability:
-                                    <span style="color:{prob_color}; font-weight:bold;">
-                                        {prob_display}
-                                    </span>
-                                </small>
-                            </div>
-                            """, unsafe_allow_html=True)
+                                   style="color:#7799cc; text-decoration:none;">
+                                    {q_text[:90]}
+                                </a>
+                                <span style="float:right; color:{prob_color}; font-weight:600;">
+                                    {prob_str}
+                                </span>
+                            </div>""", unsafe_allow_html=True)
 
-                    st.markdown("""
-                    <div class="disclaimer">
-                    ⚠️ KairosIQ does not recommend betting on any market.
-                    These links are shown for informational purposes only.
-                    Prediction market participation involves risk of loss.
-                    This is not investment advice.
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            st.markdown("---")
+            st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
 # ============================================================
 # TAB 2 — SIGNAL DETAIL
 # ============================================================
 with tab2:
-    st.markdown("## 🔍 Signal Detail & Asset Intelligence")
-
-    all_signals = fetch_all_signals()
     if not all_signals:
         st.info("No signals found.")
     else:
         signal_options = {
-            f"{s[10].strftime('%m/%d %H:%M')} | {s[7].upper()} | {s[1][:80]}...": s[0]
+            f"{s[10].strftime('%m/%d %H:%M')} · {(s[7] or '').upper()} · {(s[1] or '')[:70]}": s[0]
             for s in all_signals
         }
-        selected_label = st.selectbox(
-            "Select a signal to view:", list(signal_options.keys())
-        )
+        selected_label = st.selectbox("Select signal:", list(signal_options.keys()))
         selected_id = signal_options[selected_label]
         selected = next((s for s in all_signals if s[0] == selected_id), None)
 
         if selected:
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("Probability Before",
-                         f"{safe_format_float(selected[4])}%")
+                st.metric("PROB BEFORE", f"{safe_float(selected[4])}%")
             with col2:
                 pb = selected[4] or 0
                 pa = selected[5] or 0
-                delta = f"+{safe_format_float(selected[6])}%" if pa > pb else f"-{safe_format_float(selected[6])}%"
-                st.metric("Probability After",
-                         f"{safe_format_float(selected[5])}%", delta=delta)
+                delta = f"+{safe_float(selected[6])}%" if pa > pb else f"-{safe_float(selected[6])}%"
+                st.metric("PROB AFTER", f"{safe_float(selected[5])}%", delta=delta)
             with col3:
-                st.metric("Confidence", (selected[7] or "N/A").upper())
+                st.metric("CONFIDENCE", (selected[7] or "—").upper())
             with col4:
-                st.metric("Platform", (selected[8] or "N/A").upper())
+                st.metric("PLATFORM", (selected[8] or "—").upper())
 
-            st.markdown("### Event Description")
-            st.info(selected[1])
+            st.markdown(f"""
+            <div class="ai-summary" style="margin-top:12px; font-size:0.82em;">
+                {selected[1] or '—'}
+            </div>
+            """, unsafe_allow_html=True)
 
-            # AI Analysis
-            st.markdown("### 🤖 AI Analysis")
-            with st.spinner("Generating analysis..."):
+            # AI Brief
+            st.markdown("""
+            <div style="font-size:0.65em; color:#444; text-transform:uppercase;
+                 letter-spacing:0.1em; margin:12px 0 6px 0;">
+                Intelligence Brief
+            </div>""", unsafe_allow_html=True)
+            with st.spinner("Generating..."):
                 summary = generate_signal_summary(
                     selected[1], selected[2], selected[4],
                     selected[5], selected[6], selected[9]
                 )
-            st.markdown(f"""
-            <div class="summary-box">{summary}</div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="ai-summary">{summary}</div>',
+                       unsafe_allow_html=True)
 
             # Probability gauge
             fig = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=selected[5] or 0,
-                delta={"reference": selected[4] or 0},
-                title={"text": "Current Probability (%)"},
+                delta={"reference": selected[4] or 0,
+                       "increasing": {"color": "#cc2200"},
+                       "decreasing": {"color": "#2a9a4a"}},
+                title={"text": "PROBABILITY (%)",
+                       "font": {"family": "IBM Plex Mono", "size": 11,
+                                "color": "#555"}},
+                number={"font": {"family": "IBM Plex Mono",
+                                 "color": "#e8b84b"}},
                 gauge={
-                    "axis": {"range": [0, 100]},
-                    "bar": {"color": "#ff3333"},
+                    "axis": {"range": [0, 100],
+                             "tickfont": {"family": "IBM Plex Mono",
+                                          "size": 9, "color": "#444"},
+                             "tickcolor": "#222"},
+                    "bar": {"color": "#e8b84b"},
+                    "bgcolor": "#060608",
+                    "bordercolor": "#1a1a24",
                     "steps": [
-                        {"range": [0, 30], "color": "#1a1a2e"},
-                        {"range": [30, 70], "color": "#16213e"},
-                        {"range": [70, 100], "color": "#0f3460"}
+                        {"range": [0, 33], "color": "#080810"},
+                        {"range": [33, 66], "color": "#0a0a14"},
+                        {"range": [66, 100], "color": "#0c0c18"}
                     ],
                     "threshold": {
-                        "line": {"color": "white", "width": 2},
+                        "line": {"color": "#555", "width": 1},
                         "thickness": 0.75,
                         "value": selected[4] or 0
                     }
                 }
             ))
             fig.update_layout(
-                paper_bgcolor="#0a0a0f",
-                font_color="white",
-                height=300
+                paper_bgcolor="#060608",
+                font_color="#888",
+                height=260,
+                margin=dict(t=40, b=20, l=20, r=20)
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # Full asset table
+            # Asset table
             assets = format_assets(selected[9])
             if assets:
-                st.markdown("### 📊 Full Asset Intelligence Table")
-                st.caption("Historical data only — not investment advice")
+                st.markdown("""
+                <div style="font-size:0.65em; color:#444; text-transform:uppercase;
+                     letter-spacing:0.1em; margin:12px 0 6px 0;">
+                    Asset Intelligence — Historical Data Only
+                </div>""", unsafe_allow_html=True)
                 df = pd.DataFrame(assets)
                 if not df.empty:
-                    display_cols = [c for c in [
-                        "ticker", "name", "asset_class", "direction",
-                        "avg_move_24h", "avg_move_72h", "avg_move_168h",
-                        "accuracy", "sample_size", "confidence"
-                    ] if c in df.columns]
-                    st.dataframe(df[display_cols], use_container_width=True)
+                    display_cols = [c for c in ["ticker", "name", "asset_class",
+                        "direction", "avg_move_24h", "avg_move_72h",
+                        "avg_move_168h", "accuracy", "sample_size"]
+                        if c in df.columns]
+                    st.dataframe(df[display_cols], use_container_width=True,
+                                hide_index=True)
 
-            # Related markets
-            related = find_related_markets(
-                selected[1] or "", selected[2] or "", questions
-            )
-            if related:
-                st.markdown("### 🎯 Related Prediction Markets")
-                for q in related:
-                    q_platform = q[1]
-                    q_text = q[2]
-                    q_prob = q[3]
-                    q_platform_id = q[6] if len(q) > 6 else ""
-                    market_url = get_market_url(q_platform, q_platform_id)
-                    prob_display = (f"{q_prob:.1f}%" if q_prob
-                                   else "No probability data")
-
-                    if market_url:
-                        st.markdown(f"**{q_platform.upper()}** — "
-                                   f"[{q_text[:100]}]({market_url}) — "
-                                   f"Current: **{prob_display}**")
-                    else:
-                        st.markdown(f"**{q_platform.upper()}** — "
-                                   f"{q_text[:100]} — "
-                                   f"Current: **{prob_display}**")
-
-            st.caption("⚠️ Historical data only. Not investment advice. "
-                      "Past performance does not guarantee future results.")
+            st.markdown("""
+            <div class="disclaimer">
+            Historical data only. Not investment advice.
+            Past performance does not guarantee future results.
+            </div>""", unsafe_allow_html=True)
 
 # ============================================================
 # TAB 3 — BET TRACKER
 # ============================================================
 with tab3:
-    st.markdown("## 💰 Bet Tracker")
-    st.markdown("*Proof of concept — prediction market bets linked to signals*")
-    st.info("💡 These are $1-$5 bets placed to build a blockchain-verified "
-           "track record. The goal is proof of concept, not profit.")
+    st.markdown("""
+    <div style="font-size:0.7em; color:#555; margin-bottom:16px; line-height:1.6;">
+        Proof of concept bets — $1 to $5 each. Purpose is blockchain-verified
+        track record, not profit. Every bet linked to a timestamped signal.
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("### Log a New Bet")
     with st.form("bet_form"):
+        st.markdown("""
+        <div style="font-size:0.65em; color:#444; text-transform:uppercase;
+             letter-spacing:0.1em; margin-bottom:12px;">
+            Log New Bet
+        </div>""", unsafe_allow_html=True)
+
         col1, col2 = st.columns(2)
         with col1:
             bet_platform = st.selectbox("Platform", ["Polymarket", "Kalshi"])
-            bet_question = st.text_area("Question Text", height=80)
+            bet_question = st.text_area("Question", height=80)
             bet_direction = st.selectbox("Direction", ["YES", "NO"])
         with col2:
-            bet_stake = st.number_input(
-                "Stake ($)", min_value=0.01,
-                max_value=10.0, value=1.0, step=0.50
-            )
-            bet_odds = st.number_input(
-                "Odds (e.g. 0.65 = 65¢ per $1)",
-                min_value=0.01, max_value=1.0,
-                value=0.50, step=0.01
-            )
-            bet_hash = st.text_input("Blockchain TX Hash (Polymarket only)")
+            bet_stake = st.number_input("Stake ($)", min_value=0.01,
+                                        max_value=10.0, value=1.0, step=0.50)
+            bet_odds = st.number_input("Odds (decimal)", min_value=0.01,
+                                       max_value=1.0, value=0.50, step=0.01)
+            bet_hash = st.text_input("Blockchain TX Hash")
 
         submitted = st.form_submit_button("Log Bet")
         if submitted and bet_question:
@@ -696,251 +952,253 @@ with tab3:
                 cur = conn.cursor()
                 potential_payout = bet_stake / bet_odds if bet_odds > 0 else 0
                 cur.execute("""
-                    INSERT INTO bets (
-                        platform, question_text, direction, stake,
-                        odds, potential_payout, bet_time, blockchain_hash
-                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s)
-                """, (
-                    bet_platform.lower(), bet_question, bet_direction,
-                    bet_stake, bet_odds, potential_payout, bet_hash or None
-                ))
+                    INSERT INTO bets (platform, question_text, direction,
+                        stake, odds, potential_payout, bet_time, blockchain_hash)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s)
+                """, (bet_platform.lower(), bet_question, bet_direction,
+                      bet_stake, bet_odds, potential_payout, bet_hash or None))
                 conn.commit()
                 cur.close()
-                st.success("✅ Bet logged successfully!")
+                st.success("Bet logged.")
                 st.rerun()
             except Exception as e:
-                st.error(f"Error logging bet: {e}")
+                st.error(f"Error: {e}")
 
-    st.markdown("### Bet History")
-    bets = fetch_bets()
-    if not bets:
-        st.info("No bets logged yet. Place your first $1 bet on Kalshi "
-               "or Polymarket and log it here.")
-    else:
-        total_staked = sum(b[4] for b in bets if b[4])
-        total_payout = sum(b[9] for b in bets if b[9])
+    st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+    if bets:
+        total_staked = sum(b[4] for b in bets if b[4]) or 0
+        total_payout = sum(b[9] for b in bets if b[9]) or 0
         wins = len([b for b in bets if b[8] == "win"])
         losses = len([b for b in bets if b[8] == "loss"])
+        resolved = wins + losses
+        win_rate = (wins / resolved * 100) if resolved > 0 else 0
 
         col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Bets", len(bets))
-        with col2:
-            st.metric("Total Staked", f"${total_staked:.2f}")
-        with col3:
-            st.metric("Wins / Losses", f"{wins} / {losses}")
-        with col4:
-            win_rate = (wins / (wins + losses) * 100
-                       if (wins + losses) > 0 else 0)
-            st.metric("Win Rate", f"{win_rate:.0f}%")
+        with col1: st.metric("TOTAL BETS", len(bets))
+        with col2: st.metric("TOTAL STAKED", f"${total_staked:.2f}")
+        with col3: st.metric("WINS / LOSSES", f"{wins} / {losses}")
+        with col4: st.metric("WIN RATE", f"{win_rate:.0f}%")
 
         df = pd.DataFrame(bets, columns=[
             "ID", "Platform", "Question", "Direction", "Stake",
-            "Odds", "Potential Payout", "Bet Time", "Result",
-            "Actual Payout", "Blockchain Hash"
+            "Odds", "Payout", "Time", "Result", "Actual Payout", "TX Hash"
         ])
-        st.dataframe(df.drop(columns=["ID"]), use_container_width=True)
+        st.dataframe(df.drop(columns=["ID"]), use_container_width=True,
+                    hide_index=True)
+    else:
+        st.markdown("""
+        <div style="padding:24px; text-align:center; color:#333; font-size:0.75em;
+             letter-spacing:0.08em; text-transform:uppercase;">
+            No bets logged. Place your first $1 bet on Kalshi or Polymarket.
+        </div>""", unsafe_allow_html=True)
 
 # ============================================================
 # TAB 4 — TRACK RECORD
 # ============================================================
 with tab4:
-    st.markdown("## 📊 Track Record")
-    st.markdown("*Live accuracy data — exportable for investor presentations*")
-
-    all_signals = fetch_all_signals()
     outcomes = fetch_outcomes()
-    bets = fetch_bets()
 
     col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Signals Generated", len(all_signals))
+    with col1: st.metric("SIGNALS GENERATED", len(all_signals))
     with col2:
-        high_conf_total = len([s for s in all_signals if s[7] == "high"])
-        st.metric("High Confidence Signals", high_conf_total)
-    with col3:
-        total_bets = len(bets)
-        st.metric("Prediction Market Bets", total_bets)
+        hc = len([s for s in all_signals if s[7] == "high"])
+        st.metric("HIGH CONFIDENCE", hc)
+    with col3: st.metric("BETS PLACED", len(bets))
     with col4:
         wins = len([b for b in bets if b[8] == "win"])
-        win_rate = wins / total_bets * 100 if total_bets > 0 else 0
-        st.metric("Bet Win Rate", f"{win_rate:.0f}%")
+        total = len(bets)
+        wr = f"{wins/total*100:.0f}%" if total > 0 else "—"
+        st.metric("BET WIN RATE", wr)
 
     if all_signals:
         col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown("### Signals by Confidence")
-            confidence_counts = {}
+            conf_counts = {}
             for s in all_signals:
-                conf = s[7] or "unknown"
-                confidence_counts[conf] = confidence_counts.get(conf, 0) + 1
+                c = s[7] or "unknown"
+                conf_counts[c] = conf_counts.get(c, 0) + 1
 
-            fig = px.pie(
-                values=list(confidence_counts.values()),
-                names=list(confidence_counts.keys()),
-                color_discrete_map={
-                    "high": "#ff3333",
-                    "medium": "#ffaa00",
-                    "low": "#33ff33"
-                }
-            )
+            fig = go.Figure(go.Pie(
+                labels=list(conf_counts.keys()),
+                values=list(conf_counts.values()),
+                hole=0.6,
+                marker_colors=["#cc2200", "#e8b84b", "#2a9a4a", "#444"],
+                textfont=dict(family="IBM Plex Mono", size=10, color="#888")
+            ))
             fig.update_layout(
-                paper_bgcolor="#0a0a0f",
-                font_color="white",
-                height=300
+                title=dict(text="SIGNAL CONFIDENCE", font=dict(
+                    family="IBM Plex Mono", size=10, color="#555")),
+                paper_bgcolor="#060608",
+                font_color="#888",
+                height=280,
+                showlegend=True,
+                legend=dict(font=dict(family="IBM Plex Mono",
+                                      size=9, color="#666")),
+                margin=dict(t=40, b=20, l=20, r=20)
             )
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
-            st.markdown("### Signals by Platform")
-            platform_counts = {}
+            plat_counts = {}
             for s in all_signals:
-                plat = s[8] or "unknown"
-                platform_counts[plat] = platform_counts.get(plat, 0) + 1
+                p = s[8] or "unknown"
+                plat_counts[p] = plat_counts.get(p, 0) + 1
 
-            fig2 = px.bar(
-                x=list(platform_counts.keys()),
-                y=list(platform_counts.values()),
-                color=list(platform_counts.values()),
-                color_continuous_scale="Reds"
-            )
+            fig2 = go.Figure(go.Bar(
+                x=list(plat_counts.keys()),
+                y=list(plat_counts.values()),
+                marker_color="#e8b84b",
+                marker_line_color="#1a1200",
+                marker_line_width=1
+            ))
             fig2.update_layout(
-                paper_bgcolor="#0a0a0f",
-                plot_bgcolor="#0a0a0f",
-                font_color="white",
-                height=300
+                title=dict(text="SIGNALS BY PLATFORM", font=dict(
+                    family="IBM Plex Mono", size=10, color="#555")),
+                paper_bgcolor="#060608",
+                plot_bgcolor="#060608",
+                font_color="#888",
+                height=280,
+                xaxis=dict(tickfont=dict(family="IBM Plex Mono",
+                                         size=9, color="#555"),
+                           gridcolor="#111"),
+                yaxis=dict(tickfont=dict(family="IBM Plex Mono",
+                                         size=9, color="#555"),
+                           gridcolor="#111"),
+                margin=dict(t=40, b=20, l=20, r=20)
             )
             st.plotly_chart(fig2, use_container_width=True)
 
-    # Signal timeline
-    if all_signals:
-        st.markdown("### Signal Timeline")
-        df_signals = pd.DataFrame(all_signals, columns=[
+        # Timeline
+        df_sig = pd.DataFrame(all_signals, columns=[
             "id", "description", "region", "category",
-            "prob_before", "prob_after", "prob_shift",
-            "confidence", "platform", "assets",
-            "signal_time", "expires_at", "is_active"
+            "prob_before", "prob_after", "prob_shift", "confidence",
+            "platform", "assets", "signal_time", "expires_at", "is_active"
         ])
-        df_signals["signal_time"] = pd.to_datetime(df_signals["signal_time"])
-        df_signals["short_desc"] = df_signals["description"].str[:60]
+        df_sig["signal_time"] = pd.to_datetime(df_sig["signal_time"])
+        df_sig["short_desc"] = df_sig["description"].str[:50]
 
-        fig3 = px.scatter(
-            df_signals,
-            x="signal_time",
-            y="prob_shift",
-            color="confidence",
-            hover_data=["short_desc", "region", "platform"],
-            color_discrete_map={
-                "high": "#ff3333",
-                "medium": "#ffaa00",
-                "low": "#33ff33"
-            },
-            title="Signal Strength Over Time"
-        )
+        fig3 = go.Figure(go.Scatter(
+            x=df_sig["signal_time"],
+            y=df_sig["prob_shift"],
+            mode="markers",
+            marker=dict(
+                color=df_sig["confidence"].map(
+                    {"high": "#cc2200", "medium": "#e8b84b", "low": "#2a9a4a"}
+                ).fillna("#444"),
+                size=8,
+                line=dict(width=1, color="#111")
+            ),
+            text=df_sig["short_desc"],
+            hovertemplate="<b>%{text}</b><br>Shift: %{y:.1f}%<extra></extra>"
+        ))
         fig3.update_layout(
-            paper_bgcolor="#0a0a0f",
-            plot_bgcolor="#12121a",
-            font_color="white"
+            title=dict(text="SIGNAL STRENGTH OVER TIME", font=dict(
+                family="IBM Plex Mono", size=10, color="#555")),
+            paper_bgcolor="#060608",
+            plot_bgcolor="#060608",
+            font_color="#888",
+            height=280,
+            xaxis=dict(tickfont=dict(family="IBM Plex Mono",
+                                     size=9, color="#444"),
+                       gridcolor="#111"),
+            yaxis=dict(tickfont=dict(family="IBM Plex Mono",
+                                     size=9, color="#444"),
+                       gridcolor="#111",
+                       title="Probability Shift (%)"),
+            margin=dict(t=40, b=20, l=40, r=20)
         )
         st.plotly_chart(fig3, use_container_width=True)
 
     if outcomes:
-        st.markdown("### Asset Direction Accuracy")
-        correct_24h = len([o for o in outcomes if o[5] is True])
-        correct_72h = len([o for o in outcomes if o[6] is True])
-        correct_168h = len([o for o in outcomes if o[7] is True])
         total = len(outcomes)
-
+        c24 = len([o for o in outcomes if o[5] is True])
+        c72 = len([o for o in outcomes if o[6] is True])
+        c168 = len([o for o in outcomes if o[7] is True])
         col1, col2, col3 = st.columns(3)
-        with col1:
-            acc = correct_24h / total * 100 if total > 0 else 0
-            st.metric("24h Direction Accuracy", f"{acc:.0f}%")
-        with col2:
-            acc = correct_72h / total * 100 if total > 0 else 0
-            st.metric("72h Direction Accuracy", f"{acc:.0f}%")
-        with col3:
-            acc = correct_168h / total * 100 if total > 0 else 0
-            st.metric("168h Direction Accuracy", f"{acc:.0f}%")
+        with col1: st.metric("24H ACCURACY", f"{c24/total*100:.0f}%" if total else "—")
+        with col2: st.metric("72H ACCURACY", f"{c72/total*100:.0f}%" if total else "—")
+        with col3: st.metric("168H ACCURACY", f"{c168/total*100:.0f}%" if total else "—")
 
-    st.caption("⚠️ Historical data only. Not investment advice. "
-              "Past performance does not guarantee future results. "
-              "KairosIQ is a data provider, not a registered investment advisor.")
+    st.markdown("""
+    <div class="disclaimer">
+    Historical data only. Not investment advice. Past performance does not guarantee
+    future results. KairosIQ is a data provider, not a registered investment advisor.
+    </div>""", unsafe_allow_html=True)
 
 # ============================================================
 # TAB 5 — PROBABILITY CHARTS
 # ============================================================
 with tab5:
-    st.markdown("## 📈 Probability Charts")
-    st.markdown("*Full probability time series for any monitored question*")
-
-    questions = fetch_questions()
     if not questions:
         st.info("No questions found.")
     else:
-        question_options = {
-            f"[{q[1].upper()}] {q[2][:100]}": q[0]
+        q_options = {
+            f"[{q[1].upper()}] {q[2][:90]}": q[0]
             for q in questions
         }
-
-        selected_q_label = st.selectbox(
-            "Select a question to chart:",
-            list(question_options.keys())
-        )
-        selected_q_id = question_options[selected_q_label]
+        selected_q_label = st.selectbox("Select question:", list(q_options.keys()))
+        selected_q_id = q_options[selected_q_label]
         history = fetch_probability_history(selected_q_id)
 
         if len(history) < 2:
-            st.warning("Not enough data points yet. "
-                      "The system needs at least 2 snapshots to chart. "
-                      "Check back in 15 minutes.")
-            st.info(f"Current snapshots for this question: {len(history)}")
+            st.markdown("""
+            <div style="padding:24px; text-align:center; color:#333; font-size:0.75em;
+                 letter-spacing:0.08em; text-transform:uppercase;">
+                Insufficient data. Minimum 2 snapshots required.
+                Check back in 15 minutes.
+            </div>""", unsafe_allow_html=True)
         else:
             times = [h[1] for h in history]
             probs = [h[0] for h in history]
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(
-                x=times,
-                y=probs,
-                mode="lines+markers",
+                x=times, y=probs,
+                mode="lines",
                 name="Probability",
-                line={"color": "#ff3333", "width": 2},
-                marker={"size": 6},
+                line=dict(color="#e8b84b", width=1.5),
                 fill="tozeroy",
-                fillcolor="rgba(255,51,51,0.1)"
+                fillcolor="rgba(232,184,75,0.05)"
             ))
-
             fig.update_layout(
-                title="Probability Over Time",
-                xaxis_title="Time",
-                yaxis_title="Probability (%)",
-                yaxis={"range": [0, 100]},
-                paper_bgcolor="#0a0a0f",
-                plot_bgcolor="#12121a",
-                font_color="white",
-                height=400
+                paper_bgcolor="#060608",
+                plot_bgcolor="#060608",
+                font=dict(family="IBM Plex Mono", color="#555"),
+                height=360,
+                xaxis=dict(tickfont=dict(size=9, color="#444"),
+                           gridcolor="#111", zeroline=False),
+                yaxis=dict(range=[0, 100],
+                           tickfont=dict(size=9, color="#444"),
+                           gridcolor="#111", zeroline=False,
+                           title="Probability (%)"),
+                margin=dict(t=20, b=40, l=50, r=20),
+                showlegend=False
             )
             st.plotly_chart(fig, use_container_width=True)
 
-        selected_q = next(
-            (q for q in questions if q[0] == selected_q_id), None
-        )
+        selected_q = next((q for q in questions if q[0] == selected_q_id), None)
         if selected_q:
             col1, col2, col3 = st.columns(3)
             with col1:
                 prob = selected_q[3]
-                st.metric("Current Probability",
-                         f"{prob:.1f}%" if prob else "Unknown")
+                st.metric("CURRENT PROBABILITY",
+                         f"{prob:.1f}%" if prob else "—")
             with col2:
-                st.metric("Platform", selected_q[1].upper())
+                st.metric("PLATFORM", selected_q[1].upper())
             with col3:
-                res_date = selected_q[4]
-                st.metric("Resolves",
-                         res_date.strftime("%Y-%m-%d") if res_date else "Unknown")
+                res = selected_q[4]
+                st.metric("RESOLVES", res.strftime("%Y-%m-%d") if res else "—")
 
-            # Link to market
             platform_id = selected_q[6] if len(selected_q) > 6 else ""
-            market_url = get_market_url(selected_q[1], platform_id)
-            if market_url:
-                st.markdown(f"🔗 [View this market on {selected_q[1].upper()}]({market_url})")
+            url = get_market_url(selected_q[1], platform_id)
+            if url:
+                st.markdown(f"""
+                <div style="margin-top:8px;">
+                    <a href="{url}" target="_blank"
+                       style="color:#7799cc; font-size:0.72em;
+                              text-decoration:none; letter-spacing:0.06em;">
+                        ↗ VIEW ON {selected_q[1].upper()}
+                    </a>
+                </div>""", unsafe_allow_html=True)
