@@ -23,16 +23,6 @@ from processing.asset_mapper import (
     get_signal_metadata,
     find_related_questions
 )
-try:
-    from bets.bet_recommender import generate_bet_recommendations
-except ImportError:
-    def generate_bet_recommendations(*args, **kwargs):
-        return {"recommendations": [], "disclaimer": "Historical data analysis only."}
-try:
-    from processing.second_order_engine import get_effects_for_signal
-except ImportError:
-    def get_effects_for_signal(signal_id):
-        return []
 
 # --- Page Config ---
 st.set_page_config(
@@ -41,6 +31,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
 # --- Custom CSS ---
 st.markdown("""
 <style>
@@ -221,70 +212,31 @@ def generate_signal_summary(event_description, region, prob_before,
         asset_text = ""
         for a in assets[:4]:
             asset_text += (
-                f"- {a.get('ticker')} ({a.get('name')}): historically {a.get('direction')} "
+                f"- {a.get('ticker')}: historically {a.get('direction')} "
                 f"avg {a.get('avg_move_72h', 0):.1f}% in 72h, "
                 f"{(a.get('accuracy', 0) or 0)*100:.0f}% accuracy, "
                 f"{a.get('sample_size', 0)} instances\n"
             )
-
-        prob_context = ""
-        if prob_before is not None and prob_after is not None:
-            prob_context = f"Probability shift: {prob_before}% → {prob_after}% ({prob_shift}% move)"
-
-        prompt = f"""You are a senior geopolitical intelligence analyst writing a brief for traders.
-
-EVENT: {event_description}
+        prompt = f"""You are a geopolitical market intelligence analyst.
+Signal: {event_description}
 Region: {region}
-{prob_context}
-Historical asset correlations:
-{asset_text if asset_text else "No historical asset data available."}
-
-Write a sharp 3-4 sentence intelligence brief that:
-1. States specifically what is happening — use real details from the event description, not generic language
-2. Explains the most likely near-term market implication, naming specific assets and why
-3. Flags the key risk or uncertainty a trader should watch right now
-
-Rules:
-- Never use phrases like "monitoring systems detected" or "probability shift suggests algorithmic confidence"
-- Never be generic — if you have headlines, use them
-- Never say buy or sell
-- End with exactly: "Historical data analysis only. Not investment advice." """
-
+Probability: {prob_before}% → {prob_after}% ({prob_shift}% shift)
+Historical asset data:
+{asset_text}
+Write a 2-3 sentence factual intelligence brief. Be direct and analytical.
+Frame everything as historical data. Never say buy or sell.
+No investment advice. Just intelligence."""
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=300,
+            model="claude-opus-4-5",
+            max_tokens=150,
             messages=[{"role": "user", "content": prompt}]
         )
         return message.content[0].text
     except Exception as e:
         return f"Analysis unavailable: {e}"
 
-@st.cache_data(ttl=1800)
-def get_bet_recommendations(signal_id, event_description, region,
-                             event_category, prob_shift, confidence_score,
-                             assets_json, source_platform):
-    """
-    Cached wrapper for bet recommendations.
-    Refreshes every 30 minutes so new Kalshi questions get picked up.
-    """
-    try:
-        assets = []
-        if assets_json:
-            assets = (assets_json if isinstance(assets_json, list)
-                     else json.loads(assets_json))
-        return generate_bet_recommendations(
-            signal_id=signal_id,
-            event_description=event_description,
-            region=region,
-            event_category=event_category,
-            prob_shift=prob_shift,
-            confidence_score=confidence_score,
-            assets=assets,
-            source_platform=source_platform
-        )
-    except Exception as e:
-        return {"recommendations": [], "disclaimer": "Historical data analysis only. Not investment advice."}
+# --- Helpers ---
 def safe_float(v, d=1):
     if v is None: return "—"
     try: return f"{float(v):.{d}f}"
@@ -316,18 +268,16 @@ def fetch_active_signals():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT s.id, s.event_description, s.region, s.event_category,
-               s.probability_before, s.probability_after, s.probability_shift,
-               s.confidence_score, s.source_platform, s.affected_assets,
-               s.signal_time, s.expires_at, s.source_question_id,
-               sb.ai_brief
-        FROM signals s
-        LEFT JOIN signal_briefs sb ON s.id = sb.signal_id
-        WHERE s.is_active = true AND s.expires_at > NOW()
+        SELECT id, event_description, region, event_category,
+               probability_before, probability_after, probability_shift,
+               confidence_score, source_platform, affected_assets,
+               signal_time, expires_at, source_question_id
+        FROM signals
+        WHERE is_active = true AND expires_at > NOW()
         ORDER BY
-            CASE s.confidence_score WHEN 'high' THEN 1
+            CASE confidence_score WHEN 'high' THEN 1
             WHEN 'medium' THEN 2 ELSE 3 END,
-            s.signal_time DESC;
+            signal_time DESC;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -337,14 +287,11 @@ def fetch_all_signals():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT s.id, s.event_description, s.region, s.event_category,
-               s.probability_before, s.probability_after, s.probability_shift,
-               s.confidence_score, s.source_platform, s.affected_assets,
-               s.signal_time, s.expires_at, s.is_active,
-               sb.ai_brief
-        FROM signals s
-        LEFT JOIN signal_briefs sb ON s.id = sb.signal_id
-        ORDER BY s.signal_time DESC LIMIT 100;
+        SELECT id, event_description, region, event_category,
+               probability_before, probability_after, probability_shift,
+               confidence_score, source_platform, affected_assets,
+               signal_time, expires_at, is_active
+        FROM signals ORDER BY signal_time DESC LIMIT 100;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -406,6 +353,41 @@ def fetch_outcomes():
     rows = cur.fetchall()
     cur.close()
     return rows
+
+def fetch_trades():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, signal_id, ticker, side, notional_usd,
+               order_id, order_status, is_live, entry_price,
+               exit_price, pnl_usd, exit_reason, notes,
+               created_at, closed_at
+        FROM alpaca_trades
+        ORDER BY created_at DESC
+        LIMIT 200;
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    return rows
+
+def fetch_trade_summary():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT
+            COUNT(*)                                        AS total,
+            COUNT(*) FILTER (WHERE is_live = false)        AS paper,
+            COUNT(*) FILTER (WHERE is_live = true)         AS live,
+            COUNT(*) FILTER (WHERE pnl_usd > 0)            AS winners,
+            COUNT(*) FILTER (WHERE pnl_usd <= 0
+                             AND pnl_usd IS NOT NULL)      AS losers,
+            ROUND(SUM(pnl_usd)::numeric, 4)                AS total_pnl,
+            COUNT(*) FILTER (WHERE closed_at IS NULL)      AS open_pos
+        FROM alpaca_trades;
+    """)
+    row = cur.fetchone()
+    cur.close()
+    return row
 
 # --- Load Data ---
 signals = fetch_active_signals()
@@ -490,9 +472,9 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "LIVE SIGNALS", "SIGNAL DETAIL", "BET TRACKER",
-    "TRACK RECORD", "PROBABILITY CHARTS"
+    "TRACK RECORD", "PROBABILITY CHARTS", "TRADING"
 ])
 
 # ============================================================
@@ -511,17 +493,14 @@ with tab1:
             sig_id = signal[0]
             description = signal[1] or ""
             region = signal[2] or "Global"
-            event_category = signal[3] or ""
             prob_before = signal[4]
             prob_after = signal[5]
             prob_shift = signal[6]
             confidence = signal[7] or "low"
             platform = signal[8] or "—"
-            source_platform = signal[8] or ""
             assets_json = signal[9]
             signal_time = signal[10]
             expires_at = signal[11]
-            ai_brief = signal[13] if len(signal) > 13 else None
 
             assets = format_assets(assets_json)
             pb = prob_before or 0
@@ -681,142 +660,19 @@ with tab1:
                                     {acc:.0f}% · {samples}x</span>
                             </div>""", unsafe_allow_html=True)
 
-            # AI Brief — reads from DB first, only calls Claude if not stored
+            # AI Brief
             with st.expander("▸  INTELLIGENCE BRIEF"):
-                if ai_brief:
-                    st.markdown(f'<div class="ai-summary">{ai_brief}</div>',
-                               unsafe_allow_html=True)
-                else:
-                    with st.spinner("Generating..."):
-                        summary = generate_signal_summary(
-                            description, region, prob_before,
-                            prob_after, prob_shift, assets_json
-                        )
-                    st.markdown(f'<div class="ai-summary">{summary}</div>',
-                               unsafe_allow_html=True)
+                with st.spinner("Generating..."):
+                    summary = generate_signal_summary(
+                        description, region, prob_before,
+                        prob_after, prob_shift, assets_json
+                    )
+                st.markdown(f'<div class="ai-summary">{summary}</div>',
+                           unsafe_allow_html=True)
                 st.markdown("""
                 <div class="disclaimer">
                 Historical data analysis only. Not investment advice.
                 </div>""", unsafe_allow_html=True)
-
-            # Second-Order Effects — chain reaction display
-            effects = get_effects_for_signal(str(sig_id))
-            if effects:
-                with st.expander("▸  CHAIN REACTION ANALYSIS — SECOND-ORDER EFFECTS"):
-                    st.markdown("""
-                    <div style="font-size:0.65em; color:#444; margin-bottom:14px; line-height:1.5;">
-                        How this signal transmits through connected markets over time.
-                        Each link shows the transmission channel, affected assets,
-                        time horizon, and historical pattern probability.
-                        Historical analysis only — not investment advice.
-                    </div>""", unsafe_allow_html=True)
-
-                    # Group by order level
-                    orders = {}
-                    for e in effects:
-                        lvl = e["order_level"]
-                        if lvl not in orders:
-                            orders[lvl] = []
-                        orders[lvl].append(e)
-
-                    order_labels = {
-                        1: ("1ST ORDER", "#e8b84b", "Direct market impact — typically 0-24h"),
-                        2: ("2ND ORDER", "#cc7700", "Transmission effects — typically 1-7 days"),
-                        3: ("3RD ORDER", "#884400", "Downstream cascades — typically 1-4 weeks"),
-                        4: ("4TH ORDER", "#442200", "Systemic effects — typically 1-3 months")
-                    }
-
-                    for lvl in sorted(orders.keys()):
-                        label, color, subtitle = order_labels.get(
-                            lvl, (f"ORDER {lvl}", "#444", "")
-                        )
-                        st.markdown(f"""
-                        <div style="font-size:0.62em; color:{color};
-                             text-transform:uppercase; letter-spacing:0.12em;
-                             font-weight:600; margin:16px 0 4px 0;">
-                            {label}
-                            <span style="color:#333; font-weight:400;
-                                 letter-spacing:0.06em; margin-left:8px;">
-                                — {subtitle}
-                            </span>
-                        </div>""", unsafe_allow_html=True)
-
-                        for effect in orders[lvl]:
-                            prob = effect.get("probability_score") or 0
-                            prob_pct = int(prob * 100)
-                            prob_color = (
-                                "#2a9a4a" if prob >= 0.7 else
-                                "#e8b84b" if prob >= 0.5 else
-                                "#666"
-                            )
-                            channel = effect.get("transmission_channel", "")
-                            desc = effect.get("effect_description", "")
-                            horizon = effect.get("time_horizon", "")
-                            assets_list = effect.get("affected_assets", [])
-
-                            # Build asset tags
-                            asset_tags = ""
-                            for a in assets_list[:4]:
-                                t = a.get("ticker", "")
-                                d = a.get("direction", "up")
-                                m = a.get("move", "")
-                                a_color = "#2a9a4a" if d == "up" else "#cc2200"
-                                arrow = "▲" if d == "up" else "▼"
-                                asset_tags += f"""
-                                <span style="display:inline-block; background:#0a0a14;
-                                     border:1px solid {a_color}44; color:{a_color};
-                                     font-size:0.85em; padding:2px 8px;
-                                     border-radius:2px; margin:2px 3px 2px 0;
-                                     font-family:'IBM Plex Mono';">
-                                    {arrow} {t} {m}
-                                </span>"""
-
-                            st.markdown(f"""
-                            <div style="background:#08080e; border:1px solid #1a1a2a;
-                                 border-left:3px solid {color};
-                                 padding:12px 14px; border-radius:2px; margin:6px 0;">
-                                <div style="display:flex; justify-content:space-between;
-                                     align-items:flex-start; margin-bottom:8px;">
-                                    <div style="flex:1;">
-                                        <span style="font-size:0.62em; color:{color};
-                                             text-transform:uppercase; letter-spacing:0.1em;
-                                             font-weight:600;">
-                                            {channel}
-                                        </span>
-                                        <span style="font-size:0.58em; color:#333;
-                                             margin-left:10px; text-transform:uppercase;
-                                             letter-spacing:0.06em;">
-                                            {horizon}
-                                        </span>
-                                    </div>
-                                    <div style="text-align:right; min-width:60px;">
-                                        <div style="font-size:0.9em; font-weight:600;
-                                             color:{prob_color};
-                                             font-family:'IBM Plex Mono';">
-                                            {prob_pct}%
-                                        </div>
-                                        <div style="font-size:0.55em; color:#333;
-                                             text-transform:uppercase;">
-                                            Pattern Prob
-                                        </div>
-                                    </div>
-                                </div>
-                                <div style="font-size:0.74em; color:#888;
-                                     line-height:1.5; margin-bottom:10px;">
-                                    {desc}
-                                </div>
-                                <div style="margin-top:6px;">
-                                    {asset_tags}
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                    st.markdown("""
-                    <div class="disclaimer" style="margin-top:12px;">
-                    Chain reaction analysis based on historical market patterns only.
-                    Not all chains will materialize. Probability scores reflect
-                    historical frequency, not certainty. Not investment advice.
-                    </div>""", unsafe_allow_html=True)
 
             # Smart Related Prediction Markets
             related = find_related_questions(description, region, questions)
@@ -933,101 +789,10 @@ with tab1:
                     This is not investment advice.
                     </div>""", unsafe_allow_html=True)
 
-            # Bet Recommendation Engine — only for high confidence signals
-            if confidence in ["high", "medium"] and event_category:
-                with st.expander("▸  HISTORICAL PATTERN ANALYSIS — RELATED MARKETS"):
-                    legal_notice = "KairosIQ is not a registered investment advisor, broker-dealer, or CFTC-regulated entity. The analysis below is historical pattern matching only — it is not a recommendation, signal, or solicitation to participate in any prediction market or financial instrument. All decisions are made solely by the user at their own risk. Past patterns do not guarantee future results."
-                    st.markdown(f'<div style="font-size:0.65em; color:#555; margin-bottom:12px; line-height:1.6; border:1px solid #1a1a2a; padding:10px 12px; border-radius:2px; border-left:3px solid #333;">⚠️ <strong style="color:#666;">LEGAL NOTICE:</strong> {legal_notice}</div>', unsafe_allow_html=True)
-
-                    with st.spinner("Analyzing historical patterns..."):
-                        recs = get_bet_recommendations(
-                            signal_id=str(sig_id),
-                            event_description=description,
-                            region=region,
-                            event_category=event_category,
-                            prob_shift=prob_shift,
-                            confidence_score=confidence,
-                            assets_json=assets_json,
-                            source_platform=source_platform
-                        )
-
-                    recommendations = recs.get("recommendations", [])
-
-                    if not recommendations:
-                        st.markdown("""
-                        <div style="font-size:0.72em; color:#444; padding:8px 0;">
-                            No strong historical pattern match found for active Kalshi questions.
-                        </div>""", unsafe_allow_html=True)
-                    else:
-                        for rec in recommendations:
-                            pattern = rec.get("historical_pattern", "—")
-                            pattern_color = "#2a9a4a" if pattern == "YES" else "#cc2200"
-                            rec_confidence = rec.get("pattern_confidence", "medium")
-                            conf_color = {"high": "#e8b84b", "medium": "#888", "low": "#444"}.get(rec_confidence, "#888")
-                            q_text = rec.get("question_text", "")
-                            url = rec.get("url", "")
-                            current_prob = rec.get("current_probability")
-                            prob_str = f"{current_prob:.1f}%" if current_prob else "—"
-                            edge = rec.get("historical_edge", "")
-                            risk = rec.get("key_risk", "")
-                            reasoning = rec.get("reasoning", "")
-
-                            st.markdown(f"""
-                            <div style="background:#08080e; border:1px solid #1a1a2a;
-                                 border-left:3px solid {pattern_color};
-                                 padding:14px 16px; border-radius:2px; margin:8px 0;">
-                                <div style="display:flex; justify-content:space-between;
-                                     align-items:flex-start; margin-bottom:10px;">
-                                    <div style="flex:1;">
-                                        <span style="font-size:0.62em; color:{pattern_color};
-                                             text-transform:uppercase; letter-spacing:0.1em;
-                                             font-weight:600; margin-right:10px;">
-                                            HISTORICAL PATTERN: {pattern}
-                                        </span>
-                                        <span style="font-size:0.58em; color:{conf_color};
-                                             text-transform:uppercase; letter-spacing:0.08em;">
-                                            {rec_confidence} pattern strength
-                                        </span>
-                                        <div style="font-size:0.78em; color:#c8c8c8;
-                                             margin-top:6px; line-height:1.4;">
-                                            {q_text[:120]}
-                                        </div>
-                                    </div>
-                                    <div style="text-align:right; margin-left:16px; min-width:80px;">
-                                        <div style="font-size:1.1em; font-weight:600;
-                                             color:#888; font-family:'IBM Plex Mono';">
-                                            {prob_str}
-                                        </div>
-                                        <div style="font-size:0.56em; color:#444;
-                                             text-transform:uppercase; letter-spacing:0.06em;">
-                                            Current Odds
-                                        </div>
-                                    </div>
-                                </div>
-                                <div style="font-size:0.7em; color:#666;
-                                     line-height:1.5; margin-bottom:8px;">
-                                    <span style="color:#444; text-transform:uppercase;
-                                          font-size:0.85em; letter-spacing:0.06em;">
-                                        Historical Pattern:
-                                    </span> {edge}
-                                </div>
-                                <div style="font-size:0.7em; color:#666;
-                                     line-height:1.5; margin-bottom:8px;">
-                                    <span style="color:#cc220066; text-transform:uppercase;
-                                          font-size:0.85em; letter-spacing:0.06em;">
-                                        Pattern Risk:
-                                    </span> {risk}
-                                </div>
-                                <div style="font-size:0.68em; color:#555;
-                                     line-height:1.5; margin-bottom:10px;
-                                     border-top:1px solid #111; padding-top:8px;">
-                                    {reasoning}
-                                </div>
-                                {f'<a href="{url}" target="_blank" style="display:inline-block; background:transparent; border:1px solid #33333366; color:#666; font-size:0.62em; padding:4px 10px; border-radius:1px; text-decoration:none; letter-spacing:0.08em; text-transform:uppercase; font-weight:600;">↗ VIEW QUESTION ON KALSHI</a>' if url else ''}
-                            </div>
-                            """, unsafe_allow_html=True)
-
             st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+# ============================================================
+# TAB 2 — SIGNAL DETAIL
 # ============================================================
 with tab2:
     if not all_signals:
@@ -1273,8 +1038,7 @@ with tab4:
         df_sig = pd.DataFrame(all_signals, columns=[
             "id", "description", "region", "category",
             "prob_before", "prob_after", "prob_shift", "confidence",
-            "platform", "assets", "signal_time", "expires_at", "is_active",
-            "ai_brief"
+            "platform", "assets", "signal_time", "expires_at", "is_active"
         ])
         df_sig["signal_time"] = pd.to_datetime(df_sig["signal_time"])
         df_sig["short_desc"] = df_sig["description"].str[:50]
@@ -1395,3 +1159,420 @@ with tab5:
                             ↗ VIEW ON {selected_q[1].upper()}
                         </a>
                     </div>""", unsafe_allow_html=True)
+
+# ============================================================
+# TAB 6 — TRADING
+# ============================================================
+with tab6:
+
+    st.markdown("""
+    <div style="font-size:0.65em; color:#555; text-transform:uppercase;
+         letter-spacing:0.1em; margin-bottom:16px;">
+        Alpaca Trading · Signal-Driven Recommendations · Human-In-The-Loop
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Account Info ─────────────────────────────────────────
+    try:
+        from bets.alpaca_trader import (
+            get_account_info, build_trade_recommendation,
+            log_manual_trade, close_manual_trade,
+            get_open_trades, get_trade_summary, get_current_price
+        )
+        from processing.asset_mapper import get_best_performer, get_signal_metadata
+
+        paper_acct = get_account_info(live=False)
+        live_acct  = get_account_info(live=True)
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            pv = float(paper_acct.get("portfolio_value", 0)) if paper_acct else 0
+            st.markdown(f"""
+            <div class="stat-box">
+                <span class="stat-value">${pv:,.2f}</span>
+                <span class="stat-label">Paper Portfolio</span>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            bp = float(paper_acct.get("buying_power", 0)) if paper_acct else 0
+            st.markdown(f"""
+            <div class="stat-box">
+                <span class="stat-value">${bp:,.2f}</span>
+                <span class="stat-label">Paper Buying Power</span>
+            </div>""", unsafe_allow_html=True)
+        with col3:
+            lpv = float(live_acct.get("portfolio_value", 0)) if live_acct else 0
+            st.markdown(f"""
+            <div class="stat-box">
+                <span class="stat-value">${lpv:,.2f}</span>
+                <span class="stat-label">Live Portfolio</span>
+            </div>""", unsafe_allow_html=True)
+        with col4:
+            lbp = float(live_acct.get("buying_power", 0)) if live_acct else 0
+            st.markdown(f"""
+            <div class="stat-box">
+                <span class="stat-value">${lbp:,.2f}</span>
+                <span class="stat-label">Live Buying Power</span>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+        # ── Trade Recommendations from Active Signals ─────────
+        st.markdown("""
+        <div style="font-size:0.65em; color:#e8b84b; text-transform:uppercase;
+             letter-spacing:0.1em; margin-bottom:12px;">
+            ⚡ Trade Recommendations — Active Signals
+        </div>
+        <div style="font-size:0.68em; color:#444; margin-bottom:16px;">
+            Based on historical asset correlations. You decide whether to act.
+            All recommendations are pattern-based, not investment advice.
+        </div>
+        """, unsafe_allow_html=True)
+
+        if signals:
+            for signal in signals[:10]:
+                sig_id      = signal[0]
+                description = signal[1] or ""
+                region      = signal[2] or "Global"
+                prob_shift  = signal[6]
+                confidence  = signal[7] or "low"
+                platform    = signal[8] or "—"
+                assets_json = signal[9]
+                assets      = format_assets(assets_json)
+
+                if not assets:
+                    continue
+
+                metadata = get_signal_metadata(assets, prob_shift, confidence, platform)
+                best     = get_best_performer(assets)
+                rec      = build_trade_recommendation(
+                    sig_id,
+                    metadata.get("signal_strength", 0),
+                    metadata.get("convergence_tier", 1),
+                    best,
+                    description
+                )
+
+                if not rec:
+                    continue
+
+                strength    = rec["signal_strength"]
+                tier        = rec["convergence_tier"]
+                side        = rec["side"]
+                ticker      = rec["ticker"]
+                acc         = rec["directional_acc"]
+                avg72       = rec["avg_move_72h"]
+                price       = rec["current_price"]
+                tradeable   = rec["tradeable"]
+                note        = rec["note"]
+
+                side_color  = "#2a9a4a" if side == "BUY" else "#cc2200"
+                tier_label  = ["", "SINGLE SOURCE", "DUAL CONFIRM", "FULL CONVERGENCE"][min(tier, 3)]
+                price_str   = f"${price:.2f}" if price else "—"
+
+                st.markdown(f"""
+                <div style="background:#08080c; border:1px solid #1a1a24;
+                            border-left:3px solid {side_color};
+                            padding:14px 16px; border-radius:2px; margin:6px 0;">
+                    <div style="display:flex; justify-content:space-between;
+                                align-items:center; margin-bottom:8px;">
+                        <div>
+                            <span style="font-size:1.1em; font-weight:600;
+                                         color:#e0e0e0;">{ticker}</span>
+                            &nbsp;&nbsp;
+                            <span style="font-size:0.85em; font-weight:600;
+                                         color:{side_color};">{side}</span>
+                            &nbsp;&nbsp;
+                            <span style="font-size:0.65em; color:#555;
+                                         border:1px solid #222; padding:1px 6px;">
+                                {tier_label}
+                            </span>
+                        </div>
+                        <div style="font-size:0.72em; color:#e8b84b;
+                                    font-weight:600;">
+                            STRENGTH {strength}/100
+                        </div>
+                    </div>
+                    <div style="font-size:0.7em; color:#555; margin-bottom:6px;">
+                        {description[:120]}...
+                    </div>
+                    <div style="display:flex; gap:24px; font-size:0.72em; color:#666;">
+                        <span>Current Price: <b style="color:#e0e0e0;">{price_str}</b></span>
+                        <span>Avg 72h Move: <b style="color:{side_color};">
+                            {'▲' if side=='BUY' else '▼'} {avg72:.1f}%
+                        </b></span>
+                        <span>Historical Accuracy: <b style="color:#e0e0e0;">{acc:.0f}%</b></span>
+                        <span style="color:{'#2a9a4a' if tradeable else '#555'};">
+                            {'✓ ' + note if tradeable else '✗ ' + note}
+                        </span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Manual log form — only show for tradeable assets
+                if tradeable:
+                    with st.expander(f"📝 Log a trade for {ticker}"):
+                        col_a, col_b, col_c, col_d = st.columns(4)
+                        with col_a:
+                            log_side = st.selectbox(
+                                "Side", ["buy", "sell"],
+                                key=f"side_{sig_id}",
+                                index=0 if side == "BUY" else 1
+                            )
+                        with col_b:
+                            log_price = st.number_input(
+                                "Entry Price ($)",
+                                min_value=0.01, value=float(price or 1.0),
+                                step=0.01, key=f"price_{sig_id}"
+                            )
+                        with col_c:
+                            log_amount = st.number_input(
+                                "Amount ($)",
+                                min_value=0.01, value=1.00,
+                                step=0.01, key=f"amount_{sig_id}"
+                            )
+                        with col_d:
+                            log_live = st.selectbox(
+                                "Account",
+                                ["paper", "live"],
+                                key=f"live_{sig_id}"
+                            )
+
+                        if st.button(f"✅ Log Trade — {ticker}", key=f"log_{sig_id}"):
+                            order_id = log_manual_trade(
+                                signal_id   = sig_id,
+                                ticker      = ticker,
+                                side        = log_side,
+                                notional_usd= log_amount,
+                                entry_price = log_price,
+                                is_live     = (log_live == "live"),
+                                notes       = f"Manual | Signal strength {strength}/100 | {tier_label}"
+                            )
+                            if order_id:
+                                st.success(f"Trade logged! Reference: {order_id[:12]}...")
+                            else:
+                                st.error("Failed to log trade — check logs")
+        else:
+            st.markdown("""
+            <div style="padding:24px; text-align:center; color:#333;
+                 font-size:0.75em; letter-spacing:0.08em; text-transform:uppercase;">
+                No active signals. Recommendations appear here when signals fire.
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+        # ── P&L Summary + Charts ──────────────────────────────
+        t_summary = get_trade_summary()
+        all_trades = fetch_trades()
+        closed_trades = [t for t in all_trades if t[14] is not None]
+        open_trades   = [t for t in all_trades if t[14] is None]
+
+        if t_summary and t_summary[0]:
+            total, paper, live, winners, losers, total_pnl, open_pos = t_summary
+            closed = (winners or 0) + (losers or 0)
+            win_rate  = f"{winners/closed*100:.0f}%" if closed else "—"
+            pnl_color = "#2a9a4a" if (total_pnl or 0) >= 0 else "#cc2200"
+            pnl_str   = f"${float(total_pnl or 0):+.4f}"
+
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            with col1:
+                st.markdown(f"""<div class="stat-box">
+                    <span class="stat-value">{total or 0}</span>
+                    <span class="stat-label">Total Trades</span>
+                </div>""", unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""<div class="stat-box">
+                    <span class="stat-value">{open_pos or 0}</span>
+                    <span class="stat-label">Open</span>
+                </div>""", unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""<div class="stat-box">
+                    <span class="stat-value">{paper or 0}</span>
+                    <span class="stat-label">Paper</span>
+                </div>""", unsafe_allow_html=True)
+            with col4:
+                st.markdown(f"""<div class="stat-box">
+                    <span class="stat-value">{live or 0}</span>
+                    <span class="stat-label">Live</span>
+                </div>""", unsafe_allow_html=True)
+            with col5:
+                st.markdown(f"""<div class="stat-box">
+                    <span class="stat-value">{win_rate}</span>
+                    <span class="stat-label">Win Rate</span>
+                </div>""", unsafe_allow_html=True)
+            with col6:
+                st.markdown(f"""<div class="stat-box">
+                    <span class="stat-value" style="color:{pnl_color};">{pnl_str}</span>
+                    <span class="stat-label">Total P&L</span>
+                </div>""", unsafe_allow_html=True)
+
+        # ── P&L Charts ────────────────────────────────────────
+        if closed_trades:
+            df_closed = pd.DataFrame(closed_trades, columns=[
+                "id", "signal_id", "ticker", "side", "notional_usd",
+                "order_id", "order_status", "is_live", "entry_price",
+                "exit_price", "pnl_usd", "exit_reason", "notes",
+                "created_at", "closed_at"
+            ])
+            df_closed["pnl_usd"]   = pd.to_numeric(df_closed["pnl_usd"], errors="coerce").fillna(0)
+            df_closed["closed_at"] = pd.to_datetime(df_closed["closed_at"])
+            df_closed = df_closed.sort_values("closed_at")
+            df_closed["cumulative_pnl"] = df_closed["pnl_usd"].cumsum()
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                line_color = "#2a9a4a" if df_closed["cumulative_pnl"].iloc[-1] >= 0 else "#cc2200"
+                fig_cum = go.Figure()
+                fig_cum.add_trace(go.Scatter(
+                    x=df_closed["closed_at"],
+                    y=df_closed["cumulative_pnl"],
+                    mode="lines+markers",
+                    line=dict(color=line_color, width=1.5),
+                    marker=dict(size=5, color=line_color),
+                    fill="tozeroy",
+                    fillcolor="rgba(42,154,74,0.08)" if line_color == "#2a9a4a" else "rgba(204,34,0,0.08)",
+                    hovertemplate="<b>%{x|%m-%d %H:%M}</b><br>Cumulative P&L: $%{y:.4f}<extra></extra>"
+                ))
+                fig_cum.add_hline(y=0, line_color="#222", line_width=1)
+                fig_cum.update_layout(
+                    title=dict(text="CUMULATIVE P&L",
+                               font=dict(family="IBM Plex Mono", size=10, color="#555")),
+                    paper_bgcolor="#060608", plot_bgcolor="#060608",
+                    font_color="#888", height=260,
+                    xaxis=dict(tickfont=dict(family="IBM Plex Mono", size=8, color="#444"),
+                               gridcolor="#111", zeroline=False),
+                    yaxis=dict(tickfont=dict(family="IBM Plex Mono", size=8, color="#444"),
+                               gridcolor="#111", zeroline=False, tickprefix="$"),
+                    margin=dict(t=40, b=20, l=50, r=20), showlegend=False
+                )
+                st.plotly_chart(fig_cum, use_container_width=True)
+
+            with col_b:
+                bar_colors = df_closed["pnl_usd"].apply(
+                    lambda x: "#2a9a4a" if x >= 0 else "#cc2200"
+                ).tolist()
+                fig_bar = go.Figure()
+                fig_bar.add_trace(go.Bar(
+                    x=df_closed["closed_at"],
+                    y=df_closed["pnl_usd"],
+                    marker_color=bar_colors,
+                    marker_line_width=0,
+                    text=df_closed["ticker"],
+                    hovertemplate="<b>%{text}</b><br>P&L: $%{y:.4f}<extra></extra>"
+                ))
+                fig_bar.add_hline(y=0, line_color="#333", line_width=1)
+                fig_bar.update_layout(
+                    title=dict(text="P&L PER TRADE",
+                               font=dict(family="IBM Plex Mono", size=10, color="#555")),
+                    paper_bgcolor="#060608", plot_bgcolor="#060608",
+                    font_color="#888", height=260,
+                    xaxis=dict(tickfont=dict(family="IBM Plex Mono", size=8, color="#444"),
+                               gridcolor="#111", zeroline=False),
+                    yaxis=dict(tickfont=dict(family="IBM Plex Mono", size=8, color="#444"),
+                               gridcolor="#111", zeroline=False, tickprefix="$"),
+                    margin=dict(t=40, b=20, l=50, r=20), showlegend=False, bargap=0.3
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+            # Closed trades table
+            st.markdown("""
+            <div style="font-size:0.65em; color:#555; text-transform:uppercase;
+                 letter-spacing:0.1em; margin-bottom:8px;">Trade History</div>
+            """, unsafe_allow_html=True)
+
+            df_closed["mode"]   = df_closed["is_live"].apply(lambda x: "LIVE" if x else "PAPER")
+            df_closed["side"]   = df_closed["side"].str.upper()
+            df_closed["entry"]  = df_closed["entry_price"].apply(lambda x: f"${float(x):.2f}" if x else "—")
+            df_closed["exit"]   = df_closed["exit_price"].apply(lambda x: f"${float(x):.2f}" if x else "—")
+            df_closed["p&l"]    = df_closed["pnl_usd"].apply(lambda x: f"${float(x):+.4f}" if x is not None else "—")
+            df_closed["opened"] = pd.to_datetime(df_closed["created_at"]).dt.strftime("%m-%d %H:%M")
+            df_closed["closed"] = pd.to_datetime(df_closed["closed_at"]).dt.strftime("%m-%d %H:%M")
+
+            st.dataframe(
+                df_closed[["ticker", "side", "mode", "entry", "exit",
+                           "p&l", "exit_reason", "opened", "closed"]],
+                use_container_width=True, hide_index=True
+            )
+
+        # ── Open Positions + Close Form ───────────────────────
+        if open_trades:
+            st.markdown("""
+            <div style="font-size:0.65em; color:#e8b84b; text-transform:uppercase;
+                 letter-spacing:0.1em; margin:12px 0 8px;">⬤ Open Positions</div>
+            """, unsafe_allow_html=True)
+
+            for t in open_trades:
+                (tid, signal_id, ticker, side, notional, order_id,
+                 is_live, entry_price, notes, created_at) = t
+
+                mode_badge = (
+                    '<span style="color:#cc2200; font-size:0.7em; '
+                    'border:1px solid #cc2200; padding:1px 5px;">LIVE</span>'
+                    if is_live else
+                    '<span style="color:#555; font-size:0.7em; '
+                    'border:1px solid #333; padding:1px 5px;">PAPER</span>'
+                )
+                side_color = "#2a9a4a" if side == "buy" else "#cc2200"
+                time_str   = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "—"
+                entry_str  = f"${float(entry_price):.2f}" if entry_price else "—"
+                curr_price = get_current_price(ticker)
+                curr_str   = f"${curr_price:.2f}" if curr_price else "—"
+
+                # Unrealized P&L
+                unreal_str = "—"
+                if curr_price and entry_price:
+                    mult = 1 if side == "buy" else -1
+                    unreal = round(mult * (curr_price - float(entry_price))
+                                   / float(entry_price) * float(notional), 4)
+                    color = "#2a9a4a" if unreal >= 0 else "#cc2200"
+                    unreal_str = f'<span style="color:{color};">${unreal:+.4f}</span>'
+
+                st.markdown(f"""
+                <div style="background:#08080c; border:1px solid #1a1a24;
+                            border-left:3px solid #e8b84b; padding:12px 16px;
+                            border-radius:2px; margin:4px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-size:1em; font-weight:600; color:#e0e0e0;">{ticker}</span>
+                            &nbsp;
+                            <span style="font-size:0.8em; color:{side_color}; font-weight:600;">{side.upper()}</span>
+                            &nbsp; {mode_badge}
+                        </div>
+                        <div style="font-size:0.7em; color:#555;">{time_str} UTC</div>
+                    </div>
+                    <div style="font-size:0.72em; color:#555; margin-top:6px; display:flex; gap:24px;">
+                        <span>Entry: <b style="color:#e0e0e0;">{entry_str}</b></span>
+                        <span>Current: <b style="color:#e0e0e0;">{curr_str}</b></span>
+                        <span>Unrealized P&L: <b>{unreal_str}</b></span>
+                        <span>Notional: <b style="color:#e0e0e0;">${float(notional):.2f}</b></span>
+                    </div>
+                    <div style="font-size:0.68em; color:#444; margin-top:4px;">{notes or ""}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                with st.expander(f"Close position — {ticker}"):
+                    exit_price_input = st.number_input(
+                        "Exit Price ($)",
+                        min_value=0.01,
+                        value=float(curr_price or entry_price or 1.0),
+                        step=0.01,
+                        key=f"exit_{order_id}"
+                    )
+                    if st.button(f"✅ Close {ticker} Position", key=f"close_{order_id}"):
+                        pnl = close_manual_trade(order_id, exit_price_input)
+                        if pnl is not None:
+                            st.success(f"Position closed. P&L: ${pnl:+.4f}")
+                        else:
+                            st.error("Failed to close — check logs")
+
+    except Exception as e:
+        st.error(f"Trading tab error: {e}")
+
+    st.markdown("""
+    <div class="disclaimer">
+    Recommendations are based on historical asset correlations only. No trades are
+    placed automatically. All positions are entered manually by the user.
+    KairosIQ is not a registered broker-dealer or investment advisor.
+    This is not investment advice.
+    </div>""", unsafe_allow_html=True)

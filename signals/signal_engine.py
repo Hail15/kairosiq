@@ -15,12 +15,7 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
-try:
-    from bets.alpaca_trader import execute_signal_trade
-    ALPACA_ENABLED = True
-except Exception as _e:
-    print(f"⚠️  Alpaca trader not loaded: {_e}")
-    ALPACA_ENABLED = False
+
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
@@ -284,22 +279,6 @@ def run_signal_engine():
             print(f"      Shift: {prob_before:.1f}% → {prob_after:.1f}% ({shift:.1f}%)")
             print(f"      Confidence: {confidence}")
             print(f"      Assets mapped: {len(assets)}")
-
-            # ── Fire Alpaca trade ─────────────────────────────
-            if ALPACA_ENABLED and assets:
-                try:
-                    from processing.asset_mapper import get_best_performer, get_signal_metadata
-                    metadata = get_signal_metadata(assets, shift, confidence, question[1])
-                    best = get_best_performer(assets)
-                    execute_signal_trade({
-                        "id":               signal_id,
-                        "signal_strength":  metadata.get("signal_strength", 0),
-                        "convergence_tier": metadata.get("convergence_tier", 1),
-                        "best_performer":   best,
-                        "event_description": question_text
-                    })
-                except Exception as te:
-                    print(f"⚠️  Alpaca trade error for signal {signal_id}: {te}")
 
     conn.commit()
     cur.close()
