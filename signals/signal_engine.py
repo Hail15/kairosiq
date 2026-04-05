@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 from processing.classifier import enrich_signal, generate_intelligence_brief
+from processing.second_order_engine import generate_second_order_effects
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
@@ -213,6 +214,19 @@ def save_signal(cur, question, prob_before, prob_after, shift,
                 print(f"   📝 Brief stored for signal {signal_id}")
         except Exception as e:
             print(f"   ⚠️ Brief generation failed: {e}")
+
+        # Generate second-order chain reaction effects
+        try:
+            generate_second_order_effects(
+                signal_id=signal_id,
+                event_description=event_description,
+                region=region,
+                event_category=event_category,
+                prob_shift=shift,
+                confidence=confidence
+            )
+        except Exception as e:
+            print(f"   ⚠️ Second-order effects failed: {e}")
 
     return signal_id
 

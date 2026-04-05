@@ -24,6 +24,7 @@ from processing.asset_mapper import (
     find_related_questions
 )
 from bets.bet_recommender import generate_bet_recommendations
+from processing.second_order_engine import get_effects_for_signal
 
 # --- Page Config ---
 st.set_page_config(
@@ -689,6 +690,125 @@ with tab1:
                 <div class="disclaimer">
                 Historical data analysis only. Not investment advice.
                 </div>""", unsafe_allow_html=True)
+
+            # Second-Order Effects — chain reaction display
+            effects = get_effects_for_signal(str(sig_id))
+            if effects:
+                with st.expander("▸  CHAIN REACTION ANALYSIS — SECOND-ORDER EFFECTS"):
+                    st.markdown("""
+                    <div style="font-size:0.65em; color:#444; margin-bottom:14px; line-height:1.5;">
+                        How this signal transmits through connected markets over time.
+                        Each link shows the transmission channel, affected assets,
+                        time horizon, and historical pattern probability.
+                        Historical analysis only — not investment advice.
+                    </div>""", unsafe_allow_html=True)
+
+                    # Group by order level
+                    orders = {}
+                    for e in effects:
+                        lvl = e["order_level"]
+                        if lvl not in orders:
+                            orders[lvl] = []
+                        orders[lvl].append(e)
+
+                    order_labels = {
+                        1: ("1ST ORDER", "#e8b84b", "Direct market impact — typically 0-24h"),
+                        2: ("2ND ORDER", "#cc7700", "Transmission effects — typically 1-7 days"),
+                        3: ("3RD ORDER", "#884400", "Downstream cascades — typically 1-4 weeks"),
+                        4: ("4TH ORDER", "#442200", "Systemic effects — typically 1-3 months")
+                    }
+
+                    for lvl in sorted(orders.keys()):
+                        label, color, subtitle = order_labels.get(
+                            lvl, (f"ORDER {lvl}", "#444", "")
+                        )
+                        st.markdown(f"""
+                        <div style="font-size:0.62em; color:{color};
+                             text-transform:uppercase; letter-spacing:0.12em;
+                             font-weight:600; margin:16px 0 4px 0;">
+                            {label}
+                            <span style="color:#333; font-weight:400;
+                                 letter-spacing:0.06em; margin-left:8px;">
+                                — {subtitle}
+                            </span>
+                        </div>""", unsafe_allow_html=True)
+
+                        for effect in orders[lvl]:
+                            prob = effect.get("probability_score") or 0
+                            prob_pct = int(prob * 100)
+                            prob_color = (
+                                "#2a9a4a" if prob >= 0.7 else
+                                "#e8b84b" if prob >= 0.5 else
+                                "#666"
+                            )
+                            channel = effect.get("transmission_channel", "")
+                            desc = effect.get("effect_description", "")
+                            horizon = effect.get("time_horizon", "")
+                            assets_list = effect.get("affected_assets", [])
+
+                            # Build asset tags
+                            asset_tags = ""
+                            for a in assets_list[:4]:
+                                t = a.get("ticker", "")
+                                d = a.get("direction", "up")
+                                m = a.get("move", "")
+                                a_color = "#2a9a4a" if d == "up" else "#cc2200"
+                                arrow = "▲" if d == "up" else "▼"
+                                asset_tags += f"""
+                                <span style="display:inline-block; background:#0a0a14;
+                                     border:1px solid {a_color}44; color:{a_color};
+                                     font-size:0.85em; padding:2px 8px;
+                                     border-radius:2px; margin:2px 3px 2px 0;
+                                     font-family:'IBM Plex Mono';">
+                                    {arrow} {t} {m}
+                                </span>"""
+
+                            st.markdown(f"""
+                            <div style="background:#08080e; border:1px solid #1a1a2a;
+                                 border-left:3px solid {color};
+                                 padding:12px 14px; border-radius:2px; margin:6px 0;">
+                                <div style="display:flex; justify-content:space-between;
+                                     align-items:flex-start; margin-bottom:8px;">
+                                    <div style="flex:1;">
+                                        <span style="font-size:0.62em; color:{color};
+                                             text-transform:uppercase; letter-spacing:0.1em;
+                                             font-weight:600;">
+                                            {channel}
+                                        </span>
+                                        <span style="font-size:0.58em; color:#333;
+                                             margin-left:10px; text-transform:uppercase;
+                                             letter-spacing:0.06em;">
+                                            {horizon}
+                                        </span>
+                                    </div>
+                                    <div style="text-align:right; min-width:60px;">
+                                        <div style="font-size:0.9em; font-weight:600;
+                                             color:{prob_color};
+                                             font-family:'IBM Plex Mono';">
+                                            {prob_pct}%
+                                        </div>
+                                        <div style="font-size:0.55em; color:#333;
+                                             text-transform:uppercase;">
+                                            Pattern Prob
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="font-size:0.74em; color:#888;
+                                     line-height:1.5; margin-bottom:10px;">
+                                    {desc}
+                                </div>
+                                <div style="margin-top:6px;">
+                                    {asset_tags}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                    st.markdown("""
+                    <div class="disclaimer" style="margin-top:12px;">
+                    Chain reaction analysis based on historical market patterns only.
+                    Not all chains will materialize. Probability scores reflect
+                    historical frequency, not certainty. Not investment advice.
+                    </div>""", unsafe_allow_html=True)
 
             # Smart Related Prediction Markets
             related = find_related_questions(description, region, questions)

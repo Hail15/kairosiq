@@ -102,6 +102,21 @@ CREATE TABLE IF NOT EXISTS signal_alerts_sent (
     alerted_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 9. Second Order Effects
+-- Chain reaction effects generated for each signal
+CREATE TABLE IF NOT EXISTS second_order_effects (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    signal_id UUID NOT NULL,
+    order_level INTEGER NOT NULL,
+    transmission_channel VARCHAR(100),
+    effect_description TEXT NOT NULL,
+    affected_assets JSONB,
+    time_horizon VARCHAR(20),
+    probability_score FLOAT,
+    historical_accuracy FLOAT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Maps event types and regions to historically correlated assets
 CREATE TABLE IF NOT EXISTS asset_mappings (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
