@@ -9,15 +9,20 @@ import streamlit as st
 import psycopg2
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import json
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import anthropic
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
+from processing.asset_mapper import (
+    calculate_signal_strength,
+    get_best_performer,
+    get_signal_metadata,
+    find_related_questions
+)
 
 # --- Page Config ---
 st.set_page_config(
@@ -32,344 +37,164 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
 
-/* Base */
 html, body, [class*="css"] {
     font-family: 'IBM Plex Mono', monospace;
     background-color: #060608;
     color: #c8c8c8;
 }
-.stApp {
-    background-color: #060608;
-}
-.main .block-container {
-    padding: 1.5rem 2rem;
-    max-width: 1600px;
-}
+.stApp { background-color: #060608; }
+.main .block-container { padding: 1.5rem 2rem; max-width: 1600px; }
 
-/* Sidebar */
 [data-testid="stSidebar"] {
     background-color: #08080c;
     border-right: 1px solid #1a1a24;
 }
-[data-testid="stSidebar"] * {
-    font-family: 'IBM Plex Mono', monospace !important;
-}
+[data-testid="stSidebar"] * { font-family: 'IBM Plex Mono', monospace !important; }
 
-/* Header */
-.kiq-header {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid #1e1e2e;
-    padding-bottom: 12px;
-}
 .kiq-logo {
-    font-size: 1.4em;
-    font-weight: 600;
-    color: #e8b84b;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-}
-.kiq-tagline {
-    font-size: 0.65em;
-    color: #555;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: 1.4em; font-weight: 600; color: #e8b84b;
+    letter-spacing: 0.15em; text-transform: uppercase;
 }
 
-/* Signal Cards */
 .signal-card-high {
-    background: #0c0608;
-    border: 1px solid #3a1010;
-    border-left: 3px solid #cc2200;
-    padding: 14px 16px;
-    border-radius: 2px;
-    margin: 6px 0;
-    position: relative;
+    background: #0c0608; border: 1px solid #3a1010;
+    border-left: 3px solid #cc2200; padding: 14px 16px;
+    border-radius: 2px; margin: 6px 0;
 }
 .signal-card-medium {
-    background: #0c0b06;
-    border: 1px solid #3a2e10;
-    border-left: 3px solid #e8b84b;
-    padding: 14px 16px;
-    border-radius: 2px;
-    margin: 6px 0;
+    background: #0c0b06; border: 1px solid #3a2e10;
+    border-left: 3px solid #e8b84b; padding: 14px 16px;
+    border-radius: 2px; margin: 6px 0;
 }
 .signal-card-low {
-    background: #060c08;
-    border: 1px solid #0e2e18;
-    border-left: 3px solid #1a7a3a;
-    padding: 14px 16px;
-    border-radius: 2px;
-    margin: 6px 0;
+    background: #060c08; border: 1px solid #0e2e18;
+    border-left: 3px solid #1a7a3a; padding: 14px 16px;
+    border-radius: 2px; margin: 6px 0;
 }
 .signal-title {
-    font-size: 0.82em;
-    font-weight: 500;
-    color: #e0e0e0;
-    line-height: 1.4;
-    margin-bottom: 8px;
+    font-size: 0.82em; font-weight: 500; color: #e0e0e0;
+    line-height: 1.4; margin-bottom: 8px;
 }
 .signal-meta {
-    font-size: 0.68em;
-    color: #555;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
+    font-size: 0.68em; color: #555; letter-spacing: 0.05em;
+    text-transform: uppercase; margin-bottom: 6px;
 }
 .signal-prob {
-    font-size: 1.1em;
-    font-weight: 600;
-    color: #e8b84b;
+    font-size: 1.1em; font-weight: 600; color: #e8b84b;
     font-family: 'IBM Plex Mono', monospace;
 }
-.signal-shift-up {
-    color: #cc2200;
-    font-weight: 600;
-}
-.signal-shift-down {
-    color: #1a7a3a;
-    font-weight: 600;
-}
+.signal-shift-up { color: #cc2200; font-weight: 600; }
+.signal-shift-down { color: #1a7a3a; font-weight: 600; }
 
-/* Confidence badges */
 .badge-high {
-    display: inline-block;
-    background: #1a0505;
-    border: 1px solid #cc2200;
-    color: #cc2200;
-    font-size: 0.6em;
-    padding: 2px 6px;
-    border-radius: 1px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-weight: 600;
+    display: inline-block; background: #1a0505;
+    border: 1px solid #cc2200; color: #cc2200;
+    font-size: 0.6em; padding: 2px 6px; border-radius: 1px;
+    letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
 }
 .badge-medium {
-    display: inline-block;
-    background: #1a1505;
-    border: 1px solid #e8b84b;
-    color: #e8b84b;
-    font-size: 0.6em;
-    padding: 2px 6px;
-    border-radius: 1px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-weight: 600;
+    display: inline-block; background: #1a1505;
+    border: 1px solid #e8b84b; color: #e8b84b;
+    font-size: 0.6em; padding: 2px 6px; border-radius: 1px;
+    letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
 }
 .badge-low {
-    display: inline-block;
-    background: #051a0a;
-    border: 1px solid #1a7a3a;
-    color: #1a7a3a;
-    font-size: 0.6em;
-    padding: 2px 6px;
-    border-radius: 1px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-weight: 600;
+    display: inline-block; background: #051a0a;
+    border: 1px solid #1a7a3a; color: #1a7a3a;
+    font-size: 0.6em; padding: 2px 6px; border-radius: 1px;
+    letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
 }
 
-/* Asset rows */
 .asset-row-up {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 10px;
-    background: #06100a;
-    border: 1px solid #0e2a14;
-    border-radius: 2px;
-    margin: 3px 0;
-    font-size: 0.75em;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 10px; background: #06100a; border: 1px solid #0e2a14;
+    border-radius: 2px; margin: 3px 0; font-size: 0.75em;
 }
 .asset-row-down {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 10px;
-    background: #100606;
-    border: 1px solid #2a0e0e;
-    border-radius: 2px;
-    margin: 3px 0;
-    font-size: 0.75em;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 10px; background: #100606; border: 1px solid #2a0e0e;
+    border-radius: 2px; margin: 3px 0; font-size: 0.75em;
 }
-.asset-ticker {
-    font-weight: 600;
-    font-size: 0.9em;
-    color: #e0e0e0;
-    min-width: 50px;
-}
-.asset-name {
-    color: #666;
-    flex: 1;
-    padding: 0 10px;
-    font-size: 0.85em;
-}
+.asset-ticker { font-weight: 600; font-size: 0.9em; color: #e0e0e0; min-width: 50px; }
+.asset-name { color: #666; flex: 1; padding: 0 10px; font-size: 0.85em; }
 .asset-move-up { color: #2a9a4a; font-weight: 600; }
 .asset-move-down { color: #cc2200; font-weight: 600; }
 .asset-acc { color: #777; }
 
-/* Market link */
-.market-link-card {
-    background: #08080e;
-    border: 1px solid #1a1a2a;
-    padding: 10px 14px;
-    border-radius: 2px;
-    margin: 4px 0;
-    font-size: 0.75em;
-}
-
-/* AI summary */
 .ai-summary {
-    background: #080c10;
-    border: 1px solid #0e1e2e;
-    border-left: 2px solid #2a5a8a;
-    padding: 12px 14px;
-    border-radius: 2px;
-    font-size: 0.78em;
-    color: #aab8c8;
-    line-height: 1.6;
-    margin: 8px 0;
+    background: #080c10; border: 1px solid #0e1e2e;
+    border-left: 2px solid #2a5a8a; padding: 12px 14px;
+    border-radius: 2px; font-size: 0.78em; color: #aab8c8;
+    line-height: 1.6; margin: 8px 0;
     font-family: 'IBM Plex Sans', sans-serif;
 }
 
-/* Stat boxes */
 .stat-box {
-    background: #08080c;
-    border: 1px solid #1a1a24;
-    padding: 14px 16px;
-    border-radius: 2px;
-    text-align: center;
+    background: #08080c; border: 1px solid #1a1a24;
+    padding: 14px 16px; border-radius: 2px; text-align: center;
 }
 .stat-value {
-    font-size: 1.6em;
-    font-weight: 600;
-    color: #e8b84b;
-    font-family: 'IBM Plex Mono', monospace;
-    display: block;
+    font-size: 1.6em; font-weight: 600; color: #e8b84b;
+    font-family: 'IBM Plex Mono', monospace; display: block;
 }
 .stat-label {
-    font-size: 0.62em;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    display: block;
-    margin-top: 4px;
+    font-size: 0.62em; color: #555; text-transform: uppercase;
+    letter-spacing: 0.1em; display: block; margin-top: 4px;
 }
 
-/* Alert banner */
 .alert-banner {
-    background: #100404;
-    border: 1px solid #cc2200;
-    padding: 10px 16px;
-    border-radius: 2px;
-    margin-bottom: 12px;
-    font-size: 0.75em;
-    color: #cc2200;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    font-weight: 600;
+    background: #100404; border: 1px solid #cc2200;
+    padding: 10px 16px; border-radius: 2px; margin-bottom: 12px;
+    font-size: 0.75em; color: #cc2200; letter-spacing: 0.05em;
+    text-transform: uppercase; font-weight: 600;
 }
 
-/* Divider */
-.kiq-divider {
-    border: none;
-    border-top: 1px solid #1a1a24;
-    margin: 12px 0;
-}
+.kiq-divider { border: none; border-top: 1px solid #1a1a24; margin: 12px 0; }
 
-/* Disclaimer */
 .disclaimer {
-    font-size: 0.62em;
-    color: #333;
-    letter-spacing: 0.03em;
-    padding: 8px 0;
-    border-top: 1px solid #111;
-    margin-top: 8px;
+    font-size: 0.62em; color: #333; letter-spacing: 0.03em;
+    padding: 8px 0; border-top: 1px solid #111; margin-top: 8px;
 }
 
-/* Tab styling */
 .stTabs [data-baseweb="tab-list"] {
-    background: transparent;
-    border-bottom: 1px solid #1a1a24;
-    gap: 0;
+    background: transparent; border-bottom: 1px solid #1a1a24; gap: 0;
 }
 .stTabs [data-baseweb="tab"] {
-    background: transparent;
-    color: #555;
+    background: transparent; color: #555;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72em;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 8px 20px;
-    border: none;
-    border-bottom: 2px solid transparent;
+    font-size: 0.72em; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 8px 20px; border: none; border-bottom: 2px solid transparent;
 }
 .stTabs [aria-selected="true"] {
-    color: #e8b84b !important;
-    border-bottom: 2px solid #e8b84b !important;
+    color: #e8b84b !important; border-bottom: 2px solid #e8b84b !important;
     background: transparent !important;
 }
 
-/* Metric overrides */
 [data-testid="metric-container"] {
-    background: #08080c;
-    border: 1px solid #1a1a24;
-    padding: 12px;
-    border-radius: 2px;
+    background: #08080c; border: 1px solid #1a1a24;
+    padding: 12px; border-radius: 2px;
 }
 [data-testid="metric-container"] label {
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.65em !important;
-    color: #555 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-size: 0.65em !important; color: #555 !important;
+    text-transform: uppercase; letter-spacing: 0.08em;
 }
 [data-testid="metric-container"] [data-testid="metric-value"] {
     font-family: 'IBM Plex Mono', monospace !important;
-    color: #e8b84b !important;
-    font-size: 1.4em !important;
+    color: #e8b84b !important; font-size: 1.4em !important;
 }
 
-/* Buttons */
 .stButton button {
-    background: transparent;
-    border: 1px solid #333;
-    color: #777;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.7em;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    border-radius: 2px;
-    padding: 6px 14px;
+    background: transparent; border: 1px solid #333; color: #777;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.7em;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    border-radius: 2px; padding: 6px 14px;
 }
-.stButton button:hover {
-    border-color: #e8b84b;
-    color: #e8b84b;
-    background: transparent;
-}
+.stButton button:hover { border-color: #e8b84b; color: #e8b84b; }
 
-/* Dataframe */
-[data-testid="stDataFrame"] {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75em;
-}
-
-/* Form inputs */
-.stSelectbox label, .stTextInput label, .stNumberInput label, .stTextArea label {
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.7em !important;
-    color: #555 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-/* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: #060608; }
 ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #333; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -396,7 +221,6 @@ def generate_signal_summary(event_description, region, prob_before,
         if assets_json:
             assets = (assets_json if isinstance(assets_json, list)
                      else json.loads(assets_json))
-
         asset_text = ""
         for a in assets[:4]:
             asset_text += (
@@ -405,18 +229,15 @@ def generate_signal_summary(event_description, region, prob_before,
                 f"{(a.get('accuracy', 0) or 0)*100:.0f}% accuracy, "
                 f"{a.get('sample_size', 0)} instances\n"
             )
-
         prompt = f"""You are a geopolitical market intelligence analyst.
-Signal detected: {event_description}
+Signal: {event_description}
 Region: {region}
 Probability: {prob_before}% → {prob_after}% ({prob_shift}% shift)
 Historical asset data:
 {asset_text}
-
 Write a 2-3 sentence factual intelligence brief. Be direct and analytical.
 Frame everything as historical data. Never say buy or sell.
 No investment advice. Just intelligence."""
-
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-opus-4-5",
@@ -427,32 +248,32 @@ No investment advice. Just intelligence."""
     except Exception as e:
         return f"Analysis unavailable: {e}"
 
-# --- Market URLs ---
-def get_market_url(platform, platform_id):
-    if platform == "polymarket":
-        return f"https://polymarket.com/event/{platform_id}"
-    elif platform == "kalshi":
-        return f"https://kalshi.com/markets/{platform_id}"
-    elif platform == "metaculus":
-        return f"https://www.metaculus.com/questions/{platform_id}"
-    return None
+# --- Helpers ---
+def safe_float(v, d=1):
+    if v is None: return "—"
+    try: return f"{float(v):.{d}f}"
+    except: return "—"
 
-# --- Related Markets ---
-def find_related_markets(event_description, region, questions):
-    keywords = []
-    desc_lower = (event_description or "").lower()
-    if "iran" in desc_lower: keywords = ["iran", "persian", "nuclear"]
-    elif "russia" in desc_lower or "ukraine" in desc_lower: keywords = ["russia", "ukraine", "nato"]
-    elif "china" in desc_lower or "taiwan" in desc_lower: keywords = ["china", "taiwan", "xi"]
-    elif "israel" in desc_lower or "gaza" in desc_lower: keywords = ["israel", "gaza", "hamas"]
-    elif "oil" in desc_lower or "opec" in desc_lower: keywords = ["oil", "opec", "crude"]
-    elif region: keywords = [region.lower()]
+def time_remaining(expires_at):
+    if not expires_at: return "—"
+    now = datetime.now()
+    if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo:
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+    rem = expires_at - now
+    if rem.total_seconds() < 0: return "EXPIRED"
+    h = int(rem.total_seconds() // 3600)
+    m = int((rem.total_seconds() % 3600) // 60)
+    return f"{h:02d}:{m:02d}"
 
-    related = []
-    for q in questions:
-        if any(kw in (q[2] or "").lower() for kw in keywords):
-            related.append(q)
-    return related[:4]
+def format_assets(assets_json):
+    if not assets_json: return []
+    try:
+        return assets_json if isinstance(assets_json, list) else json.loads(assets_json)
+    except: return []
+
+def conf_badge(c):
+    return f'<span class="badge-{c}">{c}</span>'
 
 # --- Data Fetching ---
 def fetch_active_signals():
@@ -545,33 +366,6 @@ def fetch_outcomes():
     cur.close()
     return rows
 
-# --- Helpers ---
-def safe_float(v, d=1):
-    if v is None: return "—"
-    try: return f"{float(v):.{d}f}"
-    except: return "—"
-
-def time_remaining(expires_at):
-    if not expires_at: return "—"
-    now = datetime.now()
-    if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo:
-        from datetime import timezone
-        now = datetime.now(timezone.utc)
-    rem = expires_at - now
-    if rem.total_seconds() < 0: return "EXPIRED"
-    h = int(rem.total_seconds() // 3600)
-    m = int((rem.total_seconds() % 3600) // 60)
-    return f"{h:02d}:{m:02d}"
-
-def format_assets(assets_json):
-    if not assets_json: return []
-    try:
-        return assets_json if isinstance(assets_json, list) else json.loads(assets_json)
-    except: return []
-
-def conf_badge(c):
-    return f'<span class="badge-{c}">{c}</span>'
-
 # --- Load Data ---
 signals = fetch_active_signals()
 questions = fetch_questions()
@@ -581,10 +375,11 @@ bets = fetch_bets()
 # --- Sidebar ---
 with st.sidebar:
     st.markdown("""
-    <div class="kiq-header">
+    <div style="border-bottom:1px solid #1e1e2e; padding-bottom:12px; margin-bottom:16px;">
         <span class="kiq-logo">⚡ KairosIQ</span>
     </div>
-    <div class="kiq-tagline" style="font-size:0.62em; color:#444; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:16px;">
+    <div style="font-size:0.62em; color:#444; letter-spacing:0.08em;
+         text-transform:uppercase; margin-bottom:16px;">
         Intelligence before the market opens its eyes
     </div>
     """, unsafe_allow_html=True)
@@ -597,7 +392,6 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
-    # Stats
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"""
@@ -614,13 +408,13 @@ with st.sidebar:
 
     st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
-    # Signal breakdown
     h = len([s for s in signals if s[7] == "high"])
     m = len([s for s in signals if s[7] == "medium"])
     l = len([s for s in signals if s[7] == "low"])
 
     st.markdown(f"""
-    <div style="font-size:0.65em; color:#444; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Signal Distribution</div>
+    <div style="font-size:0.65em; color:#444; text-transform:uppercase;
+         letter-spacing:0.08em; margin-bottom:8px;">Signal Distribution</div>
     <div style="display:flex; flex-direction:column; gap:4px;">
         <div style="display:flex; justify-content:space-between; font-size:0.72em;">
             <span style="color:#cc2200;">HIGH</span><span style="color:#888;">{h}</span>
@@ -635,7 +429,6 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
-
     st.markdown(f"""
     <div style="font-size:0.62em; color:#333; text-transform:uppercase; letter-spacing:0.06em;">
         Last updated<br>
@@ -655,13 +448,10 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# --- Main Area ---
+# --- Tabs ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "LIVE SIGNALS",
-    "SIGNAL DETAIL",
-    "BET TRACKER",
-    "TRACK RECORD",
-    "PROBABILITY CHARTS"
+    "LIVE SIGNALS", "SIGNAL DETAIL", "BET TRACKER",
+    "TRACK RECORD", "PROBABILITY CHARTS"
 ])
 
 # ============================================================
@@ -670,7 +460,8 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     if not signals:
         st.markdown("""
-        <div style="padding:40px; text-align:center; color:#333; font-size:0.8em; letter-spacing:0.1em; text-transform:uppercase;">
+        <div style="padding:40px; text-align:center; color:#333; font-size:0.8em;
+             letter-spacing:0.1em; text-transform:uppercase;">
             No active signals. System monitoring prediction markets continuously.
         </div>
         """, unsafe_allow_html=True)
@@ -679,7 +470,6 @@ with tab1:
             sig_id = signal[0]
             description = signal[1] or ""
             region = signal[2] or "Global"
-            category = signal[3] or "—"
             prob_before = signal[4]
             prob_after = signal[5]
             prob_shift = signal[6]
@@ -696,6 +486,7 @@ with tab1:
             shift_class = "signal-shift-up" if pa > pb else "signal-shift-down"
             time_str = signal_time.strftime("%Y-%m-%d %H:%M") if signal_time else "—"
 
+            # Signal header card
             st.markdown(f"""
             <div class="signal-card-{confidence}">
                 <div class="signal-meta">
@@ -715,8 +506,103 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
 
-            # Asset Intelligence
+            # Signal Intelligence Metadata
             if assets:
+                metadata = get_signal_metadata(
+                    assets, prob_shift, confidence, platform
+                )
+                strength = metadata.get("signal_strength", 0)
+                best = metadata.get("best_performer")
+                tier = metadata.get("convergence_tier", 1)
+                tier_label = metadata.get("convergence_label", "SINGLE SOURCE")
+                acc_min = metadata.get("accuracy_range_min", 0)
+                acc_max = metadata.get("accuracy_range_max", 0)
+                time_to_peak = metadata.get("estimated_time_to_peak", "72h")
+
+                tier_colors = {1: "#444", 2: "#e8b84b", 3: "#cc2200"}
+                tier_color = tier_colors.get(tier, "#444")
+
+                # Metadata row
+                st.markdown(f"""
+                <div style="display:flex; gap:10px; align-items:center;
+                     margin:10px 0 8px 0; flex-wrap:wrap;">
+                    <div style="background:#0c0c10; border:1px solid #1a1a24;
+                         padding:8px 14px; border-radius:2px; min-width:110px;">
+                        <div style="font-size:0.58em; color:#444; text-transform:uppercase;
+                             letter-spacing:0.08em; margin-bottom:4px;">Signal Strength</div>
+                        <div style="font-size:1.3em; font-weight:600; color:#e8b84b;">
+                            {strength}<span style="font-size:0.5em; color:#555;">/100</span>
+                        </div>
+                        <div style="background:#111; height:3px; border-radius:1px; margin-top:4px;">
+                            <div style="background:#e8b84b; height:3px;
+                                 width:{strength}%; border-radius:1px;"></div>
+                        </div>
+                    </div>
+                    <div style="background:#0c0c10; border:1px solid {tier_color}33;
+                         padding:8px 14px; border-radius:2px; min-width:140px;">
+                        <div style="font-size:0.58em; color:#444; text-transform:uppercase;
+                             letter-spacing:0.08em; margin-bottom:4px;">Convergence</div>
+                        <div style="font-size:0.78em; font-weight:600; color:{tier_color};">
+                            TIER {tier} — {tier_label}
+                        </div>
+                    </div>
+                    <div style="background:#0c0c10; border:1px solid #1a1a24;
+                         padding:8px 14px; border-radius:2px; min-width:110px;">
+                        <div style="font-size:0.58em; color:#444; text-transform:uppercase;
+                             letter-spacing:0.08em; margin-bottom:4px;">Accuracy Range</div>
+                        <div style="font-size:0.78em; font-weight:600; color:#888;">
+                            {acc_min}% — {acc_max}%
+                        </div>
+                    </div>
+                    <div style="background:#0c0c10; border:1px solid #1a1a24;
+                         padding:8px 14px; border-radius:2px; min-width:110px;">
+                        <div style="font-size:0.58em; color:#444; text-transform:uppercase;
+                             letter-spacing:0.08em; margin-bottom:4px;">Est. Peak Move</div>
+                        <div style="font-size:0.78em; font-weight:600; color:#888;">
+                            {time_to_peak}
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Best performer highlight
+                if best:
+                    move = best.get('avg_move_72h', 0) or 0
+                    acc = (best.get('accuracy', 0) or 0) * 100
+                    samples = best.get('sample_size', 0) or 0
+                    d_color = "#2a9a4a" if best.get('direction') == 'up' else "#cc2200"
+                    d_arrow = "▲" if best.get('direction') == 'up' else "▼"
+                    move_sign = "+" if move > 0 else ""
+
+                    st.markdown(f"""
+                    <div style="background:#08100c; border:1px solid #0e2a18;
+                         border-left:3px solid {d_color}; padding:10px 14px;
+                         border-radius:2px; margin:6px 0;">
+                        <div style="font-size:0.6em; color:#444; text-transform:uppercase;
+                             letter-spacing:0.1em; margin-bottom:6px;">
+                            Strongest Historical Performer
+                        </div>
+                        <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
+                            <span style="font-size:1.1em; font-weight:600; color:#e0e0e0;">
+                                {best.get('ticker','—')}
+                            </span>
+                            <span style="font-size:0.75em; color:#555;">{best.get('name','')}</span>
+                            <span style="font-size:0.9em; font-weight:600;
+                                  color:{d_color}; margin-left:auto;">
+                                {d_arrow} {move_sign}{move:.1f}% avg 72h
+                            </span>
+                            <span style="font-size:0.75em; color:#666;">{acc:.0f}% accuracy</span>
+                            <span style="font-size:0.65em; color:#444;">{samples} instances</span>
+                        </div>
+                        <div style="font-size:0.62em; color:#333; margin-top:6px; line-height:1.5;">
+                            In {samples} historical instances of this signal type,
+                            {best.get('ticker')} showed the strongest and most consistent
+                            historical response. Historical data only — not a recommendation.
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Asset tables
                 up_assets = [a for a in assets if a.get("direction") == "up"]
                 down_assets = [a for a in assets if a.get("direction") == "down"]
 
@@ -725,39 +611,41 @@ with tab1:
                     if up_assets:
                         st.markdown("""
                         <div style="font-size:0.65em; color:#2a9a4a; text-transform:uppercase;
-                             letter-spacing:0.1em; margin:8px 0 4px 0;">
-                            ▲ Historically Up
-                        </div>""", unsafe_allow_html=True)
+                             letter-spacing:0.1em; margin:8px 0 4px 0;">▲ Historically Up</div>
+                        """, unsafe_allow_html=True)
                         for a in up_assets[:4]:
                             move = a.get('avg_move_72h', 0) or 0
                             acc = (a.get('accuracy', 0) or 0) * 100
+                            samples = a.get('sample_size', 0) or 0
                             st.markdown(f"""
                             <div class="asset-row-up">
                                 <span class="asset-ticker">{a.get('ticker','—')}</span>
                                 <span class="asset-name">{a.get('name','')[:28]}</span>
                                 <span class="asset-move-up">+{move:.1f}%</span>
-                                <span class="asset-acc" style="margin-left:8px;">{acc:.0f}%</span>
+                                <span class="asset-acc" style="margin-left:8px;">
+                                    {acc:.0f}% · {samples}x</span>
                             </div>""", unsafe_allow_html=True)
 
                 with col2:
                     if down_assets:
                         st.markdown("""
                         <div style="font-size:0.65em; color:#cc2200; text-transform:uppercase;
-                             letter-spacing:0.1em; margin:8px 0 4px 0;">
-                            ▼ Historically Down
-                        </div>""", unsafe_allow_html=True)
+                             letter-spacing:0.1em; margin:8px 0 4px 0;">▼ Historically Down</div>
+                        """, unsafe_allow_html=True)
                         for a in down_assets[:4]:
                             move = a.get('avg_move_72h', 0) or 0
                             acc = (a.get('accuracy', 0) or 0) * 100
+                            samples = a.get('sample_size', 0) or 0
                             st.markdown(f"""
                             <div class="asset-row-down">
                                 <span class="asset-ticker">{a.get('ticker','—')}</span>
                                 <span class="asset-name">{a.get('name','')[:28]}</span>
                                 <span class="asset-move-down">{move:.1f}%</span>
-                                <span class="asset-acc" style="margin-left:8px;">{acc:.0f}%</span>
+                                <span class="asset-acc" style="margin-left:8px;">
+                                    {acc:.0f}% · {samples}x</span>
                             </div>""", unsafe_allow_html=True)
 
-            # AI Analysis
+            # AI Intelligence Brief
             with st.expander("▸  INTELLIGENCE BRIEF"):
                 with st.spinner("Generating..."):
                     summary = generate_signal_summary(
@@ -771,35 +659,91 @@ with tab1:
                 Historical data analysis only. Not investment advice.
                 </div>""", unsafe_allow_html=True)
 
-            # Related Markets
-            related = find_related_markets(description, region, questions)
+            # Smart Related Prediction Markets
+            related = find_related_questions(description, region, questions)
             if related:
-                with st.expander("▸  RELATED PREDICTION MARKETS"):
-                    for q in related:
-                        q_platform = q[1]
-                        q_text = q[2] or ""
-                        q_prob = q[3]
-                        q_platform_id = q[6] if len(q) > 6 else ""
-                        market_url = get_market_url(q_platform, q_platform_id)
-                        prob_color = ("#cc2200" if (q_prob or 0) > 60
-                                     else "#e8b84b" if (q_prob or 0) > 40
-                                     else "#2a9a4a")
-                        prob_str = f"{q_prob:.1f}%" if q_prob else "—"
+                with st.expander("▸  DIRECTLY RELEVANT PREDICTION MARKETS — CLICK TO BET"):
+                    st.markdown("""
+                    <div style="font-size:0.65em; color:#444; margin-bottom:10px; line-height:1.5;">
+                        These are the specific questions currently trading on prediction markets
+                        most directly related to this signal. Current odds shown. Click to view and bet.
+                    </div>""", unsafe_allow_html=True)
 
-                        if market_url:
+                    for r in related:
+                        r_platform = r["platform"]
+                        q_text = r["question"]
+                        prob = r["probability"]
+                        url = r["url"]
+                        bet_label = r["bet_label"]
+                        keywords = r["keywords_matched"]
+
+                        prob_color = ("#cc2200" if (prob or 0) > 60
+                                     else "#e8b84b" if (prob or 0) > 40
+                                     else "#2a9a4a")
+                        prob_str = f"{prob:.1f}%" if prob else "—"
+                        prob_width = prob or 0
+
+                        platform_colors = {
+                            "polymarket": "#0066ff",
+                            "kalshi": "#00aa66",
+                            "metaculus": "#7744aa"
+                        }
+                        plat_color = platform_colors.get(r_platform, "#444")
+
+                        if url:
                             st.markdown(f"""
-                            <div class="market-link-card">
-                                <span style="color:#444; font-size:0.85em; margin-right:8px;">
-                                    {q_platform.upper()}
-                                </span>
-                                <a href="{market_url}" target="_blank"
-                                   style="color:#7799cc; text-decoration:none;">
-                                    {q_text[:90]}
+                            <div style="background:#08080e; border:1px solid #1a1a2a;
+                                 border-left:3px solid {plat_color};
+                                 padding:12px 14px; border-radius:2px; margin:6px 0;">
+                                <div style="display:flex; justify-content:space-between;
+                                     align-items:flex-start; margin-bottom:8px;">
+                                    <div style="flex:1;">
+                                        <span style="font-size:0.62em; color:{plat_color};
+                                             text-transform:uppercase; letter-spacing:0.1em;
+                                             font-weight:600; margin-right:8px;">
+                                            {r_platform.upper()}
+                                        </span>
+                                        <span style="font-size:0.6em; color:#333;">
+                                            {'  ·  '.join(keywords)}
+                                        </span>
+                                        <div style="font-size:0.78em; color:#c8c8c8;
+                                             margin-top:4px; line-height:1.4;">
+                                            {q_text[:110]}
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right; margin-left:16px; min-width:80px;">
+                                        <div style="font-size:1.3em; font-weight:600;
+                                             color:{prob_color}; font-family:'IBM Plex Mono';">
+                                            {prob_str}
+                                        </div>
+                                        <div style="font-size:0.58em; color:#444;
+                                             text-transform:uppercase; letter-spacing:0.06em;">
+                                            Current Odds
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="background:#111; height:2px; border-radius:1px; margin-bottom:8px;">
+                                    <div style="background:{prob_color}; height:2px;
+                                         width:{prob_width}%; border-radius:1px; opacity:0.6;"></div>
+                                </div>
+                                <a href="{url}" target="_blank"
+                                   style="display:inline-block; background:transparent;
+                                          border:1px solid {plat_color}44; color:{plat_color};
+                                          font-size:0.62em; padding:4px 10px; border-radius:1px;
+                                          text-decoration:none; letter-spacing:0.08em;
+                                          text-transform:uppercase; font-weight:600;">
+                                    ↗ {bet_label}
                                 </a>
-                                <span style="float:right; color:{prob_color}; font-weight:600;">
-                                    {prob_str}
-                                </span>
-                            </div>""", unsafe_allow_html=True)
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                    st.markdown("""
+                    <div class="disclaimer">
+                    KairosIQ does not recommend betting on any market.
+                    These links are for informational purposes only.
+                    Prediction market participation involves risk of loss.
+                    This is not investment advice.
+                    </div>""", unsafe_allow_html=True)
 
             st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
@@ -835,15 +779,12 @@ with tab2:
             st.markdown(f"""
             <div class="ai-summary" style="margin-top:12px; font-size:0.82em;">
                 {selected[1] or '—'}
-            </div>
-            """, unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
 
-            # AI Brief
             st.markdown("""
             <div style="font-size:0.65em; color:#444; text-transform:uppercase;
-                 letter-spacing:0.1em; margin:12px 0 6px 0;">
-                Intelligence Brief
-            </div>""", unsafe_allow_html=True)
+                 letter-spacing:0.1em; margin:12px 0 6px 0;">Intelligence Brief</div>
+            """, unsafe_allow_html=True)
             with st.spinner("Generating..."):
                 summary = generate_signal_summary(
                     selected[1], selected[2], selected[4],
@@ -852,7 +793,7 @@ with tab2:
             st.markdown(f'<div class="ai-summary">{summary}</div>',
                        unsafe_allow_html=True)
 
-            # Probability gauge
+            # Gauge
             fig = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=selected[5] or 0,
@@ -860,14 +801,11 @@ with tab2:
                        "increasing": {"color": "#cc2200"},
                        "decreasing": {"color": "#2a9a4a"}},
                 title={"text": "PROBABILITY (%)",
-                       "font": {"family": "IBM Plex Mono", "size": 11,
-                                "color": "#555"}},
-                number={"font": {"family": "IBM Plex Mono",
-                                 "color": "#e8b84b"}},
+                       "font": {"family": "IBM Plex Mono", "size": 11, "color": "#555"}},
+                number={"font": {"family": "IBM Plex Mono", "color": "#e8b84b"}},
                 gauge={
                     "axis": {"range": [0, 100],
-                             "tickfont": {"family": "IBM Plex Mono",
-                                          "size": 9, "color": "#444"},
+                             "tickfont": {"family": "IBM Plex Mono", "size": 9, "color": "#444"},
                              "tickcolor": "#222"},
                     "bar": {"color": "#e8b84b"},
                     "bgcolor": "#060608",
@@ -885,21 +823,18 @@ with tab2:
                 }
             ))
             fig.update_layout(
-                paper_bgcolor="#060608",
-                font_color="#888",
-                height=260,
-                margin=dict(t=40, b=20, l=20, r=20)
+                paper_bgcolor="#060608", font_color="#888",
+                height=260, margin=dict(t=40, b=20, l=20, r=20)
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # Asset table
             assets = format_assets(selected[9])
             if assets:
                 st.markdown("""
                 <div style="font-size:0.65em; color:#444; text-transform:uppercase;
                      letter-spacing:0.1em; margin:12px 0 6px 0;">
-                    Asset Intelligence — Historical Data Only
-                </div>""", unsafe_allow_html=True)
+                     Asset Intelligence — Historical Data Only</div>
+                """, unsafe_allow_html=True)
                 df = pd.DataFrame(assets)
                 if not df.empty:
                     display_cols = [c for c in ["ticker", "name", "asset_class",
@@ -922,17 +857,14 @@ with tab3:
     st.markdown("""
     <div style="font-size:0.7em; color:#555; margin-bottom:16px; line-height:1.6;">
         Proof of concept bets — $1 to $5 each. Purpose is blockchain-verified
-        track record, not profit. Every bet linked to a timestamped signal.
-    </div>
-    """, unsafe_allow_html=True)
+        track record, not profit.
+    </div>""", unsafe_allow_html=True)
 
     with st.form("bet_form"):
         st.markdown("""
         <div style="font-size:0.65em; color:#444; text-transform:uppercase;
-             letter-spacing:0.1em; margin-bottom:12px;">
-            Log New Bet
-        </div>""", unsafe_allow_html=True)
-
+             letter-spacing:0.1em; margin-bottom:12px;">Log New Bet</div>
+        """, unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
             bet_platform = st.selectbox("Platform", ["Polymarket", "Kalshi"])
@@ -990,7 +922,7 @@ with tab3:
         st.markdown("""
         <div style="padding:24px; text-align:center; color:#333; font-size:0.75em;
              letter-spacing:0.08em; text-transform:uppercase;">
-            No bets logged. Place your first $1 bet on Kalshi or Polymarket.
+            No bets logged yet.
         </div>""", unsafe_allow_html=True)
 
 # ============================================================
@@ -1013,13 +945,11 @@ with tab4:
 
     if all_signals:
         col1, col2 = st.columns(2)
-
         with col1:
             conf_counts = {}
             for s in all_signals:
                 c = s[7] or "unknown"
                 conf_counts[c] = conf_counts.get(c, 0) + 1
-
             fig = go.Figure(go.Pie(
                 labels=list(conf_counts.keys()),
                 values=list(conf_counts.values()),
@@ -1028,14 +958,11 @@ with tab4:
                 textfont=dict(family="IBM Plex Mono", size=10, color="#888")
             ))
             fig.update_layout(
-                title=dict(text="SIGNAL CONFIDENCE", font=dict(
-                    family="IBM Plex Mono", size=10, color="#555")),
-                paper_bgcolor="#060608",
-                font_color="#888",
-                height=280,
+                title=dict(text="SIGNAL CONFIDENCE",
+                           font=dict(family="IBM Plex Mono", size=10, color="#555")),
+                paper_bgcolor="#060608", font_color="#888", height=280,
                 showlegend=True,
-                legend=dict(font=dict(family="IBM Plex Mono",
-                                      size=9, color="#666")),
+                legend=dict(font=dict(family="IBM Plex Mono", size=9, color="#666")),
                 margin=dict(t=40, b=20, l=20, r=20)
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -1045,7 +972,6 @@ with tab4:
             for s in all_signals:
                 p = s[8] or "unknown"
                 plat_counts[p] = plat_counts.get(p, 0) + 1
-
             fig2 = go.Figure(go.Bar(
                 x=list(plat_counts.keys()),
                 y=list(plat_counts.values()),
@@ -1054,23 +980,18 @@ with tab4:
                 marker_line_width=1
             ))
             fig2.update_layout(
-                title=dict(text="SIGNALS BY PLATFORM", font=dict(
-                    family="IBM Plex Mono", size=10, color="#555")),
-                paper_bgcolor="#060608",
-                plot_bgcolor="#060608",
-                font_color="#888",
-                height=280,
-                xaxis=dict(tickfont=dict(family="IBM Plex Mono",
-                                         size=9, color="#555"),
+                title=dict(text="SIGNALS BY PLATFORM",
+                           font=dict(family="IBM Plex Mono", size=10, color="#555")),
+                paper_bgcolor="#060608", plot_bgcolor="#060608",
+                font_color="#888", height=280,
+                xaxis=dict(tickfont=dict(family="IBM Plex Mono", size=9, color="#555"),
                            gridcolor="#111"),
-                yaxis=dict(tickfont=dict(family="IBM Plex Mono",
-                                         size=9, color="#555"),
+                yaxis=dict(tickfont=dict(family="IBM Plex Mono", size=9, color="#555"),
                            gridcolor="#111"),
                 margin=dict(t=40, b=20, l=20, r=20)
             )
             st.plotly_chart(fig2, use_container_width=True)
 
-        # Timeline
         df_sig = pd.DataFrame(all_signals, columns=[
             "id", "description", "region", "category",
             "prob_before", "prob_after", "prob_shift", "confidence",
@@ -1078,7 +999,6 @@ with tab4:
         ])
         df_sig["signal_time"] = pd.to_datetime(df_sig["signal_time"])
         df_sig["short_desc"] = df_sig["description"].str[:50]
-
         fig3 = go.Figure(go.Scatter(
             x=df_sig["signal_time"],
             y=df_sig["prob_shift"],
@@ -1087,26 +1007,20 @@ with tab4:
                 color=df_sig["confidence"].map(
                     {"high": "#cc2200", "medium": "#e8b84b", "low": "#2a9a4a"}
                 ).fillna("#444"),
-                size=8,
-                line=dict(width=1, color="#111")
+                size=8, line=dict(width=1, color="#111")
             ),
             text=df_sig["short_desc"],
             hovertemplate="<b>%{text}</b><br>Shift: %{y:.1f}%<extra></extra>"
         ))
         fig3.update_layout(
-            title=dict(text="SIGNAL STRENGTH OVER TIME", font=dict(
-                family="IBM Plex Mono", size=10, color="#555")),
-            paper_bgcolor="#060608",
-            plot_bgcolor="#060608",
-            font_color="#888",
-            height=280,
-            xaxis=dict(tickfont=dict(family="IBM Plex Mono",
-                                     size=9, color="#444"),
+            title=dict(text="SIGNAL STRENGTH OVER TIME",
+                       font=dict(family="IBM Plex Mono", size=10, color="#555")),
+            paper_bgcolor="#060608", plot_bgcolor="#060608",
+            font_color="#888", height=280,
+            xaxis=dict(tickfont=dict(family="IBM Plex Mono", size=9, color="#444"),
                        gridcolor="#111"),
-            yaxis=dict(tickfont=dict(family="IBM Plex Mono",
-                                     size=9, color="#444"),
-                       gridcolor="#111",
-                       title="Probability Shift (%)"),
+            yaxis=dict(tickfont=dict(family="IBM Plex Mono", size=9, color="#444"),
+                       gridcolor="#111", title="Probability Shift (%)"),
             margin=dict(t=40, b=20, l=40, r=20)
         )
         st.plotly_chart(fig3, use_container_width=True)
@@ -1146,25 +1060,20 @@ with tab5:
             st.markdown("""
             <div style="padding:24px; text-align:center; color:#333; font-size:0.75em;
                  letter-spacing:0.08em; text-transform:uppercase;">
-                Insufficient data. Minimum 2 snapshots required.
-                Check back in 15 minutes.
+                Insufficient data. Minimum 2 snapshots required. Check back in 15 minutes.
             </div>""", unsafe_allow_html=True)
         else:
             times = [h[1] for h in history]
             probs = [h[0] for h in history]
-
             fig = go.Figure()
             fig.add_trace(go.Scatter(
-                x=times, y=probs,
-                mode="lines",
-                name="Probability",
+                x=times, y=probs, mode="lines",
                 line=dict(color="#e8b84b", width=1.5),
                 fill="tozeroy",
                 fillcolor="rgba(232,184,75,0.05)"
             ))
             fig.update_layout(
-                paper_bgcolor="#060608",
-                plot_bgcolor="#060608",
+                paper_bgcolor="#060608", plot_bgcolor="#060608",
                 font=dict(family="IBM Plex Mono", color="#555"),
                 height=360,
                 xaxis=dict(tickfont=dict(size=9, color="#444"),
@@ -1183,8 +1092,7 @@ with tab5:
             col1, col2, col3 = st.columns(3)
             with col1:
                 prob = selected_q[3]
-                st.metric("CURRENT PROBABILITY",
-                         f"{prob:.1f}%" if prob else "—")
+                st.metric("CURRENT PROBABILITY", f"{prob:.1f}%" if prob else "—")
             with col2:
                 st.metric("PLATFORM", selected_q[1].upper())
             with col3:
@@ -1192,13 +1100,22 @@ with tab5:
                 st.metric("RESOLVES", res.strftime("%Y-%m-%d") if res else "—")
 
             platform_id = selected_q[6] if len(selected_q) > 6 else ""
-            url = get_market_url(selected_q[1], platform_id)
-            if url:
-                st.markdown(f"""
-                <div style="margin-top:8px;">
-                    <a href="{url}" target="_blank"
-                       style="color:#7799cc; font-size:0.72em;
-                              text-decoration:none; letter-spacing:0.06em;">
-                        ↗ VIEW ON {selected_q[1].upper()}
-                    </a>
-                </div>""", unsafe_allow_html=True)
+            if platform_id:
+                if selected_q[1] == "polymarket":
+                    url = f"https://polymarket.com/event/{platform_id}"
+                elif selected_q[1] == "kalshi":
+                    url = f"https://kalshi.com/markets/{platform_id}"
+                elif selected_q[1] == "metaculus":
+                    url = f"https://www.metaculus.com/questions/{platform_id}"
+                else:
+                    url = None
+
+                if url:
+                    st.markdown(f"""
+                    <div style="margin-top:8px;">
+                        <a href="{url}" target="_blank"
+                           style="color:#7799cc; font-size:0.72em;
+                                  text-decoration:none; letter-spacing:0.06em;">
+                            ↗ VIEW ON {selected_q[1].upper()}
+                        </a>
+                    </div>""", unsafe_allow_html=True)
