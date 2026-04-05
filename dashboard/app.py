@@ -14,7 +14,6 @@ import sys
 import os
 from datetime import datetime
 import anthropic
-from streamlit_autorefresh import st_autorefresh
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
@@ -33,10 +32,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Auto-refresh every 5 minutes so new signals appear without manual reload
-# Railway writes new signals every 15 min — this keeps dashboard in sync
-st_autorefresh(interval=5 * 60 * 1000, key="kairosiq_autorefresh")
 # --- Custom CSS ---
 st.markdown("""
 <style>

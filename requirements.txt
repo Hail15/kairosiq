@@ -17,4 +17,3 @@ apscheduler==3.10.4
 fastapi>=0.109.2
 uvicorn>=0.27.1
 pillow>=10.0.0
-streamlit-autorefresh>=1.0.1
