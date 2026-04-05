@@ -21,46 +21,46 @@ from config import settings
 # ============================================================
 GEOPOLITICAL_EVENT_TICKERS = [
     # Leadership / Political transitions
-    "KXXISUCCESSOR-45JAN01",      # Xi Jinping successor
-    "KXNEXTISRAELPM-45JAN01",     # Next PM of Israel
-    "KXG7LEADEROUT-45JAN01",      # Which G7 leader leaves next
-    "KXNEXTUKPM-30",              # Next UK Prime Minister
-    "KXAFRICALEADEROUT-35",       # African leaders leaving office
-    "KXNEXTSPEAKER-31",           # Next Speaker of the House
-    "KXFULLTERMSKPRES-29",        # South Korean President
-    "KXUKPARTY-29",               # UK general election party
+    "KXXISUCCESSOR-45JAN01",
+    "KXNEXTISRAELPM-45JAN01",
+    "KXG7LEADEROUT-45JAN01",
+    "KXNEXTUKPM-30",
+    "KXAFRICALEADEROUT-35",
+    "KXNEXTSPEAKER-31",
+    "KXFULLTERMSKPRES-29",
+    "KXUKPARTY-29",
     # Taiwan / China
-    "KXTAIWANLVL4",               # US Level 4 travel advisory Taiwan
-    "CHINAUSGDP",                 # China overtakes US GDP
+    "KXTAIWANLVL4",
+    "CHINAUSGDP",
     # EU / Europe
-    "KXEUREF-30",                 # EU referendum
-    "KXEUEXITCOUNTRY-30",         # Countries leaving EU
-    "EUEXPANSION",                # EU gains member
-    "EUEXIT",                     # EU loses member
-    "KXBRUVSEAT-35",              # UK far right party
-    "KXALBERTAREFYES-29",         # Alberta secession
+    "KXEUREF-30",
+    "KXEUEXITCOUNTRY-30",
+    "EUEXPANSION",
+    "EUEXIT",
+    "KXBRUVSEAT-35",
+    "KXALBERTAREFYES-29",
     # US Policy / Economy
-    "KXBALANCE-29",               # Trump balance budget
-    "KXGDPSHAREMANU-29",          # Trump manufacturing
-    "KXGOVTCUTS-28",              # Government spending cuts
-    "KXDEBTGROWTH-28DEC31",       # US national debt
-    "KXEOTRUMPTERM-29JAN20",      # Trump executive orders
-    "KXECCOMPACT-30",             # Electoral compact
-    "KXU3MAX-30",                 # Unemployment
-    # Climate / Energy geopolitical
-    "KXWARMING-50",               # Global warming 2 degrees
-    "KXDATACENTER-30",            # Nuclear data center
-    "KXCO2LEVEL-30",              # CO2 levels
-    "EUCLIMATE",                  # EU climate goals
-    "INDIACLIMATE-30",            # India climate goals
-    "USCLIMATE",                  # US climate goals
-    "KXPRIMEENGCONSUMPTION-30",   # Primary energy source 2030
+    "KXBALANCE-29",
+    "KXGDPSHAREMANU-29",
+    "KXGOVTCUTS-28",
+    "KXDEBTGROWTH-28DEC31",
+    "KXEOTRUMPTERM-29JAN20",
+    "KXECCOMPACT-30",
+    "KXU3MAX-30",
+    # Climate / Energy
+    "KXWARMING-50",
+    "KXDATACENTER-30",
+    "KXCO2LEVEL-30",
+    "EUCLIMATE",
+    "INDIACLIMATE-30",
+    "USCLIMATE",
+    "KXPRIMEENGCONSUMPTION-30",
     # Tech / Economy policy
-    "KXOAIANTH-40",               # OpenAI or Anthropic IPO
-    "KXUSTAKEOVER-30",            # US government AI takeover
-    "KXJPMCEONEW",                # JPMorgan CEO succession
-    "AMAZONFTC-29DEC31",          # Amazon monopoly
-    "APPLEUS",                    # Apple monopoly
+    "KXOAIANTH-40",
+    "KXUSTAKEOVER-30",
+    "KXJPMCEONEW",
+    "AMAZONFTC-29DEC31",
+    "APPLEUS",
 ]
 
 def get_db_connection():
@@ -101,7 +101,6 @@ def get_auth_headers(method, path):
         return None
 
 def fetch_markets_for_event(event_ticker, headers):
-    """Fetch all markets under a specific event ticker."""
     path = "/trade-api/v2/markets"
     url = f"https://api.elections.kalshi.com{path}"
     try:
@@ -123,7 +122,6 @@ def fetch_markets_for_event(event_ticker, headers):
 
 def fetch_kalshi_markets():
     print("📡 Fetching Kalshi geopolitical markets via events API...")
-
     path = "/trade-api/v2/markets"
     headers = get_auth_headers("GET", path)
     if not headers:
@@ -139,7 +137,7 @@ def fetch_kalshi_markets():
             found_events += 1
             all_markets.extend(markets)
 
-    # Deduplicate by ticker
+    # Deduplicate
     seen = set()
     unique = []
     for m in all_markets:
@@ -152,9 +150,8 @@ def fetch_kalshi_markets():
     return unique
 
 def is_clean(question_text):
-    """Final safety check — block any sports that slipped through."""
+    """Final safety — block any sports that slipped through."""
     text = question_text.lower().strip()
-    # Block sports parlay patterns
     if text.startswith("yes "):
         return False
     if text.startswith("no "):
@@ -172,14 +169,34 @@ def is_clean(question_text):
     return True
 
 def extract_probability(market):
+    """
+    Kalshi returns prices in cents (0-100).
+    Try multiple fields in order of reliability.
+    """
     try:
-        yes_bid = market.get("yes_bid", 0)
-        yes_ask = market.get("yes_ask", 0)
-        if yes_bid and yes_ask:
-            return round((yes_bid + yes_ask) / 2, 2)
-        last_price = market.get("last_price", None)
-        if last_price is not None:
+        # Try last_price first — most reliable
+        last_price = market.get("last_price")
+        if last_price is not None and last_price > 0:
+            # last_price is in cents (1-99)
             return round(float(last_price), 2)
+
+        # Try yes_bid and yes_ask midpoint
+        yes_bid = market.get("yes_bid", 0) or 0
+        yes_ask = market.get("yes_ask", 0) or 0
+        if yes_bid > 0 and yes_ask > 0:
+            return round((yes_bid + yes_ask) / 2, 2)
+        if yes_ask > 0:
+            return round(float(yes_ask), 2)
+        if yes_bid > 0:
+            return round(float(yes_bid), 2)
+
+        # Try no_bid/no_ask to derive yes probability
+        no_bid = market.get("no_bid", 0) or 0
+        no_ask = market.get("no_ask", 0) or 0
+        if no_bid > 0 and no_ask > 0:
+            no_mid = (no_bid + no_ask) / 2
+            return round(100 - no_mid, 2)
+
         return None
     except (ValueError, TypeError):
         return None

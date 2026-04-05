@@ -12,109 +12,100 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
 # ============================================================
-# ABSOLUTE SPORTS BLOCK — No sports ever
+# OLD YEARS — block resolved questions
 # ============================================================
-SPORTS_BLACKLIST = [
-    # Leagues and organizations
-    "nba", "nfl", "mlb", "nhl", "ncaa", "ncaab", "ncaaf", "ncaaw",
-    "mls", "nba2k", "ufc", "mma", "pga", "lpga", "atp", "wta",
-    "fifa", "uefa", "epl", "premier league", "la liga", "bundesliga",
-    "serie a", "ligue 1", "champions league", "europa league",
-    "super bowl", "world series", "stanley cup", "march madness",
-    "nba finals", "nfl draft", "mlb draft", "nhl draft",
-    # Sports types
-    "basketball", "football", "baseball", "hockey", "soccer",
-    "tennis", "golf", "boxing", "wrestling", "esports", "gaming",
-    "cricket", "rugby", "volleyball", "swimming", "athletics",
-    "gymnastics", "cycling", "formula 1", "f1 race", "nascar",
-    "horse racing", "derby", "kentucky derby",
-    # Game terminology
-    "rebounds", "assists", "touchdowns", "home runs", "strikeouts",
-    "pitching", "batting", "rushing yards", "passing yards",
-    "field goals", "free throws", "three pointers", "slam dunk",
-    "hat trick", "power play", "penalty kick", "red card",
-    "yellow card", "offside", "corner kick", "free kick",
-    "birdie", "eagle", "bogey", "par", "ace", "hole in one",
-    "knockout", "submission", "round 1", "round 2", "round 3",
-    "moneyline", "spread", "over/under", "player props",
-    "game time", "box score", "first half", "second half",
-    "overtime", "shootout", "penalty shootout",
-    # Team names
-    "lakers", "celtics", "warriors", "bulls", "heat", "nets",
-    "knicks", "sixers", "bucks", "suns", "nuggets", "clippers",
-    "spurs", "mavericks", "rockets", "jazz", "thunder", "blazers",
-    "yankees", "red sox", "dodgers", "cubs", "mets", "astros",
-    "giants", "cardinals", "braves", "phillies", "padres",
-    "patriots", "chiefs", "cowboys", "49ers", "packers", "steelers",
-    "ravens", "bills", "bengals", "rams", "broncos", "seahawks",
-    "maple leafs", "canadiens", "bruins", "rangers", "penguins",
-    "blackhawks", "oilers", "flames", "canucks", "avalanche",
-    "jayhawks", "wildcats", "bulldogs", "hoosiers", "longhorns",
-    "crimson tide", "wolverines", "buckeyes", "tar heels",
-    # Tournament/event names
-    "wimbledon", "us open", "french open", "australian open",
-    "masters", "ryder cup", "olympics", "world cup",
-    "champions league final", "copa america",
-    # Game format identifiers
-    " vs. ", " vs ", "game 1", "game 2", "game 3", "game 4",
-    "game 5", "game 6", "game 7", "series tied", "series lead",
-    # Platform specific
-    "kxmv", "kxsport", "kxnba", "kxnfl", "kxmlb", "kxnhl",
+OLD_YEARS = [
+    "2022", "2023", "june 30, 2022", "july 2022",
+    "march 2023", "june 2023", "jan 2023", "feb 2023",
+    "2023?", "2022?", "by june 30", "by march 2023",
 ]
 
 # ============================================================
-# GEOPOLITICAL KEYWORDS — Must have at least one
+# WHITELIST — Question MUST contain one of these
 # ============================================================
-GEOPOLITICAL_KEYWORDS = [
+REQUIRED_KEYWORDS = [
+    # Countries
+    "iran", "russia", "ukraine", "china", "taiwan", "israel",
+    "gaza", "hamas", "hezbollah", "north korea", "dprk",
+    "venezuela", "syria", "lebanon", "saudi arabia", "pakistan",
+    "afghanistan", "ethiopia", "sudan", "myanmar", "belarus",
+    "turkey", "iraq", "libya", "yemen", "somalia", "cuba",
+    "nicaragua", "haiti", "niger", "mali",
+    # US Politics / Policy
+    "trump", "congress", "senate", "federal reserve", "fed chair",
+    "attorney general", "supreme court", "government shutdown",
+    "dhs", "debt ceiling", "tariff", "trade war", "sanction",
+    "embargo", "nato", "executive order", "impeach",
+    "secretary of state", "secretary of defense",
     # Conflict
-    "war", "military", "conflict", "nuclear", "missile",
-    "invasion", "ceasefire", "coup", "crisis", "treaty",
-    "escalation", "attack", "airstrike", "bombing", "shelling",
-    "troops", "soldiers", "army", "navy", "air force",
-    "weapons", "ammunition", "drone strike", "artillery",
-    "insurgency", "terrorism", "terrorist", "jihadist",
-    # Geopolitical
-    "sanction", "embargo", "tariff", "trade war", "trade deal",
-    "nato", "un security council", "g7", "g20", "eu",
-    "sovereignty", "territorial", "annexation", "occupation",
-    "diplomat", "diplomacy", "ambassador", "summit",
-    "geopolit", "alliance", "treaty", "accord", "agreement",
-    # Energy and commodities
-    "opec", "oil price", "crude oil", "natural gas", "lng",
-    "energy crisis", "pipeline", "oil embargo", "oil supply",
-    # Countries/regions of interest
-    "iran", "russia", "ukraine", "china", "taiwan",
-    "israel", "gaza", "hamas", "hezbollah", "west bank",
-    "north korea", "dprk", "venezuela", "syria", "lebanon",
-    "saudi arabia", "pakistan", "india", "afghanistan",
-    "ethiopia", "sudan", "myanmar", "belarus",
-    # Political
-    "president", "prime minister", "chancellor", "government",
-    "parliament", "congress", "senate", "election",
-    "referendum", "regime", "authoritarian", "democracy",
-    "coup", "revolution", "protest", "civil war",
-    "federal reserve", "interest rate", "inflation",
-    "recession", "gdp", "central bank", "monetary policy",
+    "war", "invasion", "ceasefire", "nuclear", "missile",
+    "airstrike", "troops", "military conflict", "coup",
+    "civil war", "terrorism", "drone strike",
+    # Economy / macro
+    "interest rate", "inflation rate", "recession", "gdp",
+    "federal reserve rate", "fed funds",
+    # Energy geopolitical
+    "opec", "oil price", "oil embargo", "gas pipeline",
+    # Diplomacy
+    "diplomat", "sovereignty", "annexation", "geopolit",
+    # Political transitions
+    "prime minister", "president elected", "chancellor",
+    "election", "referendum", "government collapse",
+    "regime", "parliament",
+]
+
+# ============================================================
+# SPORTS BLACKLIST — block all sports ever
+# ============================================================
+SPORTS_BLACKLIST = [
+    "nba", "nfl", "mlb", "nhl", "ncaa", "ncaab", "ncaaf",
+    "mls", "ufc", "mma", "pga", "lpga", "atp", "wta",
+    "fifa", "uefa", "epl", "premier league", "la liga",
+    "bundesliga", "serie a", "ligue 1", "champions league",
+    "super bowl", "world series", "stanley cup", "march madness",
+    "basketball", "football", "baseball", "hockey", "soccer",
+    "tennis", "golf", "boxing", "wrestling", "esports", "cricket",
+    "rugby", "volleyball", "formula 1", "nascar", "horse racing",
+    "rebounds", "assists", "touchdowns", "home runs", "strikeouts",
+    "pitching", "batting", "rushing yards", "passing yards",
+    "field goals", "free throws", "three pointers",
+    "hat trick", "power play", "penalty kick",
+    "birdie", "eagle", "bogey", "par",
+    "knockout", "submission",
+    "moneyline", "spread", "over/under", "player props",
+    "game time", "box score", "first half", "second half",
+    "lakers", "celtics", "warriors", "bulls", "heat", "nets",
+    "knicks", "sixers", "bucks", "suns", "nuggets", "clippers",
+    "yankees", "red sox", "dodgers", "cubs", "astros",
+    "patriots", "chiefs", "cowboys", "49ers", "packers",
+    "maple leafs", "canadiens", "bruins", "rangers", "penguins",
+    "jayhawks", "wildcats", "bulldogs", "hoosiers",
+    "wimbledon", "us open", "french open", "australian open",
+    "masters", "ryder cup", "olympics", "world cup",
+    " vs. ", "game 1", "game 2", "game 3", "game 4",
+    "game 5", "game 6", "game 7",
+    "kxmv", "kxsport", "kxnba", "kxnfl", "kxmlb", "kxnhl",
+    "sotu", "sbf", "eurovision", "[single market]",
 ]
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
 
 def is_geopolitical(question_text):
-    """
-    Returns True only if:
-    1. No sports keywords found
-    2. At least one geopolitical keyword found
-    """
     text_lower = question_text.lower()
 
-    # Hard block on any sports content
+    # Block old resolved questions
+    for year in OLD_YEARS:
+        if year in text_lower:
+            return False
+
+    # Block sports
     for sport in SPORTS_BLACKLIST:
         if sport in text_lower:
             return False
 
-    # Must have geopolitical content
-    return any(keyword in text_lower for keyword in GEOPOLITICAL_KEYWORDS)
+    # Must have explicit geopolitical keyword
+    return any(keyword in text_lower for keyword in REQUIRED_KEYWORDS)
 
 def fetch_polymarket_markets():
     print("📡 Fetching Polymarket markets...")
