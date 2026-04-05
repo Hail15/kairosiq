@@ -16,11 +16,26 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
 GEOPOLITICAL_KEYWORDS = [
-    "war", "military", "conflict", "sanctions", "election", "nuclear",
-    "missile", "invasion", "ceasefire", "coup", "protest", "crisis",
-    "treaty", "diplomacy", "escalation", "attack", "strike", "tension",
-    "trade", "tariff", "embargo", "nato", "opec", "oil", "troops",
-    "president", "government", "congress", "federal", "policy"
+    "war", "military", "conflict", "nuclear", "missile",
+    "invasion", "ceasefire", "coup", "crisis", "treaty",
+    "escalation", "attack", "strike", "sanction", "embargo",
+    "nato", "opec", "oil price", "crude", "troops",
+    "federal reserve", "fed rate", "interest rate", "inflation",
+    "recession", "gdp", "trade war", "tariff",
+    "iran", "russia", "ukraine", "china", "taiwan", "israel",
+    "gaza", "hamas", "hezbollah", "north korea", "venezuela",
+    "election", "president", "prime minister", "government",
+    "congress", "senate", "supreme court", "policy"
+]
+
+SPORTS_KEYWORDS = [
+    "nba", "nfl", "mlb", "nhl", "soccer", "football", "basketball",
+    "baseball", "hockey", "tennis", "golf", "ufc", "mma",
+    "player", "points", "rebounds", "assists", "touchdown", "homerun",
+    "pitcher", "quarterback", "mvp", "championship", "playoffs",
+    "kxmv", "schwarber", "tatum", "durant", "lebron", "curry",
+    "lakers", "celtics", "yankees", "dodgers", "warriors",
+    "maple leafs", "oilers", "thunder", "knicks"
 ]
 
 def get_db_connection():
@@ -28,12 +43,13 @@ def get_db_connection():
 
 def is_geopolitical(question_text):
     text_lower = question_text.lower()
+    # Block sports first
+    if any(sport in text_lower for sport in SPORTS_KEYWORDS):
+        return False
+    # Then check for geopolitical keywords
     return any(keyword in text_lower for keyword in GEOPOLITICAL_KEYWORDS)
 
 def get_auth_headers(method, path):
-    """
-    Generate Kalshi authentication headers using RSA-SHA256 signing.
-    """
     timestamp_ms = int(datetime.datetime.now().timestamp() * 1000)
     timestamp_str = str(timestamp_ms)
     message = f"{timestamp_str}{method}{path}"
@@ -43,12 +59,9 @@ def get_auth_headers(method, path):
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "kalshi_private_key.pem"
         )
-
         with open(key_path, "rb") as f:
             private_key = serialization.load_pem_private_key(
-                f.read(),
-                password=None,
-                backend=default_backend()
+                f.read(), password=None, backend=default_backend()
             )
 
         signature = private_key.sign(
@@ -59,7 +72,6 @@ def get_auth_headers(method, path):
             ),
             hashes.SHA256()
         )
-
         signature_b64 = base64.b64encode(signature).decode("utf-8")
 
         return {
@@ -75,30 +87,19 @@ def get_auth_headers(method, path):
         return None
 
 def fetch_kalshi_markets():
-    """
-    Fetch active markets from Kalshi's live API with proper authentication.
-    """
     print("📡 Fetching Kalshi markets...")
 
     path = "/trade-api/v2/markets"
     url = f"https://api.elections.kalshi.com{path}"
-    params = {
-        "status": "open",
-        "limit": 100
-    }
+    params = {"status": "open", "limit": 100}
 
     headers = get_auth_headers("GET", path)
     if not headers:
-        print("❌ Could not generate auth headers. Check your Kalshi keys.")
+        print("❌ Could not generate auth headers.")
         return []
 
     try:
-        response = requests.get(
-            url,
-            params=params,
-            headers=headers,
-            timeout=30
-        )
+        response = requests.get(url, params=params, headers=headers, timeout=30)
         response.raise_for_status()
         data = response.json()
         markets = data.get("markets", [])
@@ -113,8 +114,7 @@ def extract_probability(market):
         yes_bid = market.get("yes_bid", 0)
         yes_ask = market.get("yes_ask", 0)
         if yes_bid and yes_ask:
-            midpoint = (yes_bid + yes_ask) / 2
-            return round(midpoint, 2)
+            return round((yes_bid + yes_ask) / 2, 2)
         last_price = market.get("last_price", None)
         if last_price is not None:
             return round(float(last_price), 2)
@@ -142,14 +142,8 @@ def save_question(cur, market):
             updated_at = NOW()
         RETURNING id;
     """, (
-        "kalshi",
-        platform_id,
-        question_text,
-        "geopolitical",
-        "global",
-        probability,
-        True,
-        resolution_date
+        "kalshi", platform_id, question_text,
+        "geopolitical", "global", probability, True, resolution_date
     ))
 
     row = cur.fetchone()
