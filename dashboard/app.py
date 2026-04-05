@@ -23,6 +23,7 @@ from processing.asset_mapper import (
     get_signal_metadata,
     find_related_questions
 )
+from bets.bet_recommender import generate_bet_recommendations
 
 # --- Page Config ---
 st.set_page_config(
@@ -251,7 +252,31 @@ Rules:
     except Exception as e:
         return f"Analysis unavailable: {e}"
 
-# --- Helpers ---
+@st.cache_data(ttl=1800)
+def get_bet_recommendations(signal_id, event_description, region,
+                             event_category, prob_shift, confidence_score,
+                             assets_json, source_platform):
+    """
+    Cached wrapper for bet recommendations.
+    Refreshes every 30 minutes so new Kalshi questions get picked up.
+    """
+    try:
+        assets = []
+        if assets_json:
+            assets = (assets_json if isinstance(assets_json, list)
+                     else json.loads(assets_json))
+        return generate_bet_recommendations(
+            signal_id=signal_id,
+            event_description=event_description,
+            region=region,
+            event_category=event_category,
+            prob_shift=prob_shift,
+            confidence_score=confidence_score,
+            assets=assets,
+            source_platform=source_platform
+        )
+    except Exception as e:
+        return {"recommendations": [], "disclaimer": "Historical data analysis only. Not investment advice."}
 def safe_float(v, d=1):
     if v is None: return "—"
     try: return f"{float(v):.{d}f}"
@@ -769,10 +794,116 @@ with tab1:
                     This is not investment advice.
                     </div>""", unsafe_allow_html=True)
 
-            st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+            # Bet Recommendation Engine — only for high confidence signals
+            if confidence in ["high", "medium"] and event_category:
+                with st.expander("▸  HISTORICAL PATTERN ANALYSIS — RELATED MARKETS"):
+                    st.markdown(f"""
+                    <div style="font-size:0.65em; color:#555; margin-bottom:12px;
+                         line-height:1.6; border:1px solid #1a1a2a; padding:10px 12px;
+                         border-radius:2px; border-left:3px solid #333;">
+                        ⚠️ <strong style="color:#666;">LEGAL NOTICE:</strong>
+                        KairosIQ is not a registered investment advisor, broker-dealer,
+                        or CFTC-regulated entity. The analysis below is historical pattern
+                        matching only — it is not a recommendation, signal, or solicitation
+                        to participate in any prediction market or financial instrument.
+                        All decisions are made solely by the user at their own risk.
+                        Past patterns do not guarantee future results.
+                    </div>""", unsafe_allow_html=True)
 
-# ============================================================
-# TAB 2 — SIGNAL DETAIL
+                    with st.spinner("Analyzing historical patterns..."):
+                        recs = get_bet_recommendations(
+                            signal_id=str(sig_id),
+                            event_description=description,
+                            region=region,
+                            event_category=event_category,
+                            prob_shift=prob_shift,
+                            confidence_score=confidence,
+                            assets_json=assets_json,
+                            source_platform=source_platform
+                        )
+
+                    recommendations = recs.get("recommendations", [])
+
+                    if not recommendations:
+                        st.markdown("""
+                        <div style="font-size:0.72em; color:#444; padding:8px 0;">
+                            No strong historical pattern match found for active Kalshi questions.
+                        </div>""", unsafe_allow_html=True)
+                    else:
+                        for rec in recommendations:
+                            pattern = rec.get("historical_pattern", "—")
+                            pattern_color = "#2a9a4a" if pattern == "YES" else "#cc2200"
+                            rec_confidence = rec.get("pattern_confidence", "medium")
+                            conf_color = {"high": "#e8b84b", "medium": "#888", "low": "#444"}.get(rec_confidence, "#888")
+                            q_text = rec.get("question_text", "")
+                            url = rec.get("url", "")
+                            current_prob = rec.get("current_probability")
+                            prob_str = f"{current_prob:.1f}%" if current_prob else "—"
+                            edge = rec.get("historical_edge", "")
+                            risk = rec.get("key_risk", "")
+                            reasoning = rec.get("reasoning", "")
+
+                            st.markdown(f"""
+                            <div style="background:#08080e; border:1px solid #1a1a2a;
+                                 border-left:3px solid {pattern_color};
+                                 padding:14px 16px; border-radius:2px; margin:8px 0;">
+                                <div style="display:flex; justify-content:space-between;
+                                     align-items:flex-start; margin-bottom:10px;">
+                                    <div style="flex:1;">
+                                        <span style="font-size:0.62em; color:{pattern_color};
+                                             text-transform:uppercase; letter-spacing:0.1em;
+                                             font-weight:600; margin-right:10px;">
+                                            HISTORICAL PATTERN: {pattern}
+                                        </span>
+                                        <span style="font-size:0.58em; color:{conf_color};
+                                             text-transform:uppercase; letter-spacing:0.08em;">
+                                            {rec_confidence} pattern strength
+                                        </span>
+                                        <div style="font-size:0.78em; color:#c8c8c8;
+                                             margin-top:6px; line-height:1.4;">
+                                            {q_text[:120]}
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right; margin-left:16px; min-width:80px;">
+                                        <div style="font-size:1.1em; font-weight:600;
+                                             color:#888; font-family:'IBM Plex Mono';">
+                                            {prob_str}
+                                        </div>
+                                        <div style="font-size:0.56em; color:#444;
+                                             text-transform:uppercase; letter-spacing:0.06em;">
+                                            Current Odds
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="font-size:0.7em; color:#666;
+                                     line-height:1.5; margin-bottom:8px;">
+                                    <span style="color:#444; text-transform:uppercase;
+                                          font-size:0.85em; letter-spacing:0.06em;">
+                                        Historical Pattern:
+                                    </span> {edge}
+                                </div>
+                                <div style="font-size:0.7em; color:#666;
+                                     line-height:1.5; margin-bottom:8px;">
+                                    <span style="color:#cc220066; text-transform:uppercase;
+                                          font-size:0.85em; letter-spacing:0.06em;">
+                                        Pattern Risk:
+                                    </span> {risk}
+                                </div>
+                                <div style="font-size:0.68em; color:#555;
+                                     line-height:1.5; margin-bottom:10px;
+                                     border-top:1px solid #111; padding-top:8px;">
+                                    {reasoning}
+                                </div>
+                                {f'<a href="{url}" target="_blank" style="display:inline-block; background:transparent; border:1px solid #33333366; color:#666; font-size:0.62em; padding:4px 10px; border-radius:1px; text-decoration:none; letter-spacing:0.08em; text-transform:uppercase; font-weight:600;">↗ VIEW QUESTION ON KALSHI</a>' if url else ''}
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                    st.markdown(f"""
+                    <div class="disclaimer" style="margin-top:12px;">
+                    {recs.get('disclaimer', 'Historical data analysis only. Not investment advice.')}
+                    </div>""", unsafe_allow_html=True)
+
+            st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 # ============================================================
 with tab2:
     if not all_signals:
