@@ -151,15 +151,6 @@ def save_question(cur, market):
     if not platform_id or not question_text:
         return None
 
-    # Skip already resolved questions
-    if end_date:
-        try:
-            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-            if end_dt.replace(tzinfo=None) < datetime.now():
-                return None
-        except Exception:
-            pass
-
     cur.execute("""
         INSERT INTO prediction_questions
             (platform, platform_id, question_text, category, region,
