@@ -14,6 +14,7 @@ import sys
 import os
 from datetime import datetime
 import anthropic
+from streamlit_autorefresh import st_autorefresh
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
@@ -33,6 +34,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Auto-refresh every 5 minutes so new signals appear without manual reload
+# Railway writes new signals every 15 min — this keeps dashboard in sync
+st_autorefresh(interval=5 * 60 * 1000, key="kairosiq_autorefresh")
 # --- Custom CSS ---
 st.markdown("""
 <style>
@@ -311,7 +315,7 @@ def fetch_active_signals():
         SELECT id, event_description, region, event_category,
                probability_before, probability_after, probability_shift,
                confidence_score, source_platform, affected_assets,
-               signal_time, expires_at, source_question_id
+               signal_time, expires_at, source_question_id, ai_brief
         FROM signals
         WHERE is_active = true AND expires_at > NOW()
         ORDER BY
@@ -330,7 +334,7 @@ def fetch_all_signals():
         SELECT id, event_description, region, event_category,
                probability_before, probability_after, probability_shift,
                confidence_score, source_platform, affected_assets,
-               signal_time, expires_at, is_active
+               signal_time, expires_at, is_active, ai_brief
         FROM signals ORDER BY signal_time DESC LIMIT 100;
     """)
     rows = cur.fetchall()
@@ -508,6 +512,7 @@ with tab1:
             assets_json = signal[9]
             signal_time = signal[10]
             expires_at = signal[11]
+            ai_brief = signal[13] if len(signal) > 13 else None
 
             assets = format_assets(assets_json)
             pb = prob_before or 0
@@ -667,15 +672,19 @@ with tab1:
                                     {acc:.0f}% · {samples}x</span>
                             </div>""", unsafe_allow_html=True)
 
-            # AI Brief
+            # AI Brief — reads from DB first, only calls Claude if not stored
             with st.expander("▸  INTELLIGENCE BRIEF"):
-                with st.spinner("Generating..."):
-                    summary = generate_signal_summary(
-                        description, region, prob_before,
-                        prob_after, prob_shift, assets_json
-                    )
-                st.markdown(f'<div class="ai-summary">{summary}</div>',
-                           unsafe_allow_html=True)
+                if ai_brief:
+                    st.markdown(f'<div class="ai-summary">{ai_brief}</div>',
+                               unsafe_allow_html=True)
+                else:
+                    with st.spinner("Generating..."):
+                        summary = generate_signal_summary(
+                            description, region, prob_before,
+                            prob_after, prob_shift, assets_json
+                        )
+                    st.markdown(f'<div class="ai-summary">{summary}</div>',
+                               unsafe_allow_html=True)
                 st.markdown("""
                 <div class="disclaimer">
                 Historical data analysis only. Not investment advice.
@@ -799,18 +808,8 @@ with tab1:
             # Bet Recommendation Engine — only for high confidence signals
             if confidence in ["high", "medium"] and event_category:
                 with st.expander("▸  HISTORICAL PATTERN ANALYSIS — RELATED MARKETS"):
-                    st.markdown(f"""
-                    <div style="font-size:0.65em; color:#555; margin-bottom:12px;
-                         line-height:1.6; border:1px solid #1a1a2a; padding:10px 12px;
-                         border-radius:2px; border-left:3px solid #333;">
-                        ⚠️ <strong style="color:#666;">LEGAL NOTICE:</strong>
-                        KairosIQ is not a registered investment advisor, broker-dealer,
-                        or CFTC-regulated entity. The analysis below is historical pattern
-                        matching only — it is not a recommendation, signal, or solicitation
-                        to participate in any prediction market or financial instrument.
-                        All decisions are made solely by the user at their own risk.
-                        Past patterns do not guarantee future results.
-                    </div>""", unsafe_allow_html=True)
+                    legal_notice = "KairosIQ is not a registered investment advisor, broker-dealer, or CFTC-regulated entity. The analysis below is historical pattern matching only — it is not a recommendation, signal, or solicitation to participate in any prediction market or financial instrument. All decisions are made solely by the user at their own risk. Past patterns do not guarantee future results."
+                    st.markdown(f'<div style="font-size:0.65em; color:#555; margin-bottom:12px; line-height:1.6; border:1px solid #1a1a2a; padding:10px 12px; border-radius:2px; border-left:3px solid #333;">⚠️ <strong style="color:#666;">LEGAL NOTICE:</strong> {legal_notice}</div>', unsafe_allow_html=True)
 
                     with st.spinner("Analyzing historical patterns..."):
                         recs = get_bet_recommendations(
@@ -899,11 +898,6 @@ with tab1:
                                 {f'<a href="{url}" target="_blank" style="display:inline-block; background:transparent; border:1px solid #33333366; color:#666; font-size:0.62em; padding:4px 10px; border-radius:1px; text-decoration:none; letter-spacing:0.08em; text-transform:uppercase; font-weight:600;">↗ VIEW QUESTION ON KALSHI</a>' if url else ''}
                             </div>
                             """, unsafe_allow_html=True)
-
-                    st.markdown(f"""
-                    <div class="disclaimer" style="margin-top:12px;">
-                    {recs.get('disclaimer', 'Historical data analysis only. Not investment advice.')}
-                    </div>""", unsafe_allow_html=True)
 
             st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 # ============================================================
