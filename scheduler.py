@@ -24,6 +24,7 @@ from signals.signal_engine import run_signal_engine
 from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
 from signals.signal_validator import run_signal_validator
+from processing.anomaly_detector import run_anomaly_detection
 
 def run_full_cycle():
     print("\n" + "=" * 60)
@@ -89,6 +90,12 @@ def run_full_cycle():
     except Exception as e:
         print(f"❌ Signal engine error: {e}")
         signals_generated = 0
+
+    try:
+        anomalies_found = run_anomaly_detection()
+        signals_generated += anomalies_found
+    except Exception as e:
+        print(f"❌ Anomaly detection error: {e}")
 
     if signals_generated > 0:
         try:

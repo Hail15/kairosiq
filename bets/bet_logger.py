@@ -127,7 +127,53 @@ def resolve_bet(bet_id, result, actual_payout=0):
 
     print(f"✅ Bet {bet_id} resolved: {result} | Payout: ${actual_payout:.2f}")
 
-def get_all_bets():
+def get_bets_pending_resolution():
+    """
+    Find Kalshi bets that are still pending but whose linked prediction
+    question has likely resolved (signal is expired/inactive).
+    Returns bets flagged for user confirmation — does NOT auto-resolve.
+    The dashboard shows these with a confirm button so the user stays in control.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT b.id, b.platform, b.question_text, b.direction,
+               b.stake, b.odds, b.bet_time, s.expires_at,
+               s.event_description, s.probability_after
+        FROM bets b
+        LEFT JOIN signals s ON b.signal_id = s.id
+        WHERE b.result IS NULL
+        AND b.platform = 'kalshi'
+        AND (
+            s.expires_at < NOW()
+            OR s.is_active = false
+            OR b.bet_time < NOW() - INTERVAL '7 days'
+        )
+        ORDER BY b.bet_time ASC;
+    """)
+
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    flagged = []
+    for row in rows:
+        flagged.append({
+            "bet_id": row[0],
+            "platform": row[1],
+            "question_text": row[2],
+            "direction": row[3],
+            "stake": row[4],
+            "odds": row[5],
+            "bet_time": row[6],
+            "signal_expired_at": row[7],
+            "signal_description": row[8],
+            "final_probability": row[9]
+        })
+    return flagged
+
+
     """Get all bets with signal context."""
     conn = get_db_connection()
     cur = conn.cursor()

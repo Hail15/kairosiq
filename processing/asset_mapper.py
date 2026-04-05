@@ -62,7 +62,7 @@ def get_asset_mappings(event_type, region=None):
     return assets
 
 def calculate_signal_strength(prob_shift, confidence_score,
-                               assets, source_platform):
+                               assets, source_platform, volume=None):
     score = 0
     if prob_shift:
         score += min(prob_shift * 1.3, 35)
@@ -76,6 +76,20 @@ def calculate_signal_strength(prob_shift, confidence_score,
         "gdelt": 8, "state_media": 7
     }
     score += source_scores.get(source_platform or "", 5)
+
+    # Volume weighting — high volume shifts are more credible
+    # Adds up to 10 bonus points based on market volume
+    if volume is not None and volume > 0:
+        if volume >= 500000:       # $500K+
+            score += 10
+        elif volume >= 100000:     # $100K+
+            score += 7
+        elif volume >= 10000:      # $10K+
+            score += 4
+        elif volume >= 1000:       # $1K+
+            score += 2
+        # Under $1K — no bonus, low confidence move
+
     return min(round(score), 100)
 
 def get_best_performer(assets):
@@ -88,11 +102,11 @@ def get_best_performer(assets):
         return acc * move * (1 + samples / 100)
     return max(assets, key=asset_score)
 
-def get_signal_metadata(assets, prob_shift, confidence_score, source_platform):
+def get_signal_metadata(assets, prob_shift, confidence_score, source_platform, volume=None):
     if not assets:
         return {}
     strength = calculate_signal_strength(
-        prob_shift, confidence_score, assets, source_platform
+        prob_shift, confidence_score, assets, source_platform, volume
     )
     best = get_best_performer(assets)
     accuracies = [a.get("accuracy", 0) for a in assets if a.get("accuracy")]
