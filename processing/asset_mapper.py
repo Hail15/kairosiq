@@ -155,89 +155,123 @@ def map_event_to_category(event_description):
 def find_related_questions(event_description, region, questions):
     """
     Find the most relevant prediction market questions for this signal.
-    Prioritizes Polymarket and Kalshi (real money bettable markets) over Metaculus.
-    Scores by keyword relevance and returns ranked results with direct betting links.
+    Uses tight country/region matching — must match primary keyword.
+    No generic military/nuclear matches across unrelated regions.
     """
     text = (event_description or "").lower()
     region_lower = (region or "").lower()
 
-    # Build keyword list from event description
-    keywords = []
+    primary_keywords = []
+    secondary_keywords = []
 
+    # Iran specific
     if "iran" in text or "iran" in region_lower:
-        keywords += ["iran", "persian", "tehran", "nuclear",
-                     "strait of hormuz", "irgc", "khamenei"]
+        primary_keywords += ["iran", "iranian", "tehran",
+                             "khamenei", "irgc", "persian"]
+        secondary_keywords += ["nuclear deal", "strait of hormuz",
+                               "iaea", "sanction iran"]
+
+    # Russia/Ukraine specific
     if "russia" in text or "ukraine" in text:
-        keywords += ["russia", "ukraine", "putin", "zelensky",
-                     "nato", "crimea", "donbas", "moscow"]
+        primary_keywords += ["russia", "ukraine", "putin",
+                             "zelensky", "moscow", "kyiv"]
+        secondary_keywords += ["nato", "crimea", "donbas"]
+
+    # China/Taiwan specific
     if "china" in text or "taiwan" in text:
-        keywords += ["china", "taiwan", "xi jinping", "beijing",
-                     "pla", "strait", "semiconductor"]
+        primary_keywords += ["china", "taiwan", "xi jinping",
+                             "beijing", "pla", "taipei"]
+        secondary_keywords += ["strait", "semiconductor", "tsmc"]
+
+    # Israel/Gaza specific
     if "israel" in text or "gaza" in text:
-        keywords += ["israel", "gaza", "hamas", "hezbollah",
-                     "idf", "netanyahu", "west bank"]
-    if "oil" in text or "opec" in text:
-        keywords += ["oil", "opec", "crude", "brent", "wti",
-                     "energy", "petroleum", "barrel", "saudi"]
+        primary_keywords += ["israel", "gaza", "hamas",
+                             "hezbollah", "netanyahu", "idf"]
+        secondary_keywords += ["west bank", "ceasefire", "rafah"]
+
+    # North Korea specific
     if "north korea" in text or "dprk" in text:
-        keywords += ["north korea", "dprk", "kim", "missile",
-                     "nuclear", "pyongyang"]
-    if "election" in text:
-        keywords += ["election", "vote", "president", "prime minister",
-                     "poll", "ballot"]
-    if "sanction" in text:
-        keywords += ["sanction", "embargo", "trade", "restriction"]
-    if "hormuz" in text or "ship" in text:
-        keywords += ["hormuz", "shipping", "tanker", "blockade",
-                     "strait", "canal", "suez"]
+        primary_keywords += ["north korea", "dprk", "kim jong",
+                             "pyongyang"]
+        secondary_keywords += ["nuclear test", "icbm", "missile"]
 
-    # Always include general conflict keywords
-    keywords += ["war", "conflict", "military", "attack", "strike",
-                 "ceasefire", "invasion", "escalation", "nuclear"]
+    # Saudi/Oil specific
+    if "saudi" in text or "opec" in text or "oil" in text:
+        primary_keywords += ["opec", "oil price", "saudi",
+                             "crude", "petroleum"]
+        secondary_keywords += ["energy", "brent", "wti", "barrel"]
 
-    if not keywords:
-        keywords = [region_lower] if region_lower else ["conflict"]
+    # Venezuela specific
+    if "venezuela" in text:
+        primary_keywords += ["venezuela", "maduro", "caracas"]
 
-    # Remove duplicates
-    keywords = list(set(keywords))
+    # Syria specific
+    if "syria" in text:
+        primary_keywords += ["syria", "syrian", "damascus"]
 
-    # Score each question
+    # Sudan/Ethiopia specific
+    if "sudan" in text or "ethiopia" in text:
+        primary_keywords += ["sudan", "ethiopia", "africa",
+                             "khartoum", "addis"]
+
+    # US Policy specific
+    if "trump" in text or "congress" in text or "senate" in text:
+        primary_keywords += ["trump", "congress", "senate",
+                             "white house", "executive order"]
+
+    # UK specific
+    if "uk" in text or "britain" in text:
+        primary_keywords += ["uk", "britain", "prime minister uk",
+                             "parliament uk"]
+
+    # EU specific
+    if "eu " in text or "europe" in text or "european" in text:
+        primary_keywords += ["european union", "eu", "brussels"]
+
+    # GDELT conflict spike — use region name directly
+    if ("gdelt" in text or "conflict" in text) and region_lower and region_lower != "global":
+        primary_keywords += [region_lower]
+
+    # Fallback to region if nothing specific matched
+    if not primary_keywords and region_lower and region_lower != "global":
+        primary_keywords = [region_lower]
+
+    if not primary_keywords:
+        return []
+
+    # Score questions — MUST match primary keyword
     scored = []
     for q in questions:
         q_text = (q[2] or "").lower()
-        score = 0
-        matched_keywords = []
+        q_platform = q[1]
 
-        for kw in keywords:
-            if kw in q_text:
-                score += len(kw.split())
-                matched_keywords.append(kw)
+        primary_matches = [k for k in primary_keywords if k in q_text]
+        if not primary_matches:
+            continue
 
-        if score > 0:
-            scored.append((score, q, matched_keywords))
+        score = len(primary_matches) * 10
+        secondary_matches = [k for k in secondary_keywords if k in q_text]
+        score += len(secondary_matches) * 5
+        for k in primary_matches:
+            score += len(k.split())
 
-    # Sort by platform priority first (polymarket/kalshi = real money bets)
-    # then by relevance score
-    platform_priority = {"polymarket": 100, "kalshi": 90, "metaculus": 10}
+        scored.append((score, q, primary_matches[:3]))
 
-    scored.sort(key=lambda x: (
-        platform_priority.get(x[1][1], 0) + x[0]
-    ), reverse=True)
+    # Sort by platform priority then relevance score
+    platform_priority = {"kalshi": 100, "metaculus": 10}
+    scored.sort(
+        key=lambda x: (platform_priority.get(x[1][1], 0) + x[0]),
+        reverse=True
+    )
 
-    # Build result list
     results = []
-    for score, q, keywords_matched in scored[:8]:
+    for score, q, matched in scored[:6]:
         platform = q[1]
         q_text = q[2]
         prob = q[3]
         platform_id = q[6] if len(q) > 6 else ""
 
-        # Build direct betting URL
-        if platform == "polymarket":
-            url = f"https://polymarket.com/event/{platform_id}"
-            bet_label = "BET ON POLYMARKET"
-            is_bettable = True
-        elif platform == "kalshi":
+        if platform == "kalshi":
             url = f"https://kalshi.com/markets/{platform_id}"
             bet_label = "BET ON KALSHI"
             is_bettable = True
@@ -250,16 +284,17 @@ def find_related_questions(event_description, region, questions):
             bet_label = "VIEW"
             is_bettable = False
 
-        results.append({
-            "platform": platform,
-            "question": q_text,
-            "probability": prob,
-            "url": url,
-            "bet_label": bet_label,
-            "is_bettable": is_bettable,
-            "relevance_score": score,
-            "keywords_matched": keywords_matched[:3]
-        })
+        if url:
+            results.append({
+                "platform": platform,
+                "question": q_text,
+                "probability": prob,
+                "url": url,
+                "bet_label": bet_label,
+                "is_bettable": is_bettable,
+                "relevance_score": score,
+                "keywords_matched": matched
+            })
 
     return results
 
@@ -286,7 +321,7 @@ if __name__ == "__main__":
     assets = get_asset_mappings(
         "middle_east_military_escalation", "Middle East"
     )
-    metadata = get_signal_metadata(assets, 27.0, "high", "polymarket")
+    metadata = get_signal_metadata(assets, 27.0, "high", "gdelt")
     best = get_best_performer(assets)
     print(f"Signal Strength: {metadata['signal_strength']}/100")
     print(f"Convergence: {metadata['convergence_label']}")
