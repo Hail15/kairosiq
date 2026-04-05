@@ -1,0 +1,1 @@
+exec(open("dashboard/app.py").read())
