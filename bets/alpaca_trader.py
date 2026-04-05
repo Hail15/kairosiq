@@ -12,7 +12,7 @@ import os
 import sys
 from datetime import datetime
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
 # ── Alpaca Config (read-only market data + account info) ─────────────────────
