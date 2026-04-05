@@ -4,38 +4,55 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def get_setting(key, default=""):
+    """
+    Get a setting from environment variables or Streamlit secrets.
+    Works both locally and on Streamlit Cloud.
+    """
+    # Try environment variable first
+    val = os.getenv(key, "")
+    if val:
+        return val
+
+    # Try Streamlit secrets
+    try:
+        import streamlit as st
+        return st.secrets.get(key, default)
+    except Exception:
+        return default
+
 class Settings:
 
     # --- App ---
-    APP_NAME: str = os.getenv("APP_NAME", "KairosIQ")
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    APP_NAME: str = get_setting("APP_NAME", "KairosIQ")
+    ENVIRONMENT: str = get_setting("ENVIRONMENT", "development")
 
     # --- Database ---
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    SUPABASE_URL: str = get_setting("SUPABASE_URL")
+    SUPABASE_KEY: str = get_setting("SUPABASE_KEY")
+    DATABASE_URL: str = get_setting("DATABASE_URL")
 
     # --- Gmail ---
-    GMAIL_ADDRESS: str = os.getenv("GMAIL_ADDRESS", "")
-    GMAIL_APP_PASSWORD: str = os.getenv("GMAIL_APP_PASSWORD", "")
-    ALERT_EMAIL_TO: str = os.getenv("ALERT_EMAIL_TO", "")
+    GMAIL_ADDRESS: str = get_setting("GMAIL_ADDRESS")
+    GMAIL_APP_PASSWORD: str = get_setting("GMAIL_APP_PASSWORD")
+    ALERT_EMAIL_TO: str = get_setting("ALERT_EMAIL_TO")
 
-    # --- Anthropic (Claude AI) ---
-    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    # --- Anthropic ---
+    ANTHROPIC_API_KEY: str = get_setting("ANTHROPIC_API_KEY")
 
-    # --- Alpha Vantage (Asset Prices) ---
-    ALPHA_VANTAGE_API_KEY: str = os.getenv("ALPHA_VANTAGE_API_KEY", "")
+    # --- Alpha Vantage ---
+    ALPHA_VANTAGE_API_KEY: str = get_setting("ALPHA_VANTAGE_API_KEY")
 
     # --- Kalshi ---
-    KALSHI_API_KEY: str = os.getenv("KALSHI_API_KEY", "")
-    KALSHI_PRIVATE_KEY: str = os.getenv("KALSHI_PRIVATE_KEY", "")
+    KALSHI_API_KEY: str = get_setting("KALSHI_API_KEY")
+    KALSHI_PRIVATE_KEY: str = get_setting("KALSHI_PRIVATE_KEY")
 
     # --- Metaculus ---
-    METACULUS_API_TOKEN: str = os.getenv("METACULUS_API_TOKEN", "")
+    METACULUS_API_TOKEN: str = get_setting("METACULUS_API_TOKEN")
 
-    # --- Signal Detection Settings ---
-    SIGNAL_THRESHOLD: float = float(os.getenv("SIGNAL_THRESHOLD", "8.0"))
-    SIGNAL_DECAY_HOURS: int = int(os.getenv("SIGNAL_DECAY_HOURS", "72"))
+    # --- Signal Detection ---
+    SIGNAL_THRESHOLD: float = float(get_setting("SIGNAL_THRESHOLD", "8.0"))
+    SIGNAL_DECAY_HOURS: int = int(get_setting("SIGNAL_DECAY_HOURS", "72"))
     POLLING_INTERVAL_MINUTES: int = 15
     HIGH_CONFIDENCE_THRESHOLD: float = 15.0
     MEDIUM_CONFIDENCE_THRESHOLD: float = 8.0
@@ -50,9 +67,7 @@ class Settings:
         missing = [key for key, val in required.items() if not val]
         if missing:
             print(f"⚠️  WARNING: Missing environment variables: {missing}")
-            print("   Fill these in your .env file before running the full system.")
         else:
             print("✅ All critical environment variables loaded.")
 
-# Single instance used everywhere
 settings = Settings()
