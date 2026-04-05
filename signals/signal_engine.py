@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
-from classifier import enrich_signal
+from processing.classifier import enrich_signal
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
