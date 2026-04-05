@@ -212,24 +212,39 @@ def generate_signal_summary(event_description, region, prob_before,
         asset_text = ""
         for a in assets[:4]:
             asset_text += (
-                f"- {a.get('ticker')}: historically {a.get('direction')} "
+                f"- {a.get('ticker')} ({a.get('name')}): historically {a.get('direction')} "
                 f"avg {a.get('avg_move_72h', 0):.1f}% in 72h, "
                 f"{(a.get('accuracy', 0) or 0)*100:.0f}% accuracy, "
                 f"{a.get('sample_size', 0)} instances\n"
             )
-        prompt = f"""You are a geopolitical market intelligence analyst.
-Signal: {event_description}
+
+        prob_context = ""
+        if prob_before is not None and prob_after is not None:
+            prob_context = f"Probability shift: {prob_before}% → {prob_after}% ({prob_shift}% move)"
+
+        prompt = f"""You are a senior geopolitical intelligence analyst writing a brief for traders.
+
+EVENT: {event_description}
 Region: {region}
-Probability: {prob_before}% → {prob_after}% ({prob_shift}% shift)
-Historical asset data:
-{asset_text}
-Write a 2-3 sentence factual intelligence brief. Be direct and analytical.
-Frame everything as historical data. Never say buy or sell.
-No investment advice. Just intelligence."""
+{prob_context}
+Historical asset correlations:
+{asset_text if asset_text else "No historical asset data available."}
+
+Write a sharp 3-4 sentence intelligence brief that:
+1. States specifically what is happening — use real details from the event description, not generic language
+2. Explains the most likely near-term market implication, naming specific assets and why
+3. Flags the key risk or uncertainty a trader should watch right now
+
+Rules:
+- Never use phrases like "monitoring systems detected" or "probability shift suggests algorithmic confidence"
+- Never be generic — if you have headlines, use them
+- Never say buy or sell
+- End with exactly: "Historical data analysis only. Not investment advice." """
+
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         message = client.messages.create(
-            model="claude-opus-4-5",
-            max_tokens=150,
+            model="claude-sonnet-4-6",
+            max_tokens=300,
             messages=[{"role": "user", "content": prompt}]
         )
         return message.content[0].text
