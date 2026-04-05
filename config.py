@@ -50,6 +50,12 @@ class Settings:
     # --- Metaculus ---
     METACULUS_API_TOKEN: str = get_setting("METACULUS_API_TOKEN")
 
+    # --- Alpaca ---
+    ALPACA_PAPER_KEY:    str = get_setting("ALPACA_PAPER_KEY")
+    ALPACA_PAPER_SECRET: str = get_setting("ALPACA_PAPER_SECRET")
+    ALPACA_LIVE_KEY:     str = get_setting("ALPACA_LIVE_KEY")
+    ALPACA_LIVE_SECRET:  str = get_setting("ALPACA_LIVE_SECRET")
+
     # --- Signal Detection ---
     SIGNAL_THRESHOLD: float = float(get_setting("SIGNAL_THRESHOLD", "8.0"))
     SIGNAL_DECAY_HOURS: int = int(get_setting("SIGNAL_DECAY_HOURS", "72"))

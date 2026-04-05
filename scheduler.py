@@ -25,6 +25,7 @@ from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
 from signals.signal_validator import run_signal_validator
 from processing.anomaly_detector import run_anomaly_detection
+from bets.alpaca_trader import execute_signal_trade, run_exit_check
 
 def run_full_cycle():
     print("\n" + "=" * 60)
