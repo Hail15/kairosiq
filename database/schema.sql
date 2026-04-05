@@ -84,7 +84,15 @@ CREATE TABLE IF NOT EXISTS signal_outcomes (
     recorded_at TIMESTAMP DEFAULT NOW()
 );
 
--- 6. Asset Mappings
+-- 7. Signal Briefs
+-- Stores AI-generated intelligence briefs per signal
+-- Separate table avoids ALTER TABLE timeout on large signals table
+CREATE TABLE IF NOT EXISTS signal_briefs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    signal_id UUID NOT NULL UNIQUE,
+    ai_brief TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
 -- Maps event types and regions to historically correlated assets
 CREATE TABLE IF NOT EXISTS asset_mappings (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

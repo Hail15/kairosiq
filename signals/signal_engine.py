@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
-from processing.classifier import enrich_signal
+from processing.classifier import enrich_signal, generate_intelligence_brief
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
@@ -124,15 +124,37 @@ def generate_checksum(signal_data):
     data_str = json.dumps(signal_data, sort_keys=True, default=str)
     return hashlib.sha256(data_str.encode()).hexdigest()
 
+def save_brief(conn, signal_id, ai_brief):
+    """
+    Store the AI brief in the signal_briefs table.
+    Separate table avoids ALTER TABLE on the large signals table.
+    """
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO signal_briefs (signal_id, ai_brief)
+            VALUES (%s, %s)
+            ON CONFLICT (signal_id) DO UPDATE SET ai_brief = EXCLUDED.ai_brief;
+        """, (str(signal_id), ai_brief))
+        cur.close()
+    except Exception as e:
+        print(f"   ⚠️ Could not save brief: {e}")
+
 def save_signal(cur, question, prob_before, prob_after, shift,
-                confidence, assets, event_category):
+                confidence, assets, event_category, classification=None):
     """
     Save a detected signal to the database with full details.
+    Generates and stores AI brief in signal_briefs table at creation time
+    so dashboard reads from DB instead of calling Claude per page load.
     """
     question_id = question[0]
     question_text = question[2]
     region = question[4] or "Global"
     platform = question[1]
+
+    # Use Claude's region if classification available
+    if classification and classification.get("region"):
+        region = classification["region"]
 
     # Build signal data for checksum
     signal_data = {
@@ -146,7 +168,6 @@ def save_signal(cur, question, prob_before, prob_after, shift,
     }
     checksum = generate_checksum(signal_data)
 
-    # Direction of shift
     direction = "UP" if prob_after > prob_before else "DOWN"
 
     event_description = (
@@ -167,23 +188,33 @@ def save_signal(cur, question, prob_before, prob_after, shift,
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
         RETURNING id;
     """, (
-        event_description,
-        region,
-        event_category,
-        prob_before,
-        prob_after,
-        shift,
-        confidence,
-        platform,
-        question_id,
-        json.dumps(assets),
-        expires_at,
-        True,
-        checksum
+        event_description, region, event_category,
+        prob_before, prob_after, shift, confidence,
+        platform, question_id, json.dumps(assets),
+        expires_at, True, checksum
     ))
 
     row = cur.fetchone()
-    return row[0] if row else None
+    signal_id = row[0] if row else None
+
+    # Generate and store brief in signal_briefs table
+    if signal_id:
+        try:
+            ai_brief = generate_intelligence_brief(
+                event_description=event_description,
+                platform=platform,
+                prob_before=prob_before,
+                prob_after=prob_after,
+                region=region,
+                assets=assets
+            )
+            if ai_brief:
+                save_brief(cur.connection, signal_id, ai_brief)
+                print(f"   📝 Brief stored for signal {signal_id}")
+        except Exception as e:
+            print(f"   ⚠️ Brief generation failed: {e}")
+
+    return signal_id
 
 def map_to_event_category(question_text, classification=None):
     """

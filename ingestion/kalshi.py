@@ -22,26 +22,44 @@ from config import settings
 # ============================================================
 GEOPOLITICAL_EVENT_TICKERS = [
 
+    # ── IRAN / MIDDLE EAST CONFLICT ──────────────────────────
+    "KXIRANWAR-26",                 # US-Iran war in 2026
+    "KXIRANSTRIKE-26",              # US/Israel strike on Iran
+    "KXIRANNUKE-26",                # Iran nuclear weapon test
+    "KXIRANREGIME-26",              # Iranian regime change
+    "KXHORMUZ-26",                  # Strait of Hormuz closure
+    "KXISRAELIRAN-26",              # Israel-Iran direct conflict
+    "KXIRANDEMOCRACY-27MAR01",      # Will Iran become a democracy
+    "KXIRANIMPORTS-27FEB01",        # US imports from Iran
+    "KXNEXTISRAELPM-45JAN01",       # Next PM of Israel
+    "KXABRAHAMSY-29",               # Israel-Syria normalization
+    "KXABRAHAMSA-29",               # Israel-Saudi normalization
+    "KXABRAHAMQ-29",                # Israel-Qatar normalization
+
+    # ── OIL / ENERGY ─────────────────────────────────────────
+    "KXOILPRICE-100-26",            # Oil hits $100 in 2026
+    "KXOILPRICE-120-26",            # Oil hits $120 in 2026
+    "KXOILPRICE-80-26",             # Oil stays above $80 in 2026
+    "KXBRENT-26",                   # Brent crude price range
+    "KXOPECCUT-26",                 # OPEC production cut 2026
+    "KXOPECMEET-26",                # OPEC emergency meeting
+    "KXGASOLINE-26",                # US gas prices surge
+    "KXNATURALGAS-26",              # Natural gas price spike
+
     # ── GEOPOLITICAL / CONFLICT ──────────────────────────────
-    "KXXISUCCESSOR-45JAN01",       # Xi Jinping successor
-    "KXNEXTISRAELPM-45JAN01",      # Next PM of Israel
-    "KXG7LEADEROUT-45JAN01",       # G7 leader leaves next
-    "KXTAIWANLVL4",                # US Level 4 travel advisory Taiwan
-    "KXAFRICALEADEROUT-35",        # African leaders leaving office
-    "KXIRANDEMOCRACY-27MAR01",     # Will Iran become a democracy
-    "KXIRANIMPORTS-27FEB01",       # US imports from Iran
-    "KXZELENSKYPUTIN-29",          # Zelenskyy and Putin speak
-    "KXPUTINDJTLOCATION-29",       # Where Trump and Putin meet
-    "KXPUTINZELENSKYYLOCATION-28", # Where Putin and Zelenskyy meet
-    "KXRECOGROC-29",               # Will Trump recognize Taiwan
-    "KXABRAHAMSY-29",              # Israel-Syria normalization
-    "KXABRAHAMSA-29",              # Israel-Saudi normalization
-    "KXABRAHAMQ-29",               # Israel-Qatar normalization
-    "KXUSAKIM-29",                 # Kim Jong-Un visits US
-    "KXLAIOUT-LCHI",               # Lai Ching-te out as Taiwan President
-    "KXRECOGSOMALI-29",            # Trump recognizes Somaliland
-    "KXBOUGAINVILLEIND",           # Papua New Guinea Bougainville independence
-    "KXQUEBEC-29",                 # Quebec referendum
+    "KXXISUCCESSOR-45JAN01",        # Xi Jinping successor
+    "KXG7LEADEROUT-45JAN01",        # G7 leader leaves next
+    "KXTAIWANLVL4",                 # US Level 4 travel advisory Taiwan
+    "KXAFRICALEADEROUT-35",         # African leaders leaving office
+    "KXZELENSKYPUTIN-29",           # Zelenskyy and Putin speak
+    "KXPUTINDJTLOCATION-29",        # Where Trump and Putin meet
+    "KXPUTINZELENSKYYLOCATION-28",  # Where Putin and Zelenskyy meet
+    "KXRECOGROC-29",                # Will Trump recognize Taiwan
+    "KXUSAKIM-29",                  # Kim Jong-Un visits US
+    "KXLAIOUT-LCHI",                # Lai Ching-te out as Taiwan President
+    "KXRECOGSOMALI-29",             # Trump recognizes Somaliland
+    "KXBOUGAINVILLEIND",            # Papua New Guinea Bougainville independence
+    "KXQUEBEC-29",                  # Quebec referendum
 
     # ── US POLITICS & POLICY ────────────────────────────────
     "KXBALANCE-29",                # Trump balance budget

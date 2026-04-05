@@ -312,16 +312,18 @@ def fetch_active_signals():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, event_description, region, event_category,
-               probability_before, probability_after, probability_shift,
-               confidence_score, source_platform, affected_assets,
-               signal_time, expires_at, source_question_id, ai_brief
-        FROM signals
-        WHERE is_active = true AND expires_at > NOW()
+        SELECT s.id, s.event_description, s.region, s.event_category,
+               s.probability_before, s.probability_after, s.probability_shift,
+               s.confidence_score, s.source_platform, s.affected_assets,
+               s.signal_time, s.expires_at, s.source_question_id,
+               sb.ai_brief
+        FROM signals s
+        LEFT JOIN signal_briefs sb ON s.id = sb.signal_id
+        WHERE s.is_active = true AND s.expires_at > NOW()
         ORDER BY
-            CASE confidence_score WHEN 'high' THEN 1
+            CASE s.confidence_score WHEN 'high' THEN 1
             WHEN 'medium' THEN 2 ELSE 3 END,
-            signal_time DESC;
+            s.signal_time DESC;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -331,11 +333,14 @@ def fetch_all_signals():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, event_description, region, event_category,
-               probability_before, probability_after, probability_shift,
-               confidence_score, source_platform, affected_assets,
-               signal_time, expires_at, is_active, ai_brief
-        FROM signals ORDER BY signal_time DESC LIMIT 100;
+        SELECT s.id, s.event_description, s.region, s.event_category,
+               s.probability_before, s.probability_after, s.probability_shift,
+               s.confidence_score, s.source_platform, s.affected_assets,
+               s.signal_time, s.expires_at, s.is_active,
+               sb.ai_brief
+        FROM signals s
+        LEFT JOIN signal_briefs sb ON s.id = sb.signal_id
+        ORDER BY s.signal_time DESC LIMIT 100;
     """)
     rows = cur.fetchall()
     cur.close()
