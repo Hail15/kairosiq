@@ -55,7 +55,6 @@ html, body, [class*="css"] {
     font-size: 1.4em; font-weight: 600; color: #e8b84b;
     letter-spacing: 0.15em; text-transform: uppercase;
 }
-
 .signal-card-high {
     background: #0c0608; border: 1px solid #3a1010;
     border-left: 3px solid #cc2200; padding: 14px 16px;
@@ -85,7 +84,6 @@ html, body, [class*="css"] {
 }
 .signal-shift-up { color: #cc2200; font-weight: 600; }
 .signal-shift-down { color: #1a7a3a; font-weight: 600; }
-
 .badge-high {
     display: inline-block; background: #1a0505;
     border: 1px solid #cc2200; color: #cc2200;
@@ -104,7 +102,6 @@ html, body, [class*="css"] {
     font-size: 0.6em; padding: 2px 6px; border-radius: 1px;
     letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
 }
-
 .asset-row-up {
     display: flex; justify-content: space-between; align-items: center;
     padding: 6px 10px; background: #06100a; border: 1px solid #0e2a14;
@@ -120,7 +117,6 @@ html, body, [class*="css"] {
 .asset-move-up { color: #2a9a4a; font-weight: 600; }
 .asset-move-down { color: #cc2200; font-weight: 600; }
 .asset-acc { color: #777; }
-
 .ai-summary {
     background: #080c10; border: 1px solid #0e1e2e;
     border-left: 2px solid #2a5a8a; padding: 12px 14px;
@@ -128,7 +124,6 @@ html, body, [class*="css"] {
     line-height: 1.6; margin: 8px 0;
     font-family: 'IBM Plex Sans', sans-serif;
 }
-
 .stat-box {
     background: #08080c; border: 1px solid #1a1a24;
     padding: 14px 16px; border-radius: 2px; text-align: center;
@@ -141,21 +136,17 @@ html, body, [class*="css"] {
     font-size: 0.62em; color: #555; text-transform: uppercase;
     letter-spacing: 0.1em; display: block; margin-top: 4px;
 }
-
 .alert-banner {
     background: #100404; border: 1px solid #cc2200;
     padding: 10px 16px; border-radius: 2px; margin-bottom: 12px;
     font-size: 0.75em; color: #cc2200; letter-spacing: 0.05em;
     text-transform: uppercase; font-weight: 600;
 }
-
 .kiq-divider { border: none; border-top: 1px solid #1a1a24; margin: 12px 0; }
-
 .disclaimer {
     font-size: 0.62em; color: #333; letter-spacing: 0.03em;
     padding: 8px 0; border-top: 1px solid #111; margin-top: 8px;
 }
-
 .stTabs [data-baseweb="tab-list"] {
     background: transparent; border-bottom: 1px solid #1a1a24; gap: 0;
 }
@@ -169,7 +160,6 @@ html, body, [class*="css"] {
     color: #e8b84b !important; border-bottom: 2px solid #e8b84b !important;
     background: transparent !important;
 }
-
 [data-testid="metric-container"] {
     background: #08080c; border: 1px solid #1a1a24;
     padding: 12px; border-radius: 2px;
@@ -183,7 +173,6 @@ html, body, [class*="css"] {
     font-family: 'IBM Plex Mono', monospace !important;
     color: #e8b84b !important; font-size: 1.4em !important;
 }
-
 .stButton button {
     background: transparent; border: 1px solid #333; color: #777;
     font-family: 'IBM Plex Mono', monospace; font-size: 0.7em;
@@ -191,7 +180,6 @@ html, body, [class*="css"] {
     border-radius: 2px; padding: 6px 14px;
 }
 .stButton button:hover { border-color: #e8b84b; color: #e8b84b; }
-
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: #060608; }
 ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
@@ -486,7 +474,6 @@ with tab1:
             shift_class = "signal-shift-up" if pa > pb else "signal-shift-down"
             time_str = signal_time.strftime("%Y-%m-%d %H:%M") if signal_time else "—"
 
-            # Signal header card
             st.markdown(f"""
             <div class="signal-card-{confidence}">
                 <div class="signal-meta">
@@ -506,7 +493,7 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
 
-            # Signal Intelligence Metadata
+            # Signal Intelligence
             if assets:
                 metadata = get_signal_metadata(
                     assets, prob_shift, confidence, platform
@@ -518,11 +505,9 @@ with tab1:
                 acc_min = metadata.get("accuracy_range_min", 0)
                 acc_max = metadata.get("accuracy_range_max", 0)
                 time_to_peak = metadata.get("estimated_time_to_peak", "72h")
-
                 tier_colors = {1: "#444", 2: "#e8b84b", 3: "#cc2200"}
                 tier_color = tier_colors.get(tier, "#444")
 
-                # Metadata row
                 st.markdown(f"""
                 <div style="display:flex; gap:10px; align-items:center;
                      margin:10px 0 8px 0; flex-wrap:wrap;">
@@ -565,7 +550,6 @@ with tab1:
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Best performer highlight
                 if best:
                     move = best.get('avg_move_72h', 0) or 0
                     acc = (best.get('accuracy', 0) or 0) * 100
@@ -573,7 +557,6 @@ with tab1:
                     d_color = "#2a9a4a" if best.get('direction') == 'up' else "#cc2200"
                     d_arrow = "▲" if best.get('direction') == 'up' else "▼"
                     move_sign = "+" if move > 0 else ""
-
                     st.markdown(f"""
                     <div style="background:#08100c; border:1px solid #0e2a18;
                          border-left:3px solid {d_color}; padding:10px 14px;
@@ -602,10 +585,8 @@ with tab1:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # Asset tables
                 up_assets = [a for a in assets if a.get("direction") == "up"]
                 down_assets = [a for a in assets if a.get("direction") == "down"]
-
                 col1, col2 = st.columns(2)
                 with col1:
                     if up_assets:
@@ -625,7 +606,6 @@ with tab1:
                                 <span class="asset-acc" style="margin-left:8px;">
                                     {acc:.0f}% · {samples}x</span>
                             </div>""", unsafe_allow_html=True)
-
                 with col2:
                     if down_assets:
                         st.markdown("""
@@ -645,7 +625,7 @@ with tab1:
                                     {acc:.0f}% · {samples}x</span>
                             </div>""", unsafe_allow_html=True)
 
-            # AI Intelligence Brief
+            # AI Brief
             with st.expander("▸  INTELLIGENCE BRIEF"):
                 with st.spinner("Generating..."):
                     summary = generate_signal_summary(
@@ -666,22 +646,44 @@ with tab1:
                     st.markdown("""
                     <div style="font-size:0.65em; color:#444; margin-bottom:10px; line-height:1.5;">
                         These are the specific questions currently trading on prediction markets
-                        most directly related to this signal. Current odds shown. Click to view and bet.
+                        most directly related to this signal. Polymarket and Kalshi are real
+                        money markets where you can place bets directly.
                     </div>""", unsafe_allow_html=True)
 
-                    for r in related:
+                    bettable = [r for r in related if r.get("is_bettable")]
+                    viewable = [r for r in related if not r.get("is_bettable")]
+
+                    if bettable:
+                        st.markdown("""
+                        <div style="font-size:0.62em; color:#2a9a4a; text-transform:uppercase;
+                             letter-spacing:0.1em; margin:8px 0 4px 0; font-weight:600;">
+                            💰 Real Money Markets — You Can Bet Here
+                        </div>""", unsafe_allow_html=True)
+
+                    shown_viewable_header = False
+                    for r in bettable + viewable:
                         r_platform = r["platform"]
                         q_text = r["question"]
                         prob = r["probability"]
                         url = r["url"]
                         bet_label = r["bet_label"]
                         keywords = r["keywords_matched"]
+                        is_bettable = r.get("is_bettable", False)
+
+                        # Show viewable header before first non-bettable
+                        if not is_bettable and not shown_viewable_header:
+                            st.markdown("""
+                            <div style="font-size:0.62em; color:#444; text-transform:uppercase;
+                                 letter-spacing:0.1em; margin:12px 0 4px 0;">
+                                📊 Forecasting Markets — View Only
+                            </div>""", unsafe_allow_html=True)
+                            shown_viewable_header = True
 
                         prob_color = ("#cc2200" if (prob or 0) > 60
                                      else "#e8b84b" if (prob or 0) > 40
                                      else "#2a9a4a")
-                        prob_str = f"{prob:.1f}%" if prob else "—"
-                        prob_width = prob or 0
+                        prob_str = f"{prob:.1f}%" if prob else "No odds yet"
+                        prob_width = min(prob or 0, 100)
 
                         platform_colors = {
                             "polymarket": "#0066ff",
@@ -689,11 +691,15 @@ with tab1:
                             "metaculus": "#7744aa"
                         }
                         plat_color = platform_colors.get(r_platform, "#444")
+                        border_style = (
+                            f"border:1px solid {plat_color}66; border-left:3px solid {plat_color};"
+                            if is_bettable else
+                            f"border:1px solid #1a1a2a; border-left:3px solid {plat_color};"
+                        )
 
                         if url:
                             st.markdown(f"""
-                            <div style="background:#08080e; border:1px solid #1a1a2a;
-                                 border-left:3px solid {plat_color};
+                            <div style="background:#08080e; {border_style}
                                  padding:12px 14px; border-radius:2px; margin:6px 0;">
                                 <div style="display:flex; justify-content:space-between;
                                      align-items:flex-start; margin-bottom:8px;">
@@ -702,6 +708,7 @@ with tab1:
                                              text-transform:uppercase; letter-spacing:0.1em;
                                              font-weight:600; margin-right:8px;">
                                             {r_platform.upper()}
+                                            {'  🟢 BETTABLE' if is_bettable else '  📊 VIEW ONLY'}
                                         </span>
                                         <span style="font-size:0.6em; color:#333;">
                                             {'  ·  '.join(keywords)}
@@ -711,20 +718,22 @@ with tab1:
                                             {q_text[:110]}
                                         </div>
                                     </div>
-                                    <div style="text-align:right; margin-left:16px; min-width:80px;">
-                                        <div style="font-size:1.3em; font-weight:600;
+                                    <div style="text-align:right; margin-left:16px; min-width:90px;">
+                                        <div style="font-size:1.2em; font-weight:600;
                                              color:{prob_color}; font-family:'IBM Plex Mono';">
                                             {prob_str}
                                         </div>
                                         <div style="font-size:0.58em; color:#444;
                                              text-transform:uppercase; letter-spacing:0.06em;">
-                                            Current Odds
+                                            {'Current Odds' if prob else 'Odds Pending'}
                                         </div>
                                     </div>
                                 </div>
-                                <div style="background:#111; height:2px; border-radius:1px; margin-bottom:8px;">
+                                <div style="background:#111; height:2px; border-radius:1px;
+                                     margin-bottom:8px;">
                                     <div style="background:{prob_color}; height:2px;
-                                         width:{prob_width}%; border-radius:1px; opacity:0.6;"></div>
+                                         width:{prob_width}%; border-radius:1px; opacity:0.6;">
+                                    </div>
                                 </div>
                                 <a href="{url}" target="_blank"
                                    style="display:inline-block; background:transparent;
@@ -793,7 +802,6 @@ with tab2:
             st.markdown(f'<div class="ai-summary">{summary}</div>',
                        unsafe_allow_html=True)
 
-            # Gauge
             fig = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=selected[5] or 0,
@@ -1101,15 +1109,12 @@ with tab5:
 
             platform_id = selected_q[6] if len(selected_q) > 6 else ""
             if platform_id:
-                if selected_q[1] == "polymarket":
-                    url = f"https://polymarket.com/event/{platform_id}"
-                elif selected_q[1] == "kalshi":
-                    url = f"https://kalshi.com/markets/{platform_id}"
-                elif selected_q[1] == "metaculus":
-                    url = f"https://www.metaculus.com/questions/{platform_id}"
-                else:
-                    url = None
-
+                platform_urls = {
+                    "polymarket": f"https://polymarket.com/event/{platform_id}",
+                    "kalshi": f"https://kalshi.com/markets/{platform_id}",
+                    "metaculus": f"https://www.metaculus.com/questions/{platform_id}"
+                }
+                url = platform_urls.get(selected_q[1])
                 if url:
                     st.markdown(f"""
                     <div style="margin-top:8px;">

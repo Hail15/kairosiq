@@ -28,6 +28,7 @@ def get_asset_mappings(event_type, region=None):
         LIMIT 10;
     """, (event_type, region or 'Global'))
     rows = cur.fetchall()
+
     if not rows:
         cur.execute("""
             SELECT asset_ticker, asset_name, asset_class,
@@ -40,8 +41,10 @@ def get_asset_mappings(event_type, region=None):
             LIMIT 10;
         """, (event_type,))
         rows = cur.fetchall()
+
     cur.close()
     conn.close()
+
     assets = []
     for row in rows:
         assets.append({
@@ -144,7 +147,7 @@ def map_event_to_category(event_description):
     elif any(w in text for w in ["election", "vote",
                                   "president", "prime minister"]):
         return "election_outcome_surprise"
-    elif any(w in text for w in ["ship", "canal", "blockade"]):
+    elif any(w in text for w in ["ship", "canal", "blockade", "hormuz"]):
         return "shipping_lane_disruption"
     else:
         return "emerging_market_political_crisis"
@@ -152,8 +155,8 @@ def map_event_to_category(event_description):
 def find_related_questions(event_description, region, questions):
     """
     Find the most relevant prediction market questions for this signal.
-    Scores each question by keyword relevance and returns ranked results
-    with platform, current probability, and direct betting links.
+    Prioritizes Polymarket and Kalshi (real money bettable markets) over Metaculus.
+    Scores by keyword relevance and returns ranked results with direct betting links.
     """
     text = (event_description or "").lower()
     region_lower = (region or "").lower()
@@ -161,22 +164,21 @@ def find_related_questions(event_description, region, questions):
     # Build keyword list from event description
     keywords = []
 
-    # Region keywords
     if "iran" in text or "iran" in region_lower:
-        keywords += ["iran", "persian", "tehran", "nuclear deal",
-                     "strait of hormuz", "irgc"]
+        keywords += ["iran", "persian", "tehran", "nuclear",
+                     "strait of hormuz", "irgc", "khamenei"]
     if "russia" in text or "ukraine" in text:
         keywords += ["russia", "ukraine", "putin", "zelensky",
-                     "nato", "crimea", "donbas", "kharkiv"]
+                     "nato", "crimea", "donbas", "moscow"]
     if "china" in text or "taiwan" in text:
         keywords += ["china", "taiwan", "xi jinping", "beijing",
-                     "pla", "strait", "tsmc", "semiconductor"]
+                     "pla", "strait", "semiconductor"]
     if "israel" in text or "gaza" in text:
         keywords += ["israel", "gaza", "hamas", "hezbollah",
-                     "idf", "west bank", "netanyahu"]
+                     "idf", "netanyahu", "west bank"]
     if "oil" in text or "opec" in text:
         keywords += ["oil", "opec", "crude", "brent", "wti",
-                     "energy", "petroleum", "barrel"]
+                     "energy", "petroleum", "barrel", "saudi"]
     if "north korea" in text or "dprk" in text:
         keywords += ["north korea", "dprk", "kim", "missile",
                      "nuclear", "pyongyang"]
@@ -185,13 +187,19 @@ def find_related_questions(event_description, region, questions):
                      "poll", "ballot"]
     if "sanction" in text:
         keywords += ["sanction", "embargo", "trade", "restriction"]
+    if "hormuz" in text or "ship" in text:
+        keywords += ["hormuz", "shipping", "tanker", "blockade",
+                     "strait", "canal", "suez"]
 
     # Always include general conflict keywords
     keywords += ["war", "conflict", "military", "attack", "strike",
-                 "ceasefire", "invasion", "escalation"]
+                 "ceasefire", "invasion", "escalation", "nuclear"]
 
     if not keywords:
         keywords = [region_lower] if region_lower else ["conflict"]
+
+    # Remove duplicates
+    keywords = list(set(keywords))
 
     # Score each question
     scored = []
@@ -202,19 +210,23 @@ def find_related_questions(event_description, region, questions):
 
         for kw in keywords:
             if kw in q_text:
-                # Weight longer/more specific keywords higher
                 score += len(kw.split())
                 matched_keywords.append(kw)
 
         if score > 0:
             scored.append((score, q, matched_keywords))
 
-    # Sort by score descending
-    scored.sort(key=lambda x: x[0], reverse=True)
+    # Sort by platform priority first (polymarket/kalshi = real money bets)
+    # then by relevance score
+    platform_priority = {"polymarket": 100, "kalshi": 90, "metaculus": 10}
 
-    # Return top results with metadata
+    scored.sort(key=lambda x: (
+        platform_priority.get(x[1][1], 0) + x[0]
+    ), reverse=True)
+
+    # Build result list
     results = []
-    for score, q, keywords_matched in scored[:6]:
+    for score, q, keywords_matched in scored[:8]:
         platform = q[1]
         q_text = q[2]
         prob = q[3]
@@ -224,15 +236,19 @@ def find_related_questions(event_description, region, questions):
         if platform == "polymarket":
             url = f"https://polymarket.com/event/{platform_id}"
             bet_label = "BET ON POLYMARKET"
+            is_bettable = True
         elif platform == "kalshi":
             url = f"https://kalshi.com/markets/{platform_id}"
             bet_label = "BET ON KALSHI"
+            is_bettable = True
         elif platform == "metaculus":
             url = f"https://www.metaculus.com/questions/{platform_id}"
             bet_label = "VIEW ON METACULUS"
+            is_bettable = False
         else:
             url = None
             bet_label = "VIEW"
+            is_bettable = False
 
         results.append({
             "platform": platform,
@@ -240,6 +256,7 @@ def find_related_questions(event_description, region, questions):
             "probability": prob,
             "url": url,
             "bet_label": bet_label,
+            "is_bettable": is_bettable,
             "relevance_score": score,
             "keywords_matched": keywords_matched[:3]
         })
@@ -273,5 +290,6 @@ if __name__ == "__main__":
     best = get_best_performer(assets)
     print(f"Signal Strength: {metadata['signal_strength']}/100")
     print(f"Convergence: {metadata['convergence_label']}")
-    print(f"Best Performer: {best['ticker']} +{best['avg_move_72h']:.1f}% avg")
+    if best:
+        print(f"Best Performer: {best['ticker']} +{best['avg_move_72h']:.1f}% avg")
     print(f"Accuracy Range: {metadata['accuracy_range_min']}% — {metadata['accuracy_range_max']}%")
