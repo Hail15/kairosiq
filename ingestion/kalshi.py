@@ -16,60 +16,51 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
 # ============================================================
-# GEOPOLITICAL EVENT TICKERS — hardcoded from Kalshi /events
-# These are the specific events we want to track
+# GEOPOLITICAL EVENT TICKERS — from Kalshi /events endpoint
+# Only hardcoded geopolitical events — no sports ever
 # ============================================================
 GEOPOLITICAL_EVENT_TICKERS = [
     # Leadership / Political transitions
-    "KXXISUCCESSOR-45JAN01",
-    "KXNEXTISRAELPM-45JAN01",
-    "KXG7LEADEROUT-45JAN01",
-    "KXNEXTUKPM-30",
-    "KXAFRICALEADEROUT-35",
-    "KXNEXTSPEAKER-31",
-    "KXFULLTERMSKPRES-29",
-    "KXUKPARTY-29",
-    "KXPERSONPRESMAM-45",
+    "KXXISUCCESSOR-45JAN01",      # Xi Jinping successor
+    "KXNEXTISRAELPM-45JAN01",     # Next PM of Israel
+    "KXG7LEADEROUT-45JAN01",      # Which G7 leader leaves next
+    "KXNEXTUKPM-30",              # Next UK Prime Minister
+    "KXAFRICALEADEROUT-35",       # African leaders leaving office
+    "KXNEXTSPEAKER-31",           # Next Speaker of the House
+    "KXFULLTERMSKPRES-29",        # South Korean President
+    "KXUKPARTY-29",               # UK general election party
     # Taiwan / China
-    "KXTAIWANLVL4",
-    "CHINAUSGDP",
+    "KXTAIWANLVL4",               # US Level 4 travel advisory Taiwan
+    "CHINAUSGDP",                 # China overtakes US GDP
     # EU / Europe
-    "KXEUREF-30",
-    "KXEUEXITCOUNTRY-30",
-    "EUEXPANSION",
-    "EUEXIT",
-    "KXBRUVSEAT-35",
-    "KXALBERTAREFYES-29",
+    "KXEUREF-30",                 # EU referendum
+    "KXEUEXITCOUNTRY-30",         # Countries leaving EU
+    "EUEXPANSION",                # EU gains member
+    "EUEXIT",                     # EU loses member
+    "KXBRUVSEAT-35",              # UK far right party
+    "KXALBERTAREFYES-29",         # Alberta secession
     # US Policy / Economy
-    "KXBALANCE-29",
-    "KXGDPSHAREMANU-29",
-    "KXGOVTCUTS-28",
-    "KXDEBTGROWTH-28DEC31",
-    "KXEOTRUMPTERM-29JAN20",
-    "KXECCOMPACT-30",
-    "KXU3MAX-30",
-    # Nuclear / Energy
-    "KXFUSION",
-    "KXWARMING-50",
-    "KXDATACENTER-30",
-    "KXCO2LEVEL-30",
-    "EUCLIMATE",
-    "INDIACLIMATE-30",
-    "USCLIMATE",
-    "KXPRIMEENGCONSUMPTION-30",
-    # Tech / Economy
-    "KXOAIANTH-40",
-    "KXUSTAKEOVER-30",
-    "KXJPMCEONEW",
-    "AMAZONFTC-29DEC31",
-    "APPLEUS",
-    # Space / Science
-    "KXMOONMAN-31",
-    "STARSHIPMARS",
-    "KXSPACEXMARS-30",
-    "KXPOLIOELIM-30",
-    "KXEARTHQUAKEJAPAN-30",
-    "KXEARTHQUAKECALIFORNIA-35",
+    "KXBALANCE-29",               # Trump balance budget
+    "KXGDPSHAREMANU-29",          # Trump manufacturing
+    "KXGOVTCUTS-28",              # Government spending cuts
+    "KXDEBTGROWTH-28DEC31",       # US national debt
+    "KXEOTRUMPTERM-29JAN20",      # Trump executive orders
+    "KXECCOMPACT-30",             # Electoral compact
+    "KXU3MAX-30",                 # Unemployment
+    # Climate / Energy geopolitical
+    "KXWARMING-50",               # Global warming 2 degrees
+    "KXDATACENTER-30",            # Nuclear data center
+    "KXCO2LEVEL-30",              # CO2 levels
+    "EUCLIMATE",                  # EU climate goals
+    "INDIACLIMATE-30",            # India climate goals
+    "USCLIMATE",                  # US climate goals
+    "KXPRIMEENGCONSUMPTION-30",   # Primary energy source 2030
+    # Tech / Economy policy
+    "KXOAIANTH-40",               # OpenAI or Anthropic IPO
+    "KXUSTAKEOVER-30",            # US government AI takeover
+    "KXJPMCEONEW",                # JPMorgan CEO succession
+    "AMAZONFTC-29DEC31",          # Amazon monopoly
+    "APPLEUS",                    # Apple monopoly
 ]
 
 def get_db_connection():
@@ -117,7 +108,11 @@ def fetch_markets_for_event(event_ticker, headers):
         response = requests.get(
             url,
             headers=headers,
-            params={"status": "open", "event_ticker": event_ticker, "limit": 50},
+            params={
+                "status": "open",
+                "event_ticker": event_ticker,
+                "limit": 50
+            },
             timeout=15
         )
         if response.status_code == 200:
@@ -144,7 +139,7 @@ def fetch_kalshi_markets():
             found_events += 1
             all_markets.extend(markets)
 
-    # Deduplicate
+    # Deduplicate by ticker
     seen = set()
     unique = []
     for m in all_markets:
@@ -155,6 +150,26 @@ def fetch_kalshi_markets():
 
     print(f"   Found {len(unique)} markets across {found_events} geopolitical events")
     return unique
+
+def is_clean(question_text):
+    """Final safety check — block any sports that slipped through."""
+    text = question_text.lower().strip()
+    # Block sports parlay patterns
+    if text.startswith("yes "):
+        return False
+    if text.startswith("no "):
+        return False
+    if ",yes " in text:
+        return False
+    if "wins by over" in text:
+        return False
+    if "points scored" in text:
+        return False
+    if "runs scored" in text:
+        return False
+    if "goals scored" in text:
+        return False
+    return True
 
 def extract_probability(market):
     try:
@@ -176,6 +191,10 @@ def save_question(cur, market):
     resolution_date = market.get("close_time", None)
 
     if not platform_id or not question_text:
+        return None
+
+    # Final sports safety check
+    if not is_clean(question_text):
         return None
 
     cur.execute("""
@@ -211,8 +230,6 @@ def run_kalshi_ingestion():
     if not markets:
         print("   No markets returned. Skipping.")
         return
-
-    print(f"   Saving {len(markets)} geopolitical markets...")
 
     conn = get_db_connection()
     cur = conn.cursor()
