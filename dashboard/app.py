@@ -1145,7 +1145,8 @@ with tab4:
         df_sig = pd.DataFrame(all_signals, columns=[
             "id", "description", "region", "category",
             "prob_before", "prob_after", "prob_shift", "confidence",
-            "platform", "assets", "signal_time", "expires_at", "is_active"
+            "platform", "assets", "signal_time", "expires_at", "is_active",
+            "ai_brief"
         ])
         df_sig["signal_time"] = pd.to_datetime(df_sig["signal_time"])
         df_sig["short_desc"] = df_sig["description"].str[:50]
