@@ -23,8 +23,16 @@ from processing.asset_mapper import (
     get_signal_metadata,
     find_related_questions
 )
-from bets.bet_recommender import generate_bet_recommendations
-from processing.second_order_engine import get_effects_for_signal
+try:
+    from bets.bet_recommender import generate_bet_recommendations
+except ImportError:
+    def generate_bet_recommendations(*args, **kwargs):
+        return {"recommendations": [], "disclaimer": "Historical data analysis only."}
+try:
+    from processing.second_order_engine import get_effects_for_signal
+except ImportError:
+    def get_effects_for_signal(signal_id):
+        return []
 
 # --- Page Config ---
 st.set_page_config(
