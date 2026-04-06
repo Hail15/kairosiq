@@ -565,7 +565,7 @@ with tab1:
                 now_utc = datetime.now(_tz.utc)
                 sig_utc = signal_time if signal_time.tzinfo else signal_time.replace(tzinfo=_tz.utc)
                 is_new = (now_utc - sig_utc).total_seconds() < 3600
-            new_badge = '<span style="background:#cc2200; color:white; font-size:0.6em; padding:2px 6px; border-radius:2px; margin-left:6px; font-weight:700; letter-spacing:0.1em;">NEW</span>' if is_new else ""
+            new_badge = "🆕" if is_new else ""
 
             domain = get_domain(event_category, platform, description)
             domain_color = DOMAIN_COLORS.get(domain, "#555")
