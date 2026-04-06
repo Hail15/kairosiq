@@ -640,97 +640,88 @@ with tab1:
                             ind_color  = indicator["color"]
                             tech       = indicator.get("technicals", {})
 
-                            yes_style = (
-                                f"background:#0a1f0a; border:2px solid #2a9a4a; "
-                                f"color:#2a9a4a; font-weight:700;"
-                                if pat == "YES" else
-                                f"background:#0c0c0c; border:1px solid #1a1a24; "
-                                f"color:#2a2a2a; font-weight:400;"
-                            )
-                            no_style = (
-                                f"background:#1f0a0a; border:2px solid #cc2200; "
-                                f"color:#cc2200; font-weight:700;"
-                                if pat == "NO" else
-                                f"background:#0c0c0c; border:1px solid #1a1a24; "
-                                f"color:#2a2a2a; font-weight:400;"
-                            )
                             conf_color = (
                                 "#e8b84b" if conf == "HIGH" else
                                 "#666" if conf == "MEDIUM" else "#444"
                             )
 
-                            # Technicals summary
-                            tech_line = ""
-                            if tech:
-                                rsi       = tech.get("rsi", "—")
-                                vol_ratio = tech.get("volume_ratio", "—")
-                                today_chg = tech.get("today_change", 0)
-                                chg_color = "#2a9a4a" if today_chg >= 0 else "#cc2200"
-                                tech_line = f"""
-                                <div style="display:flex; gap:20px; margin-bottom:10px;
-                                     font-size:0.68em; color:#555;">
-                                    <span>Price today:
-                                        <b style="color:{chg_color};">{today_chg:+.2f}%</b>
-                                    </span>
-                                    <span>RSI: <b style="color:#888;">{rsi}</b></span>
-                                    <span>Volume: <b style="color:#888;">{vol_ratio:.1f}x avg</b></span>
-                                    <span>Combined Score: <b style="color:{ind_color};">
-                                        {ind_score}/100</b>
-                                    </span>
-                                </div>
-                                """
-
-                            factors_html = "".join([
-                                f'<div style="font-size:0.65em; color:#444; '
-                                f'margin-bottom:2px;">{f}</div>'
-                                for f in factors
-                            ])
-
+                            # Header
                             st.markdown(f"""
                             <div style="background:#08080c; border:1px solid #1a1a24;
                                  border-left:3px solid {ind_color};
-                                 padding:12px 14px; border-radius:2px; margin:6px 0;">
+                                 padding:12px 14px; border-radius:2px; margin:6px 0 2px 0;">
                                 <div style="font-size:0.6em; color:#444; text-transform:uppercase;
-                                     letter-spacing:0.1em; margin-bottom:8px;">
+                                     letter-spacing:0.1em; margin-bottom:10px;">
                                     ⚡ Combined Pattern Indicator — {best_ticker}
-                                </div>
-                                {tech_line}
-                                <div style="display:flex; gap:10px; margin-bottom:10px;
-                                     align-items:center;">
-                                    <div style="padding:10px 28px; border-radius:2px;
-                                         font-size:1em; letter-spacing:0.15em;
-                                         text-align:center; {yes_style}">
-                                        YES
-                                    </div>
-                                    <div style="padding:10px 28px; border-radius:2px;
-                                         font-size:1em; letter-spacing:0.15em;
-                                         text-align:center; {no_style}">
-                                        NO
-                                    </div>
-                                    <div style="margin-left:8px;">
-                                        <span style="font-size:0.85em; font-weight:600;
-                                              color:{ind_color};">
-                                            ← {pat}
-                                        </span>
-                                        <span style="font-size:0.65em; color:{conf_color};
-                                              margin-left:6px; text-transform:uppercase;
-                                              letter-spacing:0.08em;">
-                                            {conf} CONFIDENCE
-                                        </span>
-                                    </div>
-                                </div>
-                                <div style="font-size:0.58em; color:#2a2a2a; margin-top:8px;">
-                                    HISTORICAL PATTERN ANALYSIS ONLY. NOT INVESTMENT ADVICE.
-                                    PAST PERFORMANCE DOES NOT GUARANTEE FUTURE RESULTS.
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
 
-                            # Show factors in expander
+                            # Technicals row using st.columns
+                            if tech:
+                                rsi       = tech.get("rsi", "—")
+                                vol_ratio = tech.get("volume_ratio", 1.0)
+                                today_chg = tech.get("today_change", 0)
+                                c1, c2, c3, c4 = st.columns(4)
+                                chg_str = f"{today_chg:+.2f}%"
+                                with c1:
+                                    st.metric("Price Today", chg_str)
+                                with c2:
+                                    st.metric("RSI", f"{rsi}")
+                                with c3:
+                                    st.metric("Volume", f"{vol_ratio:.1f}x avg")
+                                with c4:
+                                    st.metric("Combined Score", f"{ind_score}/100")
+
+                            # YES/NO buttons
+                            yes_bg = "#0a1f0a" if pat == "YES" else "#080808"
+                            no_bg  = "#1f0a0a" if pat == "NO"  else "#080808"
+                            yes_border = "2px solid #2a9a4a" if pat == "YES" else "1px solid #1a1a24"
+                            no_border  = "2px solid #cc2200" if pat == "NO"  else "1px solid #1a1a24"
+                            yes_color  = "#2a9a4a" if pat == "YES" else "#222"
+                            no_color   = "#cc2200" if pat == "NO"  else "#222"
+                            yes_weight = "700" if pat == "YES" else "400"
+                            no_weight  = "700" if pat == "NO"  else "400"
+
+                            st.markdown(f"""
+                            <div style="display:flex; gap:10px; margin:8px 0;
+                                 align-items:center;">
+                                <div style="padding:10px 28px; border-radius:2px;
+                                     font-size:1em; letter-spacing:0.15em;
+                                     text-align:center;
+                                     background:{yes_bg}; border:{yes_border};
+                                     color:{yes_color}; font-weight:{yes_weight};">
+                                    YES
+                                </div>
+                                <div style="padding:10px 28px; border-radius:2px;
+                                     font-size:1em; letter-spacing:0.15em;
+                                     text-align:center;
+                                     background:{no_bg}; border:{no_border};
+                                     color:{no_color}; font-weight:{no_weight};">
+                                    NO
+                                </div>
+                                <div style="margin-left:8px;">
+                                    <span style="font-size:0.9em; font-weight:700;
+                                          color:{ind_color};">← {pat}</span>
+                                    <span style="font-size:0.65em; color:{conf_color};
+                                          margin-left:8px; text-transform:uppercase;
+                                          letter-spacing:0.08em;">{conf} CONFIDENCE</span>
+                                </div>
+                            </div>
+                            <div style="font-size:0.58em; color:#333; margin-bottom:6px;">
+                                HISTORICAL PATTERN ANALYSIS ONLY · NOT INVESTMENT ADVICE
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            # Factors expander
                             with st.expander("▸ View analysis factors"):
                                 for f in factors:
-                                    color = "#2a9a4a" if "✅" in f else "#cc2200" if "⚠️" in f else "#555"
-                                    st.markdown(f'<div style="font-size:0.75em; color:{color}; padding:2px 0;">{f}</div>', unsafe_allow_html=True)
+                                    color = "#2a9a4a" if "✅" in f else "#cc2200" if "⚠️" in f else "#666"
+                                    st.markdown(
+                                        f'<div style="font-size:0.78em; color:{color}; '
+                                        f'padding:3px 0;">{f}</div>',
+                                        unsafe_allow_html=True
+                                    )
                     except Exception as te:
                         pass  # Fail silently if technical analysis errors
 
