@@ -588,7 +588,10 @@ with tab1:
                 if best:
                     move = best.get('avg_move_72h', 0) or 0
                     acc = (best.get('accuracy', 0) or 0) * 100
+                    acc_decimal = (best.get('accuracy', 0) or 0)
                     samples = best.get('sample_size', 0) or 0
+                    best_ticker = best.get('ticker', '')
+                    best_direction = best.get('direction', 'up')
                     d_color = "#2a9a4a" if best.get('direction') == 'up' else "#cc2200"
                     d_arrow = "▲" if best.get('direction') == 'up' else "▼"
                     move_sign = "+" if move > 0 else ""
@@ -619,6 +622,121 @@ with tab1:
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    # ── Technical + Signal Combined Indicator ──────────
+                    try:
+                        from processing.technical_analysis import get_combined_indicator
+                        with st.spinner(f"Analyzing {best_ticker}..."):
+                            indicator = get_combined_indicator(
+                                best_ticker, best_direction,
+                                strength, acc_decimal
+                            )
+
+                        if indicator:
+                            pat        = indicator["pattern"]
+                            conf       = indicator["confidence"]
+                            ind_score  = indicator["score"]
+                            factors    = indicator["factors"]
+                            ind_color  = indicator["color"]
+                            tech       = indicator.get("technicals", {})
+
+                            yes_style = (
+                                f"background:#0a1f0a; border:2px solid #2a9a4a; "
+                                f"color:#2a9a4a; font-weight:700;"
+                                if pat == "YES" else
+                                f"background:#0c0c0c; border:1px solid #1a1a24; "
+                                f"color:#2a2a2a; font-weight:400;"
+                            )
+                            no_style = (
+                                f"background:#1f0a0a; border:2px solid #cc2200; "
+                                f"color:#cc2200; font-weight:700;"
+                                if pat == "NO" else
+                                f"background:#0c0c0c; border:1px solid #1a1a24; "
+                                f"color:#2a2a2a; font-weight:400;"
+                            )
+                            conf_color = (
+                                "#e8b84b" if conf == "HIGH" else
+                                "#666" if conf == "MEDIUM" else "#444"
+                            )
+
+                            # Technicals summary
+                            tech_line = ""
+                            if tech:
+                                rsi       = tech.get("rsi", "—")
+                                vol_ratio = tech.get("volume_ratio", "—")
+                                today_chg = tech.get("today_change", 0)
+                                chg_color = "#2a9a4a" if today_chg >= 0 else "#cc2200"
+                                tech_line = f"""
+                                <div style="display:flex; gap:20px; margin-bottom:10px;
+                                     font-size:0.68em; color:#555;">
+                                    <span>Price today:
+                                        <b style="color:{chg_color};">{today_chg:+.2f}%</b>
+                                    </span>
+                                    <span>RSI: <b style="color:#888;">{rsi}</b></span>
+                                    <span>Volume: <b style="color:#888;">{vol_ratio:.1f}x avg</b></span>
+                                    <span>Combined Score: <b style="color:{ind_color};">
+                                        {ind_score}/100</b>
+                                    </span>
+                                </div>
+                                """
+
+                            factors_html = "".join([
+                                f'<div style="font-size:0.65em; color:#444; '
+                                f'margin-bottom:2px;">{f}</div>'
+                                for f in factors
+                            ])
+
+                            st.markdown(f"""
+                            <div style="background:#08080c; border:1px solid #1a1a24;
+                                 border-left:3px solid {ind_color};
+                                 padding:12px 14px; border-radius:2px; margin:6px 0;">
+                                <div style="font-size:0.6em; color:#444; text-transform:uppercase;
+                                     letter-spacing:0.1em; margin-bottom:8px;">
+                                    ⚡ Combined Pattern Indicator — {best_ticker}
+                                </div>
+                                {tech_line}
+                                <div style="display:flex; gap:10px; margin-bottom:10px;
+                                     align-items:center;">
+                                    <div style="padding:10px 28px; border-radius:2px;
+                                         font-size:1em; letter-spacing:0.15em;
+                                         text-align:center; {yes_style}">
+                                        YES
+                                    </div>
+                                    <div style="padding:10px 28px; border-radius:2px;
+                                         font-size:1em; letter-spacing:0.15em;
+                                         text-align:center; {no_style}">
+                                        NO
+                                    </div>
+                                    <div style="margin-left:8px;">
+                                        <span style="font-size:0.85em; font-weight:600;
+                                              color:{ind_color};">
+                                            ← {pat}
+                                        </span>
+                                        <span style="font-size:0.65em; color:{conf_color};
+                                              margin-left:6px; text-transform:uppercase;
+                                              letter-spacing:0.08em;">
+                                            {conf} CONFIDENCE
+                                        </span>
+                                    </div>
+                                </div>
+                                <details>
+                                    <summary style="font-size:0.62em; color:#444;
+                                         cursor:pointer; letter-spacing:0.06em;
+                                         text-transform:uppercase;">
+                                        View analysis factors
+                                    </summary>
+                                    <div style="margin-top:6px;">
+                                        {factors_html}
+                                    </div>
+                                </details>
+                                <div style="font-size:0.58em; color:#2a2a2a; margin-top:8px;">
+                                    HISTORICAL PATTERN ANALYSIS ONLY. NOT INVESTMENT ADVICE.
+                                    PAST PERFORMANCE DOES NOT GUARANTEE FUTURE RESULTS.
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    except Exception as te:
+                        pass  # Fail silently if technical analysis errors
 
                 up_assets = [a for a in assets if a.get("direction") == "up"]
                 down_assets = [a for a in assets if a.get("direction") == "down"]
