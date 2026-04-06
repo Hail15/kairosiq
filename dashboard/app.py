@@ -581,7 +581,7 @@ with tab1:
                           font-size:0.9em;">⬤ {domain.upper()}</span>
                     {new_badge}
                 </div>
-                <div class="signal-title">{description[:180]}</div>
+                <div class="signal-title">{description[:180].replace('<','&lt;').replace('>','&gt;')}</div>
                 <div style="display:flex; align-items:baseline; gap:16px; margin-top:6px;">
                     <span class="signal-prob">{safe_float(prob_before)}%</span>
                     <span style="color:#333; font-size:0.8em;">→</span>
