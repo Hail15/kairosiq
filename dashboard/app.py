@@ -501,6 +501,17 @@ header { visibility: hidden; }
 [data-testid="stDecoration"] { display: none !important; }
 [data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; }
 .stDeployButton { display: none !important; }
+[data-testid="collapsedControl"] { display: block !important; }
+[data-testid="stBaseButton-headerNoPadding"] { display: none !important; }
+button[kind="header"] { display: none !important; }
+.eyeqlp51 { display: none !important; }
+.st-emotion-cache-1dp5vir { display: none !important; }
+div[class*="appview-container"] > div[class*="header"] { display: none !important; }
+div[class*="stAppHeader"] { display: none !important; }
+div[class*="AppHeader"] { display: none !important; }
+#stDecoration { display: none !important; }
+.stAppDeployButton { display: none !important; }
+[data-testid="stAppViewBlockContainer"] > div:first-child { margin-top: -80px !important; }
 section[data-testid="stSidebar"] > div:first-child { padding-top: 0 !important; }
 iframe[title="streamlit_analytics"] { display: none !important; }
 
