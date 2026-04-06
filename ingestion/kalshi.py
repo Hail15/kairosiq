@@ -272,6 +272,37 @@ def get_auth_headers(method, path):
         print(f"❌ Error generating auth headers: {e}")
         return None
 
+def fetch_markets_by_keyword(keyword, headers):
+    """Search Kalshi markets by keyword — finds markets we don't have tickers for."""
+    path = "/trade-api/v2/markets"
+    url  = f"https://api.elections.kalshi.com{path}"
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            params={
+                "status": "open",
+                "limit":  50,
+                "search": keyword,
+            },
+            timeout=15
+        )
+        if response.status_code == 200:
+            return response.json().get("markets", [])
+        return []
+    except Exception:
+        return []
+
+# Keywords to search for in addition to specific tickers
+SEARCH_KEYWORDS = [
+    "Iran", "Israel", "Russia", "Ukraine", "China", "Taiwan",
+    "nuclear deal", "ceasefire", "Hormuz", "oil price", "OPEC",
+    "Venezuela", "Greenland", "Starmer", "Gaza", "Saudi",
+    "North Korea", "ground invasion", "war", "sanctions",
+    "Fed rate", "inflation", "recession", "Trump", "Congress",
+    "tariff", "trade war", "default", "debt ceiling",
+]
+
 def fetch_markets_for_event(event_ticker, headers):
     path = "/trade-api/v2/markets"
     url = f"https://api.elections.kalshi.com{path}"
@@ -303,11 +334,23 @@ def fetch_kalshi_markets():
     all_markets = []
     found_events = 0
 
+    # Fetch by specific event tickers
     for event_ticker in GEOPOLITICAL_EVENT_TICKERS:
         markets = fetch_markets_for_event(event_ticker, headers)
         if markets:
             found_events += 1
             all_markets.extend(markets)
+
+    # Also search by keyword to catch markets not in our ticker list
+    print("   Searching by keywords for new markets...")
+    seen_from_keywords = set()
+    for keyword in SEARCH_KEYWORDS:
+        kw_markets = fetch_markets_by_keyword(keyword, headers)
+        for m in kw_markets:
+            mid = m.get("ticker", "")
+            if mid and mid not in seen_from_keywords:
+                seen_from_keywords.add(mid)
+                all_markets.append(m)
 
     # Deduplicate by ticker
     seen = set()
@@ -318,25 +361,31 @@ def fetch_kalshi_markets():
             seen.add(mid)
             unique.append(m)
 
-    print(f"   Found {len(unique)} markets across {found_events} events")
+    print(f"   Found {len(unique)} markets across {found_events} events + keyword search")
     return unique
 
+SPORTS_KEYWORDS = [
+    "nfl", "nba", "mlb", "nhl", "nascar", "ufc", "mma",
+    "super bowl", "world series", "stanley cup", "championship",
+    "playoff", "tournament", "match", "game winner", "mvp",
+    "quarterback", "touchdown", "home run", "hat trick",
+    "fifa", "premier league", "bundesliga", "la liga",
+    "wimbledon", "us open", "french open", "australian open",
+    "oscar", "grammy", "emmy", "golden globe", "academy award",
+    "box office", "album sales", "chart position",
+]
+
 def is_clean(question_text):
-    """Final safety — block any sports that slipped through."""
+    """Final safety — block sports, entertainment, and noise."""
     text = question_text.lower().strip()
-    if text.startswith("yes "):
+    if text.startswith("yes ") or text.startswith("no "):
         return False
-    if text.startswith("no "):
+    if ",yes " in text or "wins by over" in text:
         return False
-    if ",yes " in text:
+    if any(k in text for k in ["points scored", "runs scored",
+                                "goals scored", "yards gained"]):
         return False
-    if "wins by over" in text:
-        return False
-    if "points scored" in text:
-        return False
-    if "runs scored" in text:
-        return False
-    if "goals scored" in text:
+    if any(k in text for k in SPORTS_KEYWORDS):
         return False
     return True
 
