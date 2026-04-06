@@ -289,10 +289,10 @@ def fetch_active_signals():
         AND event_description NOT LIKE '%cholera vaccination%'
         AND event_description NOT LIKE '%measles%'
         ORDER BY
+            signal_time DESC,
             CASE confidence_score WHEN 'high' THEN 1
             WHEN 'medium' THEN 2 ELSE 3 END,
-            probability_shift DESC,
-            signal_time DESC
+            probability_shift DESC
         LIMIT 20;
     """)
     rows = cur.fetchall()
@@ -557,6 +557,15 @@ with tab1:
             shift_class = "signal-shift-up" if pa > pb else "signal-shift-down"
             time_str = signal_time.strftime("%Y-%m-%d %H:%M") if signal_time else "—"
 
+            # NEW badge if signal fired in last 60 minutes
+            is_new = False
+            if signal_time:
+                from datetime import timezone as _tz
+                now_utc = datetime.now(_tz.utc)
+                sig_utc = signal_time if signal_time.tzinfo else signal_time.replace(tzinfo=_tz.utc)
+                is_new = (now_utc - sig_utc).total_seconds() < 3600
+            new_badge = '<span style="background:#cc2200; color:white; font-size:0.6em; padding:2px 6px; border-radius:2px; margin-left:6px; font-weight:700; letter-spacing:0.1em;">NEW</span>' if is_new else ""
+
             domain = get_domain(event_category, platform, description)
             domain_color = DOMAIN_COLORS.get(domain, "#555")
 
@@ -569,6 +578,7 @@ with tab1:
                     &nbsp;·&nbsp;
                     <span style="color:{domain_color}; font-weight:600;
                           font-size:0.9em;">⬤ {domain.upper()}</span>
+                    {new_badge}
                 </div>
                 <div class="signal-title">{description[:180]}</div>
                 <div style="display:flex; align-items:baseline; gap:16px; margin-top:6px;">
