@@ -386,7 +386,7 @@ def check_counter_signal(trade):
 # ── Main Runner ───────────────────────────────────────────────────────────────
 
 def get_open_trades_full():
-    """Get all open trades with signal context."""
+    """Get all open trades with signal context where available."""
     try:
         conn = get_db_connection()
         cur  = conn.cursor()
@@ -395,11 +395,14 @@ def get_open_trades_full():
                 t.id, t.signal_id, t.ticker, t.side,
                 t.notional_usd, t.order_id, t.is_live,
                 t.entry_price, t.notes, t.created_at,
-                s.event_description, s.expires_at,
-                s.confidence_score, s.region,
-                s.probability_shift, s.affected_assets
+                COALESCE(s.event_description, 'Manual trade — no signal linked') as event_description,
+                s.expires_at,
+                COALESCE(s.confidence_score, 'medium') as confidence_score,
+                COALESCE(s.region, 'Global') as region,
+                s.probability_shift,
+                s.affected_assets
             FROM alpaca_trades t
-            JOIN signals s ON s.id::text = t.signal_id
+            LEFT JOIN signals s ON s.id::text = t.signal_id
             WHERE t.closed_at IS NULL
             ORDER BY t.created_at DESC;
         """)
