@@ -496,6 +496,13 @@ html, body, [class*="css"] {
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
 header { visibility: hidden; }
+[data-testid="stHeader"] { display: none !important; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
+[data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; }
+.stDeployButton { display: none !important; }
+section[data-testid="stSidebar"] > div:first-child { padding-top: 0 !important; }
+iframe[title="streamlit_analytics"] { display: none !important; }
 
 /* ── Top header offset ──────────────────────────────────────── */
 .main .block-container {
