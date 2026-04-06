@@ -719,22 +719,18 @@ with tab1:
                                         </span>
                                     </div>
                                 </div>
-                                <details>
-                                    <summary style="font-size:0.62em; color:#444;
-                                         cursor:pointer; letter-spacing:0.06em;
-                                         text-transform:uppercase;">
-                                        View analysis factors
-                                    </summary>
-                                    <div style="margin-top:6px;">
-                                        {factors_html}
-                                    </div>
-                                </details>
                                 <div style="font-size:0.58em; color:#2a2a2a; margin-top:8px;">
                                     HISTORICAL PATTERN ANALYSIS ONLY. NOT INVESTMENT ADVICE.
                                     PAST PERFORMANCE DOES NOT GUARANTEE FUTURE RESULTS.
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
+
+                            # Show factors in expander
+                            with st.expander("▸ View analysis factors"):
+                                for f in factors:
+                                    color = "#2a9a4a" if "✅" in f else "#cc2200" if "⚠️" in f else "#555"
+                                    st.markdown(f'<div style="font-size:0.75em; color:{color}; padding:2px 0;">{f}</div>', unsafe_allow_html=True)
                     except Exception as te:
                         pass  # Fail silently if technical analysis errors
 
