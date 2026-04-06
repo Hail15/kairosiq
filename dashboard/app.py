@@ -495,40 +495,24 @@ html, body, [class*="css"] {
 /* ── Hide Streamlit Branding ────────────────────────────────── */
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
-header { visibility: hidden; }
-[data-testid="stHeader"] { display: none !important; }
-[data-testid="stToolbar"] { display: none !important; }
-[data-testid="stDecoration"] { display: none !important; }
-[data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; }
-.stDeployButton { display: none !important; }
-[data-testid="collapsedControl"] { 
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    z-index: 9999 !important;
-    position: fixed !important;
-    left: 0 !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    background: var(--bg-elevated) !important;
-    border: 1px solid var(--border-bright) !important;
-    border-left: none !important;
-    border-radius: 0 4px 4px 0 !important;
-    padding: 8px 4px !important;
-    color: var(--text-secondary) !important;
-}
-[data-testid="stBaseButton-headerNoPadding"] { display: none !important; }
-button[kind="header"] { display: none !important; }
-.eyeqlp51 { display: none !important; }
-.st-emotion-cache-1dp5vir { display: none !important; }
-div[class*="appview-container"] > div[class*="header"] { display: none !important; }
-div[class*="stAppHeader"] { display: none !important; }
-div[class*="AppHeader"] { display: none !important; }
-#stDecoration { display: none !important; }
-.stAppDeployButton { display: none !important; }
-[data-testid="stAppViewBlockContainer"] > div:first-child { margin-top: -80px !important; }
-section[data-testid="stSidebar"] > div:first-child { padding-top: 0 !important; }
-iframe[title="streamlit_analytics"] { display: none !important; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* ── Top header offset ──────────────────────────────────────── */
 .main .block-container {
