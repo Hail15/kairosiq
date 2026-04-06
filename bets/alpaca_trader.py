@@ -12,7 +12,7 @@ import os
 import sys
 from datetime import datetime
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import settings
 
 # ── Alpaca Config (read-only market data + account info) ─────────────────────
@@ -73,6 +73,8 @@ def get_account_info(live=False):
         r = requests.get(f"{base}/account", headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
+        else:
+            print(f"⚠️  Alpaca account error {r.status_code}: {r.text[:100]}")
     except Exception as e:
         print(f"⚠️  Account info error: {e}")
     return None
