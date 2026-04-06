@@ -268,7 +268,8 @@ def fetch_active_signals():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, event_description, region, event_category,
+        SELECT DISTINCT ON (event_category, region)
+               id, event_description, region, event_category,
                probability_before, probability_after, probability_shift,
                confidence_score, source_platform, affected_assets,
                signal_time, expires_at, source_question_id
@@ -288,7 +289,7 @@ def fetch_active_signals():
         AND event_description NOT LIKE '%Pandemic Agreement%'
         AND event_description NOT LIKE '%cholera vaccination%'
         AND event_description NOT LIKE '%measles%'
-        ORDER BY
+        ORDER BY event_category, region,
             signal_time DESC,
             CASE confidence_score WHEN 'high' THEN 1
             WHEN 'medium' THEN 2 ELSE 3 END,
@@ -1815,7 +1816,9 @@ with tab6:
         """, unsafe_allow_html=True)
 
         if signals:
-            for signal in signals[:10]:
+            # Deduplicate — collect best rec per ticker across all signals
+            seen_tickers = {}
+            for signal in signals[:20]:
                 sig_id      = signal[0]
                 description = signal[1] or ""
                 region      = signal[2] or "Global"
@@ -1843,6 +1846,19 @@ with tab6:
                 if not rec:
                     continue
 
+                ticker   = rec["ticker"]
+                strength = rec["signal_strength"]
+
+                # Keep only the highest strength rec per ticker
+                if ticker not in seen_tickers or strength > seen_tickers[ticker]["signal_strength"]:
+                    seen_tickers[ticker] = rec
+
+            # Sort by signal strength descending
+            unique_recs = sorted(seen_tickers.values(),
+                                 key=lambda x: x["signal_strength"], reverse=True)
+
+            for rec in unique_recs[:8]:
+                sig_id      = rec["signal_id"]
                 strength    = rec["signal_strength"]
                 tier        = rec["convergence_tier"]
                 side        = rec["side"]
@@ -1852,6 +1868,7 @@ with tab6:
                 price       = rec["current_price"]
                 tradeable   = rec["tradeable"]
                 note        = rec["note"]
+                description = rec["event_description"]
 
                 side_color  = "#2a9a4a" if side == "BUY" else "#cc2200"
                 tier_label  = ["", "SINGLE SOURCE", "DUAL CONFIRM", "FULL CONVERGENCE"][min(tier, 3)]
