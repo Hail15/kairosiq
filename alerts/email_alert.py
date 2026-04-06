@@ -280,7 +280,7 @@ def get_unalerted_signals():
         AND s.confidence_score IN ('high', 'medium')
         AND s.signal_time >= NOW() - INTERVAL '24 hours'
         AND s.id::text NOT IN (
-            SELECT signal_id
+            SELECT signal_id::text
             FROM signal_alerts_sent
             WHERE alerted_at >= NOW() - INTERVAL '24 hours'
         )
