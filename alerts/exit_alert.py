@@ -102,7 +102,7 @@ def send_exit_email(subject, html):
             },
             json={
                 "from":    "KairosIQ <onboarding@resend.dev>",
-                "to":      [settings.ALERT_EMAIL_TO],
+                "to":      [r for r in [settings.ALERT_EMAIL_TO, settings.ALERT_EMAIL_TO_2] if r],
                 "subject": subject,
                 "html":    html
             },
@@ -233,6 +233,7 @@ def check_stop_loss(trade, current_price):
         if send_exit_email(subject, html):
             mark_alerted(tid, "stop_loss")
             print(f"🛑 Stop loss alert sent: {ticker} {pct*100:+.1f}%")
+            if telegram_exit: telegram_exit(ticker, side, "stop_loss", pnl, current_price)
             return True
     return False
 
@@ -267,6 +268,7 @@ def check_take_profit(trade, current_price, avg_move_72h=None):
         if send_exit_email(subject, html):
             mark_alerted(tid, "take_profit")
             print(f"✅ Take profit alert sent: {ticker} +{pct*100:.1f}%")
+            if telegram_exit: telegram_exit(ticker, side, "take_profit", pnl, current_price)
             return True
     return False
 
@@ -311,6 +313,7 @@ def check_signal_expiry(trade, current_price):
         if send_exit_email(subject, html):
             mark_alerted(tid, "signal_expired")
             print(f"⏰ Signal expiry alert sent: {ticker}")
+            if telegram_exit: telegram_exit(ticker, side, "signal_expired", pnl, current_price)
             return True
     return False
 

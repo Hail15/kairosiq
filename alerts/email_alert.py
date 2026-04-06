@@ -15,7 +15,12 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
-RESEND_API_URL = "https://api.resend.com/emails"
+def get_alert_recipients():
+    """Get all alert email recipients."""
+    recipients = [settings.ALERT_EMAIL_TO] if settings.ALERT_EMAIL_TO else []
+    if settings.ALERT_EMAIL_TO_2:
+        recipients.append(settings.ALERT_EMAIL_TO_2)
+    return recipients
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
@@ -34,7 +39,7 @@ def send_email(to, subject, html):
             },
             json={
                 "from":    "KairosIQ <onboarding@resend.dev>",
-                "to":      [to],
+                "to":      get_alert_recipients(),
                 "subject": subject,
                 "html":    html
             },
@@ -177,11 +182,11 @@ def get_unalerted_signals():
         WHERE s.is_active = true
         AND s.expires_at > NOW()
         AND s.confidence_score IN ('high', 'medium')
-        AND s.signal_time >= NOW() - INTERVAL '24 hours'
+        AND s.signal_time >= NOW() - INTERVAL '48 hours'
         AND s.id::text NOT IN (
             SELECT signal_id::text
             FROM signal_alerts_sent
-            WHERE alerted_at >= NOW() - INTERVAL '24 hours'
+            WHERE alerted_at >= NOW() - INTERVAL '48 hours'
         )
         ORDER BY
             CASE s.confidence_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 END,
@@ -222,6 +227,12 @@ def run_email_alerts():
         print("   No new signals to alert.")
         return
 
+    # Import Telegram notifier
+    try:
+        from alerts.telegram_alert import notify_signal as telegram_notify
+    except Exception:
+        telegram_notify = None
+
     print(f"   Found {len(signals)} signals to alert")
     sent = 0
     for signal in signals:
@@ -239,6 +250,15 @@ def run_email_alerts():
                 mark_signal_alerted(signal[0])
                 sent += 1
                 print(f"✅ Email sent: {signal[1][:60]}...")
+
+                # Also send Telegram push
+                if telegram_notify:
+                    try:
+                        telegram_notify(signal)
+                        print(f"📱 Telegram sent")
+                    except Exception as te:
+                        print(f"⚠️  Telegram error: {te}")
+
         except Exception as e:
             print(f"❌ Email error for signal {signal[0]}: {e}")
 

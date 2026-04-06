@@ -54,6 +54,10 @@ class Settings:
     # --- Metaculus ---
     METACULUS_API_TOKEN: str = get_setting("METACULUS_API_TOKEN")
 
+    # --- Telegram ---
+    TELEGRAM_BOT_TOKEN: str = get_setting("TELEGRAM_BOT_TOKEN")
+    TELEGRAM_CHAT_ID:   str = get_setting("TELEGRAM_CHAT_ID")
+
     # --- Resend Email ---
     RESEND_API_KEY: str = get_setting("RESEND_API_KEY")
 
