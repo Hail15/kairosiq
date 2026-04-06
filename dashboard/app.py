@@ -1182,21 +1182,158 @@ with tab3:
         total_payout = sum(b[9] for b in bets if b[9]) or 0
         wins = len([b for b in bets if b[8] == "win"])
         losses = len([b for b in bets if b[8] == "loss"])
+        pending = len([b for b in bets if b[8] is None])
         resolved = wins + losses
         win_rate = (wins / resolved * 100) if resolved > 0 else 0
+        net_pnl = total_payout - total_staked
 
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1: st.metric("TOTAL BETS", len(bets))
         with col2: st.metric("TOTAL STAKED", f"${total_staked:.2f}")
         with col3: st.metric("WINS / LOSSES", f"{wins} / {losses}")
-        with col4: st.metric("WIN RATE", f"{win_rate:.0f}%")
+        with col4: st.metric("WIN RATE", f"{win_rate:.0f}%" if resolved else "—")
+        with col5:
+            pnl_color = "normal" if net_pnl >= 0 else "inverse"
+            st.metric("NET P&L", f"${net_pnl:+.2f}")
 
-        df = pd.DataFrame(bets, columns=[
-            "ID", "Platform", "Question", "Direction", "Stake",
-            "Odds", "Payout", "Time", "Result", "Actual Payout", "TX Hash"
-        ])
-        st.dataframe(df.drop(columns=["ID"]), use_container_width=True,
-                    hide_index=True)
+        st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+        # ── Pending Resolution ────────────────────────────────
+        pending_bets = [b for b in bets if b[8] is None]
+        if pending_bets:
+            st.markdown("""
+            <div style="font-size:0.65em; color:#e8b84b; text-transform:uppercase;
+                 letter-spacing:0.1em; margin-bottom:12px;">
+                ⬤ Pending Resolution — Mark outcome when Kalshi/Polymarket resolves
+            </div>""", unsafe_allow_html=True)
+
+            for bet in pending_bets:
+                bet_id       = bet[0]
+                platform     = bet[1] or "—"
+                question     = bet[2] or "—"
+                direction    = bet[3] or "—"
+                stake        = bet[4] or 0
+                odds         = bet[5] or 0
+                pot_payout   = bet[6] or 0
+                bet_time     = bet[7]
+                tx_hash      = bet[10] or ""
+
+                time_str = bet_time.strftime("%m-%d %H:%M") if bet_time else "—"
+                plat_color = "#00aa66" if platform == "kalshi" else "#0066ff"
+
+                st.markdown(f"""
+                <div style="background:#08080c; border:1px solid #1a1a24;
+                     border-left:3px solid {plat_color};
+                     padding:12px 16px; border-radius:2px; margin:4px 0;">
+                    <div style="display:flex; justify-content:space-between;
+                         align-items:center; margin-bottom:6px;">
+                        <span style="font-size:0.7em; font-weight:600;
+                               color:{plat_color}; text-transform:uppercase;">
+                            {platform.upper()}
+                        </span>
+                        <span style="font-size:0.65em; color:#555;">{time_str}</span>
+                    </div>
+                    <div style="font-size:0.78em; color:#c8c8c8; margin-bottom:8px;
+                         line-height:1.4;">
+                        {question[:120]}
+                    </div>
+                    <div style="display:flex; gap:20px; font-size:0.7em; color:#666;">
+                        <span>Direction: <b style="color:#e0e0e0;">{direction}</b></span>
+                        <span>Stake: <b style="color:#e0e0e0;">${float(stake):.2f}</b></span>
+                        <span>Potential payout: <b style="color:#2a9a4a;">
+                            ${float(pot_payout):.2f}</b></span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col_a, col_b, col_c = st.columns([1, 1, 2])
+                with col_a:
+                    if st.button(f"✅ WIN", key=f"win_{bet_id}"):
+                        try:
+                            conn = get_db()
+                            cur = conn.cursor()
+                            cur.execute("""
+                                UPDATE bets
+                                SET result = 'win',
+                                    actual_payout = %s,
+                                    resolved_at = NOW()
+                                WHERE id = %s
+                            """, (pot_payout, str(bet_id)))
+                            conn.commit()
+                            cur.close()
+                            st.success(f"Marked as WIN — ${float(pot_payout):.2f} payout")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                with col_b:
+                    if st.button(f"❌ LOSS", key=f"loss_{bet_id}"):
+                        try:
+                            conn = get_db()
+                            cur = conn.cursor()
+                            cur.execute("""
+                                UPDATE bets
+                                SET result = 'loss',
+                                    actual_payout = 0,
+                                    resolved_at = NOW()
+                                WHERE id = %s
+                            """, (str(bet_id),))
+                            conn.commit()
+                            cur.close()
+                            st.success("Marked as LOSS")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                with col_c:
+                    custom_payout = st.number_input(
+                        "Custom payout ($)",
+                        min_value=0.0, value=0.0, step=0.01,
+                        key=f"payout_{bet_id}"
+                    )
+                    if st.button(f"Log Custom Payout", key=f"custom_{bet_id}"):
+                        try:
+                            conn = get_db()
+                            cur = conn.cursor()
+                            result = "win" if custom_payout > stake else "loss"
+                            cur.execute("""
+                                UPDATE bets
+                                SET result = %s,
+                                    actual_payout = %s,
+                                    resolved_at = NOW()
+                                WHERE id = %s
+                            """, (result, custom_payout, str(bet_id)))
+                            conn.commit()
+                            cur.close()
+                            st.success(f"Logged — {result.upper()} ${custom_payout:.2f}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+
+            st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
+        # ── Resolved Bets Table ───────────────────────────────
+        resolved_bets = [b for b in bets if b[8] is not None]
+        if resolved_bets:
+            st.markdown("""
+            <div style="font-size:0.65em; color:#555; text-transform:uppercase;
+                 letter-spacing:0.1em; margin-bottom:8px;">Resolved Bets</div>
+            """, unsafe_allow_html=True)
+
+            df = pd.DataFrame(resolved_bets, columns=[
+                "ID", "Platform", "Question", "Direction", "Stake",
+                "Odds", "Payout", "Time", "Result", "Actual Payout", "TX Hash"
+            ])
+            df["Result"] = df["Result"].str.upper()
+            df["Stake"] = df["Stake"].apply(lambda x: f"${float(x):.2f}" if x else "—")
+            df["Actual Payout"] = df["Actual Payout"].apply(
+                lambda x: f"${float(x):.2f}" if x is not None else "—")
+            df["Time"] = pd.to_datetime(df["Time"]).dt.strftime("%m-%d %H:%M")
+            df["Question"] = df["Question"].str[:60] + "..."
+
+            st.dataframe(
+                df[["Platform", "Question", "Direction",
+                    "Stake", "Actual Payout", "Result", "Time"]],
+                use_container_width=True, hide_index=True
+            )
     else:
         st.markdown("""
         <div style="padding:24px; text-align:center; color:#333; font-size:0.75em;
@@ -1763,7 +1900,8 @@ with tab6:
 
             for t in open_trades:
                 (tid, signal_id, ticker, side, notional, order_id,
-                 is_live, entry_price, notes, created_at) = t
+                 order_status, is_live, entry_price, exit_price,
+                 pnl, exit_reason, notes, created_at, closed_at) = t
 
                 mode_badge = (
                     '<span style="color:#cc2200; font-size:0.7em; '
