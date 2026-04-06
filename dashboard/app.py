@@ -1188,7 +1188,8 @@ with tab6:
             alpaca_paper_secret = st.secrets["ALPACA_PAPER_SECRET"]
             alpaca_live_key     = st.secrets.get("ALPACA_LIVE_KEY", "")
             alpaca_live_secret  = st.secrets.get("ALPACA_LIVE_SECRET", "")
-        except Exception:
+        except Exception as e:
+            st.info(f"Debug — secrets error: {e} | Available keys: {list(st.secrets.keys()) if hasattr(st, 'secrets') else 'none'}")
             alpaca_paper_key    = os.getenv("ALPACA_PAPER_KEY", "")
             alpaca_paper_secret = os.getenv("ALPACA_PAPER_SECRET", "")
             alpaca_live_key     = os.getenv("ALPACA_LIVE_KEY", "")
