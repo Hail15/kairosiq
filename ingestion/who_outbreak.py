@@ -30,12 +30,21 @@ WHO_FEEDS = [
 ]
 
 HIGH_IMPACT_KEYWORDS = [
-    "ebola", "marburg", "plague", "cholera", "mpox", "monkeypox",
-    "avian influenza", "h5n1", "h5n2", "pandemic", "outbreak",
+    "ebola", "marburg", "plague", "mpox", "monkeypox",
+    "avian influenza", "h5n1", "h5n2",
     "yellow fever", "lassa", "nipah", "hemorrhagic fever",
-    "public health emergency", "pheic", "disease outbreak",
-    "epidemic", "zika", "dengue", "measles", "polio",
+    "public health emergency", "pheic",
     "novel virus", "unknown pathogen", "mass casualty",
+    "pandemic declared", "global health emergency",
+]
+
+# Keywords that disqualify an entry — food recalls, admin news, etc
+NOISE_KEYWORDS = [
+    "salmonella", "listeria", "botulism", "moringa", "oyster",
+    "supplement", "food recall", "dietary", "vaccine supply",
+    "negotiations", "agreement annex", "working group",
+    "milestone", "commitment", "collaboration", "reaffirmed",
+    "minimum wage", "cholera vaccination resumes",
 ]
 
 FINANCIALLY_RELEVANT_REGIONS = {
@@ -60,6 +69,8 @@ def get_db_connection():
 
 def is_high_impact(title, summary):
     text = (f"{title} {summary}").lower()
+    if any(kw in text for kw in NOISE_KEYWORDS):
+        return False
     return any(kw in text for kw in HIGH_IMPACT_KEYWORDS)
 
 def detect_region(title, summary):

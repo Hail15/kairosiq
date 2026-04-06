@@ -274,10 +274,26 @@ def fetch_active_signals():
                signal_time, expires_at, source_question_id
         FROM signals
         WHERE is_active = true AND expires_at > NOW()
+        AND event_description NOT LIKE '%Salmonella%'
+        AND event_description NOT LIKE '%Listeria%'
+        AND event_description NOT LIKE '%Botulism%'
+        AND event_description NOT LIKE '%moringa%'
+        AND event_description NOT LIKE '%oyster%'
+        AND event_description NOT LIKE '%Artemis%'
+        AND event_description NOT LIKE '%Moon%'
+        AND event_description NOT LIKE '%Pope%'
+        AND event_description NOT LIKE '%minimum wage%'
+        AND event_description NOT LIKE '%JLR%'
+        AND event_description NOT LIKE '%lobster%'
+        AND event_description NOT LIKE '%Pandemic Agreement%'
+        AND event_description NOT LIKE '%cholera vaccination%'
+        AND event_description NOT LIKE '%measles%'
         ORDER BY
             CASE confidence_score WHEN 'high' THEN 1
             WHEN 'medium' THEN 2 ELSE 3 END,
-            signal_time DESC;
+            probability_shift DESC,
+            signal_time DESC
+        LIMIT 20;
     """)
     rows = cur.fetchall()
     cur.close()

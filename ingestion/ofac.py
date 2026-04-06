@@ -59,6 +59,15 @@ SIGNAL_KEYWORDS = [
     "gaza", "north korea", "venezuela", "saudi arabia",
 ]
 
+# Stories that match keywords but are noise — filter these out
+NOISE_KEYWORDS = [
+    "pope", "easter", "moon", "artemis", "astronaut",
+    "minimum wage", "arson", "ambulance", "lobster", "cyber attack jlr",
+    "migrant workers", "mortgage", "jobs surge", "job",
+    "salmonella", "listeria", "food recall", "supplement",
+    "hungary", "gas pipeline election",
+]
+
 # Map keywords to signal categories
 CATEGORY_MAP = {
     "iran": "middle_east_military_escalation",
@@ -89,6 +98,8 @@ def get_db_connection():
 
 def is_market_moving(title, summary):
     text = (f"{title} {summary}").lower()
+    if any(kw in text for kw in NOISE_KEYWORDS):
+        return False
     return any(kw in text for kw in SIGNAL_KEYWORDS)
 
 def detect_category(title, summary):
