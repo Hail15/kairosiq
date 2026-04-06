@@ -289,12 +289,20 @@ def fetch_active_signals():
         AND event_description NOT LIKE '%Pandemic Agreement%'
         AND event_description NOT LIKE '%cholera vaccination%'
         AND event_description NOT LIKE '%measles%'
+        AND event_description NOT LIKE '%Hungary alleges%'
+        AND event_description NOT LIKE '%term limits for Congress%'
+        AND event_description NOT LIKE '%Executive Orders%'
+        AND event_description NOT LIKE '%veto%'
+        AND event_description NOT LIKE '%Trees Are Key%'
+        AND event_description NOT LIKE '%migrants%'
+        AND event_description NOT LIKE '%Oscar%'
+        AND event_description NOT LIKE '%Grammy%'
         ORDER BY event_category, region,
             signal_time DESC,
             CASE confidence_score WHEN 'high' THEN 1
             WHEN 'medium' THEN 2 ELSE 3 END,
             probability_shift DESC
-        LIMIT 20;
+        LIMIT 15;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -805,6 +813,15 @@ with tab1:
                         get_combined_indicator = None
 
                     all_assets = up_assets + down_assets
+                    # Deduplicate by ticker
+                    seen_tickers = set()
+                    deduped_assets = []
+                    for a in all_assets:
+                        t = a.get('ticker', '—')
+                        if t not in seen_tickers:
+                            seen_tickers.add(t)
+                            deduped_assets.append(a)
+                    all_assets = deduped_assets
                     for a in all_assets[:6]:
                         a_ticker    = a.get('ticker', '—')
                         a_name      = a.get('name', '')[:28]
