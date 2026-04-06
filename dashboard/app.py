@@ -228,7 +228,7 @@ Frame everything as historical data. Never say buy or sell.
 No investment advice. Just intelligence."""
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         message = client.messages.create(
-            model="claude-opus-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=150,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -1183,6 +1183,10 @@ with tab6:
 
         paper_acct = get_account_info(live=False)
         live_acct  = get_account_info(live=True)
+
+        # Debug — show what we're getting back
+        if not paper_acct and not live_acct:
+            st.warning(f"⚠️ Alpaca API not responding. Check keys in Streamlit secrets. PAPER_KEY starts with: {settings.ALPACA_PAPER_KEY[:6] if settings.ALPACA_PAPER_KEY else 'NOT SET'}")
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
