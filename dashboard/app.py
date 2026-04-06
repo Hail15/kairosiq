@@ -1648,6 +1648,74 @@ with tab6:
 
         st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
+        # ── Manual Trade Logger (any trade, signal or not) ────
+        with st.expander("📝 Log Any Trade Manually"):
+            st.markdown("""
+            <div style="font-size:0.68em; color:#555; margin-bottom:12px;">
+                Log any trade you placed on Alpaca — whether signal-driven or your own call.
+                Not linked to a signal? Leave Signal ID blank.
+            </div>""", unsafe_allow_html=True)
+
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                manual_ticker  = st.text_input("Ticker", placeholder="e.g. USO, GLD, LMT",
+                                               key="manual_ticker")
+                manual_side    = st.selectbox("Side", ["buy", "sell"], key="manual_side")
+                manual_account = st.selectbox("Account", ["paper", "live"],
+                                              key="manual_account")
+            with col_b:
+                manual_price  = st.number_input("Entry Price ($)", min_value=0.01,
+                                                value=1.00, step=0.01,
+                                                key="manual_price")
+                manual_amount = st.number_input("Amount ($)", min_value=0.01,
+                                                value=1.00, step=0.01,
+                                                key="manual_amount")
+            with col_c:
+                manual_signal = st.text_input("Signal ID (optional)",
+                                              placeholder="Leave blank if not signal-driven",
+                                              key="manual_signal")
+                manual_notes  = st.text_area("Notes", height=80,
+                                             placeholder="Why did you take this trade?",
+                                             key="manual_notes")
+
+            if st.button("✅ Log Trade", key="manual_log_btn"):
+                if not manual_ticker:
+                    st.error("Ticker is required")
+                else:
+                    try:
+                        import hashlib
+                        order_id = hashlib.sha256(
+                            f"manual-{manual_ticker}-{manual_price}-{datetime.now().isoformat()}"
+                            .encode()
+                        ).hexdigest()[:32]
+
+                        conn = get_db()
+                        cur  = conn.cursor()
+                        cur.execute("""
+                            INSERT INTO alpaca_trades
+                                (signal_id, ticker, side, notional_usd, order_id,
+                                 order_status, is_live, entry_price, notes, created_at)
+                            VALUES (%s, %s, %s, %s, %s, 'manual', %s, %s, %s, NOW())
+                            ON CONFLICT (order_id) DO NOTHING;
+                        """, (
+                            manual_signal.strip() or None,
+                            manual_ticker.upper().strip(),
+                            manual_side,
+                            manual_amount,
+                            order_id,
+                            manual_account == "live",
+                            manual_price,
+                            manual_notes or f"Manual entry — {manual_ticker.upper()}"
+                        ))
+                        conn.commit()
+                        cur.close()
+                        st.success(f"✅ Trade logged: {manual_side.upper()} "
+                                   f"{manual_ticker.upper()} @ ${manual_price:.2f} "
+                                   f"(${manual_amount:.2f} {manual_account})")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error logging trade: {e}")
+
         # ── Trade Recommendations from Active Signals ─────────
         st.markdown("""
         <div style="font-size:0.65em; color:#e8b84b; text-transform:uppercase;
