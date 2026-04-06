@@ -38,6 +38,8 @@ class Settings:
     GMAIL_ADDRESS: str = get_setting("GMAIL_ADDRESS")
     GMAIL_APP_PASSWORD: str = get_setting("GMAIL_APP_PASSWORD")
     ALERT_EMAIL_TO: str = get_setting("ALERT_EMAIL_TO")
+    ALERT_EMAIL_TO_2: str = get_setting("ALERT_EMAIL_TO_2")
+    ALERT_EMAIL_TO_2: str = get_setting("ALERT_EMAIL_TO_2")
 
     # --- Anthropic ---
     ANTHROPIC_API_KEY: str = get_setting("ANTHROPIC_API_KEY")
