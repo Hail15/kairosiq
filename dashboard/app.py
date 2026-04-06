@@ -1181,12 +1181,28 @@ with tab6:
         )
         from processing.asset_mapper import get_best_performer, get_signal_metadata
 
-        paper_acct = get_account_info(live=False)
-        live_acct  = get_account_info(live=True)
+        # Read Alpaca keys fresh from st.secrets at runtime
+        # (settings object is instantiated before Streamlit secrets are loaded)
+        try:
+            alpaca_paper_key    = st.secrets["ALPACA_PAPER_KEY"]
+            alpaca_paper_secret = st.secrets["ALPACA_PAPER_SECRET"]
+            alpaca_live_key     = st.secrets.get("ALPACA_LIVE_KEY", "")
+            alpaca_live_secret  = st.secrets.get("ALPACA_LIVE_SECRET", "")
+        except Exception:
+            alpaca_paper_key    = os.getenv("ALPACA_PAPER_KEY", "")
+            alpaca_paper_secret = os.getenv("ALPACA_PAPER_SECRET", "")
+            alpaca_live_key     = os.getenv("ALPACA_LIVE_KEY", "")
+            alpaca_live_secret  = os.getenv("ALPACA_LIVE_SECRET", "")
 
-        # Debug — show what we're getting back
+        paper_acct = get_account_info(live=False,
+                                      key=alpaca_paper_key,
+                                      secret=alpaca_paper_secret)
+        live_acct  = get_account_info(live=True,
+                                      key=alpaca_live_key,
+                                      secret=alpaca_live_secret)
+
         if not paper_acct and not live_acct:
-            st.warning(f"⚠️ Alpaca API not responding. Check keys in Streamlit secrets. PAPER_KEY starts with: {settings.ALPACA_PAPER_KEY[:6] if settings.ALPACA_PAPER_KEY else 'NOT SET'}")
+            st.warning(f"⚠️ Alpaca API not responding. PAPER_KEY starts with: {alpaca_paper_key[:6] if alpaca_paper_key else 'NOT SET'}")
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:

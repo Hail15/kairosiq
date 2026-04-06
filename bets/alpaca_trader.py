@@ -61,10 +61,10 @@ def get_current_price(ticker):
         print(f"⚠️  Price fetch error for {ticker}: {e}")
     return None
 
-def get_account_info(live=False):
-    key    = ALPACA_LIVE_KEY    if live else ALPACA_PAPER_KEY
-    secret = ALPACA_LIVE_SECRET if live else ALPACA_PAPER_SECRET
-    base   = LIVE_BASE_URL      if live else PAPER_BASE_URL
+def get_account_info(live=False, key=None, secret=None):
+    key    = key    or (ALPACA_LIVE_KEY    if live else ALPACA_PAPER_KEY)
+    secret = secret or (ALPACA_LIVE_SECRET if live else ALPACA_PAPER_SECRET)
+    base   = LIVE_BASE_URL if live else PAPER_BASE_URL
     headers = {
         "APCA-API-KEY-ID":     key,
         "APCA-API-SECRET-KEY": secret,
