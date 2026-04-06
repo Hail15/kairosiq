@@ -280,7 +280,7 @@ def get_unalerted_signals():
         AND s.id NOT IN (
             SELECT signal_id::uuid
             FROM signal_alerts_sent
-            WHERE sent_at >= NOW() - INTERVAL '24 hours'
+            WHERE alerted_at >= NOW() - INTERVAL '24 hours'
         )
         ORDER BY
             CASE s.confidence_score
@@ -303,7 +303,7 @@ def mark_signal_alerted(signal_id):
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO signal_alerts_sent (signal_id, sent_at)
+            INSERT INTO signal_alerts_sent (signal_id, alerted_at)
             VALUES (%s, NOW())
             ON CONFLICT DO NOTHING;
         """, (str(signal_id),))
