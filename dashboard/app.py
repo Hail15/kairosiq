@@ -1058,79 +1058,41 @@ with tab1:
                                 else:
                                     pred_conf_color = pattern_conf_color
 
-                                reason_html = (
-                                    f'<div style="font-size:0.65em; color:#888; '
-                                    f'margin-bottom:8px; line-height:1.4; '
-                                    f'border-left:2px solid {pred_color}44; '
-                                    f'padding-left:8px;">'
-                                    f'{pred_reason}</div>'
-                                ) if pred_reason else ""
+                                reason_html = ""
+                                if pred_reason:
+                                    safe_reason = pred_reason.replace('<','&lt;').replace('>','&gt;')
+                                    reason_html = (
+                                        f'<div style="font-size:0.65em;color:#888;'
+                                        f'margin-bottom:8px;line-height:1.4;'
+                                        f'border-left:2px solid {pred_color}44;'
+                                        f'padding-left:8px;">{safe_reason}</div>'
+                                    )
 
-                                st.markdown(f"""
-                                <div style="background:#08080e; {border_style}
-                                     padding:12px 14px; border-radius:2px; margin:6px 0;">
-                                    <div style="display:flex; justify-content:space-between;
-                                         align-items:flex-start; margin-bottom:8px;">
-                                        <div style="flex:1;">
-                                            <span style="font-size:0.62em; color:{plat_color};
-                                                 text-transform:uppercase; letter-spacing:0.1em;
-                                                 font-weight:600; margin-right:8px;">
-                                                {r_platform.upper()} &#x1F7E2; BETTABLE
-                                            </span>
-                                            <div style="font-size:0.78em; color:#c8c8c8;
-                                                 margin-top:4px; line-height:1.4;">
-                                                {q_text[:110]}
-                                            </div>
-                                        </div>
-                                        <div style="text-align:right; margin-left:16px; min-width:90px;">
-                                            <div style="font-size:1.2em; font-weight:600;
-                                                 color:{prob_color}; font-family:'IBM Plex Mono';">
-                                                {prob_str}
-                                            </div>
-                                            <div style="font-size:0.58em; color:#444;
-                                                 text-transform:uppercase; letter-spacing:0.06em;">
-                                                Current Odds
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div style="background:#111; height:2px; border-radius:1px;
-                                         margin-bottom:10px;">
-                                        <div style="background:{prob_color}; height:2px;
-                                             width:{prob_width}%; border-radius:1px; opacity:0.6;">
-                                        </div>
-                                    </div>
-                                    <div style="font-size:0.58em; color:{pred_conf_color};
-                                         text-transform:uppercase; letter-spacing:0.08em;
-                                         margin-bottom:8px;">
-                                        SIGNAL INTELLIGENCE INDICATOR &middot; {pred_conf} CONFIDENCE
-                                    </div>
-                                    {reason_html}
-                                    <div style="display:flex; gap:8px; margin-bottom:10px;">
-                                        <div style="padding:8px 24px; border-radius:2px;
-                                             text-align:center; min-width:80px; {yes_style}
-                                             letter-spacing:0.1em;">
-                                            YES
-                                        </div>
-                                        <div style="padding:8px 24px; border-radius:2px;
-                                             text-align:center; min-width:80px; {no_style}
-                                             letter-spacing:0.1em;">
-                                            NO
-                                        </div>
-                                        <div style="font-size:0.65em; color:{pred_color};
-                                             align-self:center; margin-left:4px;">
-                                            &#8592; {pred_lean} based on signal intelligence
-                                        </div>
-                                    </div>
-                                    <a href="{url}" target="_blank"
-                                       style="display:inline-block; background:transparent;
-                                              border:1px solid {plat_color}44; color:{plat_color};
-                                              font-size:0.62em; padding:4px 10px; border-radius:1px;
-                                              text-decoration:none; letter-spacing:0.08em;
-                                              text-transform:uppercase; font-weight:600;">
-                                        &#x2197; {bet_label}
-                                    </a>
-                                </div>
-                                """, unsafe_allow_html=True)
+                                q_safe = q_text[:110].replace('<','&lt;').replace('>','&gt;')
+                                st.markdown(
+                                    f'<div style="background:#08080e;{border_style}padding:12px 14px;border-radius:2px;margin:6px 0;">'
+                                    f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
+                                    f'<div style="flex:1;">'
+                                    f'<span style="font-size:0.62em;color:{plat_color};text-transform:uppercase;letter-spacing:0.1em;font-weight:600;margin-right:8px;">{r_platform.upper()} &#x1F7E2; BETTABLE</span>'
+                                    f'<div style="font-size:0.78em;color:#c8c8c8;margin-top:4px;line-height:1.4;">{q_safe}</div>'
+                                    f'</div>'
+                                    f'<div style="text-align:right;margin-left:16px;min-width:90px;">'
+                                    f'<div style="font-size:1.2em;font-weight:600;color:{prob_color};font-family:IBM Plex Mono;">{prob_str}</div>'
+                                    f'<div style="font-size:0.58em;color:#444;text-transform:uppercase;letter-spacing:0.06em;">Current Odds</div>'
+                                    f'</div></div>'
+                                    f'<div style="background:#111;height:2px;border-radius:1px;margin-bottom:10px;">'
+                                    f'<div style="background:{prob_color};height:2px;width:{prob_width}%;border-radius:1px;opacity:0.6;"></div></div>'
+                                    f'<div style="font-size:0.58em;color:{pred_conf_color};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">SIGNAL INTELLIGENCE &middot; {pred_conf} CONFIDENCE</div>'
+                                    f'{reason_html}'
+                                    f'<div style="display:flex;gap:8px;margin-bottom:10px;">'
+                                    f'<div style="padding:8px 24px;border-radius:2px;text-align:center;min-width:80px;{yes_style}letter-spacing:0.1em;">YES</div>'
+                                    f'<div style="padding:8px 24px;border-radius:2px;text-align:center;min-width:80px;{no_style}letter-spacing:0.1em;">NO</div>'
+                                    f'<div style="font-size:0.65em;color:{pred_color};align-self:center;margin-left:4px;">&#8592; {pred_lean} based on signal intelligence</div>'
+                                    f'</div>'
+                                    f'<a href="{url}" target="_blank" style="display:inline-block;background:transparent;border:1px solid {plat_color}44;color:{plat_color};font-size:0.62em;padding:4px 10px;border-radius:1px;text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">&#x2197; {bet_label}</a>'
+                                    f'</div>',
+                                    unsafe_allow_html=True
+                                )
                             else:
                                 st.markdown(f"""
                                 <div style="background:#08080e; {border_style}
