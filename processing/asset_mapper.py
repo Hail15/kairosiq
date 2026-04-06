@@ -152,7 +152,119 @@ def map_event_to_category(event_description):
     else:
         return "emerging_market_political_crisis"
 
-def find_related_questions(event_description, region, questions):
+def predict_question_outcome(question_text, signal_description, signal_direction, prob_shift, region):
+    """
+    Based on active signal direction, predict YES or NO lean for a Kalshi question.
+    Returns: dict with lean, confidence, and reasoning
+    """
+    q = question_text.lower()
+    sig = (signal_description or "").lower()
+    region_l = (region or "").lower()
+    is_escalation = prob_shift and prob_shift > 10
+
+    # Press conference / statement questions
+    if any(k in q for k in ["press conference", "statement", "announce", "say", "declare"]):
+        if is_escalation and any(k in sig for k in ["iran", "conflict", "war", "strike"]):
+            return {
+                "lean": "YES",
+                "confidence": "HIGH",
+                "reason": f"Signal shows {prob_shift:.0f}% escalation spike — Trump historically makes escalatory statements during active conflict spikes"
+            }
+        elif not is_escalation:
+            return {
+                "lean": "NO",
+                "confidence": "MEDIUM",
+                "reason": "Signal shows de-escalation — diplomatic language more likely"
+            }
+
+    # Ceasefire / peace questions
+    if any(k in q for k in ["ceasefire", "peace", "negotiate", "diplomacy", "withdraw", "end war"]):
+        if is_escalation:
+            return {
+                "lean": "NO",
+                "confidence": "HIGH",
+                "reason": f"Active conflict spike at {prob_shift:.0f}% shift — ceasefire unlikely during escalation"
+            }
+        else:
+            return {
+                "lean": "YES",
+                "confidence": "MEDIUM",
+                "reason": "De-escalation signals suggest diplomatic resolution possible"
+            }
+
+    # Ground invasion / military action questions
+    if any(k in q for k in ["ground invasion", "ground troops", "military strike", "airstrike", "bombing"]):
+        if is_escalation and prob_shift > 50:
+            return {
+                "lean": "YES",
+                "confidence": "HIGH",
+                "reason": f"Very high escalation signal ({prob_shift:.0f}% shift) — military action increasingly likely"
+            }
+        elif is_escalation:
+            return {
+                "lean": "YES",
+                "confidence": "MEDIUM",
+                "reason": f"Escalation signal active ({prob_shift:.0f}% shift)"
+            }
+        else:
+            return {
+                "lean": "NO",
+                "confidence": "MEDIUM",
+                "reason": "No strong escalation signal — military action less likely"
+            }
+
+    # Oil price questions
+    if any(k in q for k in ["oil", "crude", "brent", "wti", "barrel", "energy price"]):
+        if is_escalation and any(k in sig for k in ["iran", "hormuz", "opec", "oil"]):
+            return {
+                "lean": "YES",
+                "confidence": "HIGH",
+                "reason": f"Energy/conflict signal at {prob_shift:.0f}% shift — oil prices historically spike"
+            }
+
+    # Strait of Hormuz questions
+    if any(k in q for k in ["hormuz", "strait", "shipping lane", "blockade"]):
+        if is_escalation:
+            return {
+                "lean": "YES",
+                "confidence": "HIGH",
+                "reason": "Active escalation signal — Hormuz disruption risk elevated"
+            }
+        else:
+            return {
+                "lean": "NO",
+                "confidence": "MEDIUM",
+                "reason": "No active escalation — shipping lanes likely to remain open"
+            }
+
+    # Regime change questions
+    if any(k in q for k in ["regime change", "government collapse", "leader out", "coup"]):
+        if is_escalation and prob_shift > 60:
+            return {
+                "lean": "YES",
+                "confidence": "MEDIUM",
+                "reason": f"Extreme escalation signal ({prob_shift:.0f}%) — regime instability elevated"
+            }
+
+    # Nuclear deal questions
+    if any(k in q for k in ["nuclear deal", "nuclear agreement", "jcpoa"]):
+        if is_escalation:
+            return {
+                "lean": "NO",
+                "confidence": "HIGH",
+                "reason": "Active military escalation makes diplomatic nuclear deal unlikely"
+            }
+        else:
+            return {
+                "lean": "YES",
+                "confidence": "LOW",
+                "reason": "De-escalation environment more conducive to diplomatic talks"
+            }
+
+    return None
+
+
+def find_related_questions(event_description, region, questions, prob_shift=None):
     """
     Find the most relevant prediction market questions for this signal.
     Uses tight country/region matching — must match primary keyword.
@@ -285,15 +397,22 @@ def find_related_questions(event_description, region, questions):
             is_bettable = False
 
         if url:
+            # Get outcome prediction based on signal direction
+            prediction = predict_question_outcome(
+                q_text, event_description, 
+                "escalation" if (prob_shift or 0) > 0 else "de-escalation",
+                prob_shift, region
+            )
             results.append({
-                "platform": platform,
-                "question": q_text,
-                "probability": prob,
-                "url": url,
-                "bet_label": bet_label,
-                "is_bettable": is_bettable,
+                "platform":        platform,
+                "question":        q_text,
+                "probability":     prob,
+                "url":             url,
+                "bet_label":       bet_label,
+                "is_bettable":     is_bettable,
                 "relevance_score": score,
-                "keywords_matched": matched
+                "keywords_matched": matched,
+                "prediction":      prediction,
             })
 
     return results

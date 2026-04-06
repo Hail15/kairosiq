@@ -919,7 +919,7 @@ with tab1:
                 </div>""", unsafe_allow_html=True)
 
             # Smart Related Prediction Markets
-            related = find_related_questions(description, region, questions)
+            related = find_related_questions(description, region, questions, prob_shift)
             if related:
                 with st.expander("▸  DIRECTLY RELEVANT PREDICTION MARKETS — CLICK TO BET"):
                     st.markdown("""
@@ -1025,6 +1025,47 @@ with tab1:
                                 pattern_label = "YES" if pattern_yes else "NO"
                                 pattern_color = "#2a9a4a" if pattern_yes else "#cc2200"
 
+                                # Get intelligent prediction if available
+                                prediction    = r.get("prediction")
+                                pred_reason   = ""
+                                pred_lean     = pattern_label
+                                pred_conf     = pattern_confidence
+                                pred_color    = pattern_color
+                                if prediction:
+                                    pred_lean   = prediction.get("lean", pattern_label)
+                                    pred_conf   = prediction.get("confidence", pattern_confidence)
+                                    pred_reason = prediction.get("reason", "")
+                                    pred_color  = "#2a9a4a" if pred_lean == "YES" else "#cc2200"
+                                    pattern_yes = pred_lean == "YES"
+                                    yes_style = (
+                                        "background:#0a1f0a; border:2px solid #2a9a4a; "
+                                        "color:#2a9a4a; font-weight:700; font-size:0.85em;"
+                                        if pattern_yes else
+                                        "background:#0c0c0c; border:1px solid #222; "
+                                        "color:#333; font-weight:400; font-size:0.85em;"
+                                    )
+                                    no_style = (
+                                        "background:#1f0a0a; border:2px solid #cc2200; "
+                                        "color:#cc2200; font-weight:700; font-size:0.85em;"
+                                        if not pattern_yes else
+                                        "background:#0c0c0c; border:1px solid #222; "
+                                        "color:#333; font-weight:400; font-size:0.85em;"
+                                    )
+                                    pred_conf_color = (
+                                        "#e8b84b" if pred_conf == "HIGH" else
+                                        "#666"    if pred_conf == "MEDIUM" else "#444"
+                                    )
+                                else:
+                                    pred_conf_color = pattern_conf_color
+
+                                reason_html = (
+                                    f'<div style="font-size:0.65em; color:#888; '
+                                    f'margin-bottom:8px; line-height:1.4; '
+                                    f'border-left:2px solid {pred_color}44; '
+                                    f'padding-left:8px;">'
+                                    f'{pred_reason}</div>'
+                                ) if pred_reason else ""
+
                                 st.markdown(f"""
                                 <div style="background:#08080e; {border_style}
                                      padding:12px 14px; border-radius:2px; margin:6px 0;">
@@ -1034,7 +1075,7 @@ with tab1:
                                             <span style="font-size:0.62em; color:{plat_color};
                                                  text-transform:uppercase; letter-spacing:0.1em;
                                                  font-weight:600; margin-right:8px;">
-                                                {r_platform.upper()} 🟢 BETTABLE
+                                                {r_platform.upper()} &#x1F7E2; BETTABLE
                                             </span>
                                             <div style="font-size:0.78em; color:#c8c8c8;
                                                  margin-top:4px; line-height:1.4;">
@@ -1058,12 +1099,12 @@ with tab1:
                                              width:{prob_width}%; border-radius:1px; opacity:0.6;">
                                         </div>
                                     </div>
-                                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                                        <div style="font-size:0.58em; color:{pattern_conf_color};
-                                             text-transform:uppercase; letter-spacing:0.08em;">
-                                            HISTORICAL PATTERN INDICATOR · {pattern_confidence} CONFIDENCE
-                                        </div>
+                                    <div style="font-size:0.58em; color:{pred_conf_color};
+                                         text-transform:uppercase; letter-spacing:0.08em;
+                                         margin-bottom:8px;">
+                                        SIGNAL INTELLIGENCE INDICATOR &middot; {pred_conf} CONFIDENCE
                                     </div>
+                                    {reason_html}
                                     <div style="display:flex; gap:8px; margin-bottom:10px;">
                                         <div style="padding:8px 24px; border-radius:2px;
                                              text-align:center; min-width:80px; {yes_style}
@@ -1075,10 +1116,9 @@ with tab1:
                                              letter-spacing:0.1em;">
                                             NO
                                         </div>
-                                        <div style="font-size:0.65em; color:{pattern_color};
+                                        <div style="font-size:0.65em; color:{pred_color};
                                              align-self:center; margin-left:4px;">
-                                            ← pattern favors {pattern_label}
-                                            based on {strength}/100 signal strength
+                                            &#8592; {pred_lean} based on signal intelligence
                                         </div>
                                     </div>
                                     <a href="{url}" target="_blank"
@@ -1087,7 +1127,7 @@ with tab1:
                                               font-size:0.62em; padding:4px 10px; border-radius:1px;
                                               text-decoration:none; letter-spacing:0.08em;
                                               text-transform:uppercase; font-weight:600;">
-                                        ↗ {bet_label}
+                                        &#x2197; {bet_label}
                                     </a>
                                 </div>
                                 """, unsafe_allow_html=True)
