@@ -277,8 +277,8 @@ def get_unalerted_signals():
         AND s.expires_at > NOW()
         AND s.confidence_score IN ('high', 'medium')
         AND s.signal_time >= NOW() - INTERVAL '24 hours'
-        AND s.id NOT IN (
-            SELECT signal_id::uuid
+        AND s.id::text NOT IN (
+            SELECT signal_id
             FROM signal_alerts_sent
             WHERE alerted_at >= NOW() - INTERVAL '24 hours'
         )
@@ -328,9 +328,12 @@ def run_email_alerts():
     print(f"   Found {len(signals)} signals to alert")
     sent = 0
     for signal in signals:
-        if send_signal_email(signal):
-            mark_signal_alerted(signal[0])
-            sent += 1
+        try:
+            if send_signal_email(signal):
+                mark_signal_alerted(signal[0])
+                sent += 1
+        except Exception as e:
+            print(f"❌ Email send error for signal {signal[0]}: {e}")
 
     print(f"✅ Email alerts complete. {sent} emails sent.")
 
