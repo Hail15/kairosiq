@@ -62,7 +62,7 @@ def get_asset_mappings(event_type, region=None):
     return assets
 
 def calculate_signal_strength(prob_shift, confidence_score,
-                               assets, source_platform, volume=None):
+                               assets, source_platform):
     score = 0
     if prob_shift:
         score += min(prob_shift * 1.3, 35)
@@ -76,20 +76,6 @@ def calculate_signal_strength(prob_shift, confidence_score,
         "gdelt": 8, "state_media": 7
     }
     score += source_scores.get(source_platform or "", 5)
-
-    # Volume weighting — high volume shifts are more credible
-    # Adds up to 10 bonus points based on market volume
-    if volume is not None and volume > 0:
-        if volume >= 500000:       # $500K+
-            score += 10
-        elif volume >= 100000:     # $100K+
-            score += 7
-        elif volume >= 10000:      # $10K+
-            score += 4
-        elif volume >= 1000:       # $1K+
-            score += 2
-        # Under $1K — no bonus, low confidence move
-
     return min(round(score), 100)
 
 def get_best_performer(assets):
@@ -102,11 +88,11 @@ def get_best_performer(assets):
         return acc * move * (1 + samples / 100)
     return max(assets, key=asset_score)
 
-def get_signal_metadata(assets, prob_shift, confidence_score, source_platform, volume=None):
+def get_signal_metadata(assets, prob_shift, confidence_score, source_platform):
     if not assets:
         return {}
     strength = calculate_signal_strength(
-        prob_shift, confidence_score, assets, source_platform, volume
+        prob_shift, confidence_score, assets, source_platform
     )
     best = get_best_performer(assets)
     accuracies = [a.get("accuracy", 0) for a in assets if a.get("accuracy")]
@@ -330,6 +316,43 @@ def update_signal_assets(signal_id, event_description,
     cur.close()
     conn.close()
     return True
+
+def backfill_missing_assets():
+    """
+    Find active signals with no affected_assets and populate them.
+    Runs every cycle to catch signals from GDELT/news/state_media/cloudflare.
+    """
+    conn = get_db_connection()
+    cur  = conn.cursor()
+    cur.execute("""
+        SELECT id, event_description, region, confidence_score,
+               probability_shift, source_platform
+        FROM signals
+        WHERE affected_assets IS NULL
+        AND is_active = true
+        AND expires_at > NOW()
+        LIMIT 50;
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return 0
+
+    updated = 0
+    for row in rows:
+        sig_id, description, region, confidence, prob_shift, platform = row
+        success = update_signal_assets(
+            sig_id, description, region, confidence, prob_shift, platform
+        )
+        if success:
+            updated += 1
+
+    if updated:
+        print(f"   📊 Backfilled assets for {updated} signals")
+    return updated
+
 
 if __name__ == "__main__":
     assets = get_asset_mappings(

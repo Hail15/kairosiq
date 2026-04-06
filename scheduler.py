@@ -25,6 +25,7 @@ from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
 from signals.signal_validator import run_signal_validator
 from alerts.exit_alert import run_exit_alerts
+from processing.asset_mapper import backfill_missing_assets
 
 def run_full_cycle():
     print("\n" + "=" * 60)
@@ -90,6 +91,12 @@ def run_full_cycle():
     except Exception as e:
         print(f"❌ Signal engine error: {e}")
         signals_generated = 0
+
+    # Backfill asset mappings for any signals missing them
+    try:
+        backfill_missing_assets()
+    except Exception as e:
+        print(f"❌ Asset backfill error: {e}")
 
     # Always run email alerts every cycle — catches news/GDELT/Cloudflare signals too
     try:
