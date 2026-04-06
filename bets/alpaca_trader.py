@@ -50,11 +50,15 @@ def _data_headers():
         "APCA-API-SECRET-KEY": ALPACA_PAPER_SECRET,
     }
 
-def get_current_price(ticker):
+def get_current_price(ticker, key=None, secret=None):
     alpaca_ticker = TICKER_MAP.get(ticker, ticker)
     url = f"https://data.alpaca.markets/v2/stocks/{alpaca_ticker}/trades/latest"
+    headers = {
+        "APCA-API-KEY-ID":     key or ALPACA_PAPER_KEY,
+        "APCA-API-SECRET-KEY": secret or ALPACA_PAPER_SECRET,
+    }
     try:
-        r = requests.get(url, headers=_data_headers(), timeout=10)
+        r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json().get("trade", {}).get("p")
     except Exception as e:
@@ -83,7 +87,8 @@ def get_account_info(live=False, key=None, secret=None):
 # ── Trade Recommendations ─────────────────────────────────────────────────────
 
 def build_trade_recommendation(signal_id, signal_strength, convergence_tier,
-                                best_asset, event_description):
+                                best_asset, event_description,
+                                paper_key=None, paper_secret=None):
     if not best_asset:
         return None
 
@@ -104,7 +109,7 @@ def build_trade_recommendation(signal_id, signal_strength, convergence_tier,
         tradeable = False
         note = "Check if available on your broker"
 
-    current_price = get_current_price(ticker) if tradeable else None
+    current_price = get_current_price(ticker, key=paper_key, secret=paper_secret) if tradeable else None
 
     return {
         "signal_id":        signal_id,

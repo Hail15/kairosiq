@@ -1270,7 +1270,9 @@ with tab6:
                     metadata.get("signal_strength", 0),
                     metadata.get("convergence_tier", 1),
                     best,
-                    description
+                    description,
+                    paper_key=alpaca_paper_key,
+                    paper_secret=alpaca_paper_secret
                 )
 
                 if not rec:
@@ -1537,7 +1539,7 @@ with tab6:
                 side_color = "#2a9a4a" if side == "buy" else "#cc2200"
                 time_str   = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "—"
                 entry_str  = f"${float(entry_price):.2f}" if entry_price else "—"
-                curr_price = get_current_price(ticker)
+                curr_price = get_current_price(ticker, key=alpaca_paper_key, secret=alpaca_paper_secret)
                 curr_str   = f"${curr_price:.2f}" if curr_price else "—"
 
                 # Unrealized P&L
