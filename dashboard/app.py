@@ -570,28 +570,26 @@ with tab1:
             domain = get_domain(event_category, platform, description)
             domain_color = DOMAIN_COLORS.get(domain, "#555")
 
-            st.markdown(f"""
-            <div class="signal-card-{confidence}">
-                <div class="signal-meta">
-                    {time_str} UTC &nbsp;·&nbsp; {region.upper()} &nbsp;·&nbsp;
-                    {platform.upper()} &nbsp;·&nbsp; {conf_badge(confidence)}
-                    &nbsp;·&nbsp; EXPIRES {time_remaining(expires_at)}
-                    &nbsp;·&nbsp;
-                    <span style="color:{domain_color}; font-weight:600;
-                          font-size:0.9em;">⬤ {domain.upper()}</span>
-                    {new_badge}
-                </div>
-                <div class="signal-title">{description[:180].replace('<','&lt;').replace('>','&gt;')}</div>
-                <div style="display:flex; align-items:baseline; gap:16px; margin-top:6px;">
-                    <span class="signal-prob">{safe_float(prob_before)}%</span>
-                    <span style="color:#333; font-size:0.8em;">→</span>
-                    <span class="signal-prob">{safe_float(prob_after)}%</span>
-                    <span class="{shift_class}" style="font-size:0.85em;">
-                        {direction} {safe_float(prob_shift)}% SHIFT
-                    </span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            desc_safe = description[:180].replace('<','&lt;').replace('>','&gt;')
+            prob_b = safe_float(prob_before)
+            prob_a = safe_float(prob_after)
+            prob_s = safe_float(prob_shift)
+            st.markdown(
+                f'<div class="signal-card-{confidence}">'
+                f'<div class="signal-meta">{time_str} UTC &nbsp;&middot;&nbsp; {region.upper()} &nbsp;&middot;&nbsp; '
+                f'{platform.upper()} &nbsp;&middot;&nbsp; {conf_badge(confidence)} &nbsp;&middot;&nbsp; '
+                f'EXPIRES {time_remaining(expires_at)} &nbsp;&middot;&nbsp; '
+                f'<span style="color:{domain_color};font-weight:600;font-size:0.9em;">&#11044; {domain.upper()}</span>'
+                f' {new_badge}</div>'
+                f'<div class="signal-title">{desc_safe}</div>'
+                f'<div style="display:flex;align-items:baseline;gap:16px;margin-top:6px;">'
+                f'<span class="signal-prob">{prob_b}%</span>'
+                f'<span style="color:#333;font-size:0.8em;">&#8594;</span>'
+                f'<span class="signal-prob">{prob_a}%</span>'
+                f'<span class="{shift_class}" style="font-size:0.85em;">{direction} {prob_s}% SHIFT</span>'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
 
             # Signal Intelligence
             if assets:
