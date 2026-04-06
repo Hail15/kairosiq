@@ -15,6 +15,8 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
+RESEND_API_URL = "https://api.resend.com/emails"
+
 def get_alert_recipients():
     """Get all alert email recipients."""
     recipients = [settings.ALERT_EMAIL_TO] if settings.ALERT_EMAIL_TO else []
