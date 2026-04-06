@@ -248,21 +248,25 @@ def run_email_alerts():
                          f"⚡ KairosIQ {confidence.upper()} SIGNAL — {region}")
 
             html = build_signal_email(signal)
-            if send_email(settings.ALERT_EMAIL_TO, subject, html):
-                mark_signal_alerted(signal[0])
+            email_sent = send_email(settings.ALERT_EMAIL_TO, subject, html)
+
+            # Telegram fires regardless of email success
+            if telegram_notify:
+                try:
+                    telegram_notify(signal)
+                    print(f"📱 Telegram sent")
+                except Exception as te:
+                    print(f"⚠️  Telegram error: {te}")
+
+            if email_sent:
                 sent += 1
                 print(f"✅ Email sent: {signal[1][:60]}...")
 
-                # Also send Telegram push
-                if telegram_notify:
-                    try:
-                        telegram_notify(signal)
-                        print(f"📱 Telegram sent")
-                    except Exception as te:
-                        print(f"⚠️  Telegram error: {te}")
+            # Mark alerted if either email or telegram succeeded
+            mark_signal_alerted(signal[0])
 
         except Exception as e:
-            print(f"❌ Email error for signal {signal[0]}: {e}")
+            print(f"❌ Alert error for signal {signal[0]}: {e}")
 
     print(f"✅ Email alerts complete. {sent} emails sent.")
 
