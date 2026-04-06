@@ -62,56 +62,6 @@ Return JSON only. No markdown. No explanation."""
         print(f"   ⚠️ Classification error: {e}")
         return None
 
-def generate_intelligence_brief(event_description, platform, prob_before,
-                                 prob_after, region, assets=None):
-    """
-    Generate a rich, specific intelligence brief using Claude.
-    Uses the full event_description — which now includes real headlines
-    from GDELT and state media — to produce actionable context.
-    This replaces the generic boilerplate brief.
-    """
-    try:
-        client = get_anthropic_client()
-
-        asset_context = ""
-        if assets:
-            top = assets[:3]
-            asset_context = "Historically correlated assets: " + ", ".join(
-                f"{a.get('ticker')} ({a.get('direction','?')} {a.get('avg_move_72h','?')}% avg 72h, {int((a.get('accuracy') or 0)*100)}% accuracy)"
-                for a in top
-            )
-
-        prompt = f"""You are a senior geopolitical intelligence analyst writing a brief for traders and investors.
-
-EVENT DATA:
-{event_description}
-
-Region: {region}
-Platform: {platform}
-Probability shift: {prob_before}% → {prob_after}%
-{asset_context}
-
-Write a concise intelligence brief (3-4 sentences) that:
-1. States specifically what is happening based on the event data above — use real details, not generic language
-2. Explains the most likely near-term market implication (be specific about which assets and why)
-3. Flags the key risk or uncertainty a trader should watch
-
-Do NOT use phrases like "monitoring systems detected" or "probability shift suggests".
-Do NOT use boilerplate. Be specific and analytical.
-End with: "Historical data analysis only. Not investment advice." """
-
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=300,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        return message.content[0].text.strip()
-
-    except Exception as e:
-        print(f"   ⚠️ Brief generation error: {e}")
-        return None
-
 def enrich_signal(signal_id, question_text, platform,
                   prob_before, prob_after):
     """
