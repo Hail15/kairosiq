@@ -505,10 +505,42 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
     else:
+        # Domain color mapping — Kyle's 7 domains
+        DOMAIN_COLORS = {
+            "Military & Conflict": "#cc2200",
+            "Energy & Trade":      "#e8b84b",
+            "Cyber & Tech":        "#00aaff",
+            "Political":           "#aa44cc",
+            "Environment":         "#2a9a4a",
+            "Human & Social":      "#ff8800",
+            "Financial":           "#44aacc",
+        }
+
+        def get_domain(category, platform, description):
+            text = (description or "").lower()
+            cat  = (category or "").lower()
+            if any(k in cat for k in ["military","conflict","nuclear","russia","taiwan","china_taiwan","state_media"]):
+                return "Military & Conflict"
+            elif any(k in cat for k in ["opec","shipping","trade","sanctions","energy"]):
+                return "Energy & Trade"
+            elif any(k in text for k in ["cyber","internet disruption","hack","malware","gps"]):
+                return "Cyber & Tech"
+            elif any(k in cat for k in ["election","political","coup","protest"]):
+                return "Political"
+            elif any(k in text for k in ["earthquake","flood","fire","climate","weather","volcano"]):
+                return "Environment"
+            elif any(k in text for k in ["outbreak","disease","food","refugee","pandemic"]):
+                return "Human & Social"
+            elif any(k in cat for k in ["financial","debt","currency","bank"]):
+                return "Financial"
+            else:
+                return "Military & Conflict"
+
         for signal in signals:
             sig_id = signal[0]
             description = signal[1] or ""
             region = signal[2] or "Global"
+            event_category = signal[3] or ""
             prob_before = signal[4]
             prob_after = signal[5]
             prob_shift = signal[6]
@@ -525,12 +557,18 @@ with tab1:
             shift_class = "signal-shift-up" if pa > pb else "signal-shift-down"
             time_str = signal_time.strftime("%Y-%m-%d %H:%M") if signal_time else "—"
 
+            domain = get_domain(event_category, platform, description)
+            domain_color = DOMAIN_COLORS.get(domain, "#555")
+
             st.markdown(f"""
             <div class="signal-card-{confidence}">
                 <div class="signal-meta">
                     {time_str} UTC &nbsp;·&nbsp; {region.upper()} &nbsp;·&nbsp;
                     {platform.upper()} &nbsp;·&nbsp; {conf_badge(confidence)}
                     &nbsp;·&nbsp; EXPIRES {time_remaining(expires_at)}
+                    &nbsp;·&nbsp;
+                    <span style="color:{domain_color}; font-weight:600;
+                          font-size:0.9em;">⬤ {domain.upper()}</span>
                 </div>
                 <div class="signal-title">{description[:180]}</div>
                 <div style="display:flex; align-items:baseline; gap:16px; margin-top:6px;">
