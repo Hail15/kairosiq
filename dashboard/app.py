@@ -465,6 +465,45 @@ html, body, [class*="css"] {
 ::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+/* ── Enhanced Signal Cards ──────────────────────────────────── */
+.signal-card-high {
+    position: relative;
+    overflow: hidden;
+}
+.signal-card-high::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 60px; height: 60px;
+    background: radial-gradient(circle at top right, rgba(204,34,0,0.08), transparent 70%);
+    pointer-events: none;
+}
+.signal-card-medium::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 60px; height: 60px;
+    background: radial-gradient(circle at top right, rgba(232,184,75,0.06), transparent 70%);
+    pointer-events: none;
+}
+
+/* ── Tab Panel Padding ──────────────────────────────────────── */
+.stTabs [data-baseweb="tab-panel"] {
+    padding: 20px 24px !important;
+}
+
+/* ── Hide Streamlit Branding ────────────────────────────────── */
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+header { visibility: hidden; }
+
+/* ── Top header offset ──────────────────────────────────────── */
+.main .block-container {
+    padding-top: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
 
 /* ── Mobile Responsive ──────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -742,17 +781,33 @@ bets = fetch_bets()
 
 # --- Sidebar ---
 with st.sidebar:
-    st.markdown("""
-    <div class="kiq-logo-block">
-        <img src="app/static/kairos_logo.png"
-             class="kiq-logo-img"
-             alt="KairosIQ"
-             onerror="this.style.display='none'; document.getElementById('kiq-text-logo').style.display='block';">
-        <div id="kiq-text-logo" style="display:none; font-family:'Barlow Condensed',sans-serif;
-             font-size:1.6em; font-weight:700; letter-spacing:0.15em; color:#f0f0f4;">
+    # Logo — use st.image which works reliably in Streamlit
+    try:
+        logo_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "dashboard", "static", "kairos_logo.png"
+        )
+        if os.path.exists(logo_path):
+            st.image(logo_path, width=160)
+        else:
+            st.markdown("""
+            <div style="padding:20px 20px 0;font-family:'Barlow Condensed',sans-serif;
+                 font-size:2em;font-weight:700;letter-spacing:0.15em;color:#f0f0f4;">
+                KAIROS<span style="color:#cc2200;">IQ</span>
+            </div>""", unsafe_allow_html=True)
+    except Exception:
+        st.markdown("""
+        <div style="padding:20px 20px 0;font-family:'Barlow Condensed',sans-serif;
+             font-size:2em;font-weight:700;letter-spacing:0.15em;color:#f0f0f4;">
             KAIROS<span style="color:#cc2200;">IQ</span>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="padding:4px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <div style="font-size:0.58em;color:#44445a;letter-spacing:0.14em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;">
+            Geopolitical Intelligence Platform
         </div>
-        <div class="kiq-tagline">Geopolitical Intelligence Platform</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -853,6 +908,28 @@ with st.sidebar:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+# --- Top Header Bar ---
+st.markdown(f"""
+<div style="background:var(--bg-surface);border-bottom:1px solid var(--border);
+     padding:12px 24px;display:flex;justify-content:space-between;align-items:center;
+     position:sticky;top:0;z-index:100;">
+    <div style="display:flex;align-items:center;gap:24px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.65em;
+             color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">
+            <span style="color:var(--green);margin-right:6px;">&#9679;</span>LIVE
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            {len(signals)} Active Signals
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            {len(questions):,} Markets Monitored
+        </div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.62em;
+         color:var(--text-muted);">
+        {datetime.now().strftime('%a %b %d, %Y &nbsp; %H:%M UTC')}
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # --- Tabs ---
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
