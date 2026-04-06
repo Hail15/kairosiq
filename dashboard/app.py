@@ -781,24 +781,27 @@ bets = fetch_bets()
 
 # --- Sidebar ---
 with st.sidebar:
-    # Logo — use st.image which works reliably in Streamlit
+    # Logo
     try:
-        logo_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "dashboard", "static", "kairos_logo.png"
-        )
-        if os.path.exists(logo_path):
-            st.image(logo_path, width=160)
-        else:
-            st.markdown("""
-            <div style="padding:20px 20px 0;font-family:'Barlow Condensed',sans-serif;
-                 font-size:2em;font-weight:700;letter-spacing:0.15em;color:#f0f0f4;">
-                KAIROS<span style="color:#cc2200;">IQ</span>
-            </div>""", unsafe_allow_html=True)
+        # Try multiple paths for Streamlit Cloud vs local
+        possible_paths = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "kairos_logo.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard", "static", "kairos_logo.png"),
+            "dashboard/static/kairos_logo.png",
+            "static/kairos_logo.png",
+        ]
+        logo_loaded = False
+        for logo_path in possible_paths:
+            if os.path.exists(logo_path):
+                st.image(logo_path, width=160)
+                logo_loaded = True
+                break
+        if not logo_loaded:
+            raise FileNotFoundError
     except Exception:
         st.markdown("""
         <div style="padding:20px 20px 0;font-family:'Barlow Condensed',sans-serif;
-             font-size:2em;font-weight:700;letter-spacing:0.15em;color:#f0f0f4;">
+             font-size:2.2em;font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
             KAIROS<span style="color:#cc2200;">IQ</span>
         </div>""", unsafe_allow_html=True)
 
