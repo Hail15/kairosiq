@@ -791,43 +791,119 @@ with tab1:
 
                 up_assets = [a for a in assets if a.get("direction") == "up"]
                 down_assets = [a for a in assets if a.get("direction") == "down"]
-                col1, col2 = st.columns(2)
-                with col1:
-                    if up_assets:
-                        st.markdown("""
-                        <div style="font-size:0.65em; color:#2a9a4a; text-transform:uppercase;
-                             letter-spacing:0.1em; margin:8px 0 4px 0;">▲ Historically Up</div>
+
+                # ── All Assets with YES/NO indicators ────────────
+                if up_assets or down_assets:
+                    st.markdown("""
+                    <div style="font-size:0.62em; color:#444; text-transform:uppercase;
+                         letter-spacing:0.1em; margin:10px 0 6px 0;">
+                        All Correlated Assets — Pattern Indicators
+                    </div>""", unsafe_allow_html=True)
+
+                    try:
+                        from processing.technical_analysis import get_combined_indicator
+                    except Exception:
+                        get_combined_indicator = None
+
+                    all_assets = up_assets + down_assets
+                    for a in all_assets[:6]:
+                        a_ticker    = a.get('ticker', '—')
+                        a_name      = a.get('name', '')[:28]
+                        a_direction = a.get('direction', 'up')
+                        a_move      = a.get('avg_move_72h', 0) or 0
+                        a_acc       = (a.get('accuracy', 0) or 0)
+                        a_samples   = a.get('sample_size', 0) or 0
+                        a_color     = "#2a9a4a" if a_direction == "up" else "#cc2200"
+                        a_arrow     = "▲" if a_direction == "up" else "▼"
+                        move_sign   = "+" if a_move > 0 else ""
+
+                        # Get technical indicator for this asset
+                        pat = "—"
+                        pat_color = "#555"
+                        pat_conf  = ""
+                        pat_score = "—"
+                        rsi_str   = "—"
+                        chg_str   = "—"
+                        chg_color = "#555"
+
+                        if get_combined_indicator and a_ticker != "—":
+                            try:
+                                ind = get_combined_indicator(
+                                    a_ticker, a_direction,
+                                    strength, a_acc
+                                )
+                                if ind:
+                                    pat       = ind["pattern"]
+                                    pat_color = ind["color"]
+                                    pat_conf  = ind["confidence"]
+                                    pat_score = str(ind["score"])
+                                    tech      = ind.get("technicals", {})
+                                    if tech:
+                                        rsi_str   = str(tech.get("rsi", "—"))
+                                        chg       = tech.get("today_change", 0)
+                                        chg_color = "#2a9a4a" if chg >= 0 else "#cc2200"
+                                        chg_str   = f"{chg:+.1f}%"
+                            except Exception:
+                                pass
+
+                        yes_bg  = "#0a1f0a" if pat == "YES" else "#0c0c0c"
+                        no_bg   = "#1f0a0a" if pat == "NO"  else "#0c0c0c"
+                        yes_brd = "2px solid #2a9a4a" if pat == "YES" else "1px solid #1a1a24"
+                        no_brd  = "2px solid #cc2200" if pat == "NO"  else "1px solid #1a1a24"
+                        yes_col = "#2a9a4a" if pat == "YES" else "#222"
+                        no_col  = "#cc2200" if pat == "NO"  else "#222"
+                        yes_wt  = "700" if pat == "YES" else "400"
+                        no_wt   = "700" if pat == "NO"  else "400"
+                        conf_color = "#e8b84b" if pat_conf == "HIGH" else "#666" if pat_conf == "MEDIUM" else "#444"
+
+                        st.markdown(f"""
+                        <div style="background:#08080c; border:1px solid #1a1a24;
+                             border-left:3px solid {a_color};
+                             padding:10px 14px; border-radius:2px; margin:4px 0;">
+                            <div style="display:flex; justify-content:space-between;
+                                 align-items:center; flex-wrap:wrap; gap:8px;">
+                                <div>
+                                    <span style="font-size:1em; font-weight:700;
+                                          color:#e0e0e0;">{a_ticker}</span>
+                                    <span style="font-size:0.72em; color:#555;
+                                          margin-left:8px;">{a_name}</span>
+                                    <span style="font-size:0.8em; font-weight:600;
+                                          color:{a_color}; margin-left:8px;">
+                                        {a_arrow} {move_sign}{a_move:.1f}% avg 72h
+                                    </span>
+                                    <span style="font-size:0.65em; color:#555;
+                                          margin-left:6px;">
+                                        {a_acc*100:.0f}% · {a_samples}x
+                                    </span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <div style="font-size:0.62em; color:#555; text-align:right;">
+                                        <span>Today: <b style="color:{chg_color};">{chg_str}</b></span>
+                                        &nbsp;·&nbsp;
+                                        <span>RSI: <b style="color:#888;">{rsi_str}</b></span>
+                                        &nbsp;·&nbsp;
+                                        <span>Score: <b style="color:{pat_color};">{pat_score}/100</b></span>
+                                    </div>
+                                    <div style="padding:6px 16px; border-radius:2px;
+                                         font-size:0.85em; letter-spacing:0.1em;
+                                         background:{yes_bg}; border:{yes_brd};
+                                         color:{yes_col}; font-weight:{yes_wt};">
+                                        YES
+                                    </div>
+                                    <div style="padding:6px 16px; border-radius:2px;
+                                         font-size:0.85em; letter-spacing:0.1em;
+                                         background:{no_bg}; border:{no_brd};
+                                         color:{no_col}; font-weight:{no_wt};">
+                                        NO
+                                    </div>
+                                    <span style="font-size:0.65em; color:{conf_color};
+                                          text-transform:uppercase; letter-spacing:0.06em;">
+                                        {pat_conf}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                         """, unsafe_allow_html=True)
-                        for a in up_assets[:4]:
-                            move = a.get('avg_move_72h', 0) or 0
-                            acc = (a.get('accuracy', 0) or 0) * 100
-                            samples = a.get('sample_size', 0) or 0
-                            st.markdown(f"""
-                            <div class="asset-row-up">
-                                <span class="asset-ticker">{a.get('ticker','—')}</span>
-                                <span class="asset-name">{a.get('name','')[:28]}</span>
-                                <span class="asset-move-up">+{move:.1f}%</span>
-                                <span class="asset-acc" style="margin-left:8px;">
-                                    {acc:.0f}% · {samples}x</span>
-                            </div>""", unsafe_allow_html=True)
-                with col2:
-                    if down_assets:
-                        st.markdown("""
-                        <div style="font-size:0.65em; color:#cc2200; text-transform:uppercase;
-                             letter-spacing:0.1em; margin:8px 0 4px 0;">▼ Historically Down</div>
-                        """, unsafe_allow_html=True)
-                        for a in down_assets[:4]:
-                            move = a.get('avg_move_72h', 0) or 0
-                            acc = (a.get('accuracy', 0) or 0) * 100
-                            samples = a.get('sample_size', 0) or 0
-                            st.markdown(f"""
-                            <div class="asset-row-down">
-                                <span class="asset-ticker">{a.get('ticker','—')}</span>
-                                <span class="asset-name">{a.get('name','')[:28]}</span>
-                                <span class="asset-move-down">{move:.1f}%</span>
-                                <span class="asset-acc" style="margin-left:8px;">
-                                    {acc:.0f}% · {samples}x</span>
-                            </div>""", unsafe_allow_html=True)
 
             # AI Brief
             with st.expander("▸  INTELLIGENCE BRIEF"):
