@@ -32,157 +32,477 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS ---
+# --- Complete Design System Overhaul ---
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
 
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+    --bg-base:      #030305;
+    --bg-surface:   #07070d;
+    --bg-elevated:  #0d0d18;
+    --bg-card:      #0a0a14;
+    --border:       rgba(255,255,255,0.06);
+    --border-bright:rgba(255,255,255,0.12);
+    --red:          #cc2200;
+    --red-dim:      rgba(204,34,0,0.15);
+    --red-glow:     rgba(204,34,0,0.08);
+    --amber:        #e8b84b;
+    --amber-dim:    rgba(232,184,75,0.12);
+    --green:        #00c97a;
+    --green-dim:    rgba(0,201,122,0.12);
+    --blue:         #3b82f6;
+    --blue-dim:     rgba(59,130,246,0.12);
+    --text-primary: #f0f0f4;
+    --text-secondary:#8888aa;
+    --text-muted:   #44445a;
+    --font-sans:    'Space Grotesk', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+    --font-display: 'Barlow Condensed', sans-serif;
+    --radius:       4px;
+    --radius-lg:    8px;
+}
+
+/* ── Base Reset ─────────────────────────────────────────────── */
 html, body, [class*="css"] {
-    font-family: 'IBM Plex Mono', monospace;
-    background-color: #060608;
-    color: #c8c8c8;
+    font-family: var(--font-sans) !important;
+    background-color: var(--bg-base) !important;
+    color: var(--text-primary) !important;
 }
-.stApp { background-color: #060608; }
-.main .block-container { padding: 1.5rem 2rem; max-width: 1600px; }
+.stApp { background-color: var(--bg-base) !important; }
+.main .block-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+}
 
+/* ── Sidebar ────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    background-color: #08080c;
-    border-right: 1px solid #1a1a24;
+    background: var(--bg-surface) !important;
+    border-right: 1px solid var(--border) !important;
 }
-[data-testid="stSidebar"] * { font-family: 'IBM Plex Mono', monospace !important; }
+[data-testid="stSidebar"] > div:first-child {
+    padding: 0 !important;
+}
+[data-testid="stSidebar"] * {
+    font-family: var(--font-sans) !important;
+}
 
-.kiq-logo {
-    font-size: 1.4em; font-weight: 600; color: #e8b84b;
-    letter-spacing: 0.15em; text-transform: uppercase;
+/* ── Logo Block ─────────────────────────────────────────────── */
+.kiq-logo-block {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
 }
+.kiq-logo-img {
+    width: 100%;
+    max-width: 180px;
+    height: auto;
+    display: block;
+}
+.kiq-tagline {
+    font-size: 0.62em;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 8px;
+    font-family: var(--font-mono) !important;
+}
+
+/* ── Sidebar Stats ──────────────────────────────────────────── */
+.kiq-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+}
+.kiq-stat-label {
+    font-size: 0.65em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: var(--font-mono) !important;
+}
+.kiq-stat-value {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: var(--font-mono) !important;
+}
+
+/* ── Alert Banner ───────────────────────────────────────────── */
+.kiq-alert {
+    background: var(--red-glow);
+    border-left: 3px solid var(--red);
+    padding: 10px 20px;
+    font-size: 0.7em;
+    color: var(--red);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    font-family: var(--font-mono) !important;
+    animation: pulse-border 2s ease-in-out infinite;
+}
+@keyframes pulse-border {
+    0%, 100% { border-left-color: var(--red); }
+    50% { border-left-color: rgba(204,34,0,0.4); }
+}
+
+/* ── Signal Distribution ────────────────────────────────────── */
+.kiq-dist-bar {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+.kiq-dist-label {
+    font-size: 0.6em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    font-family: var(--font-mono) !important;
+}
+.kiq-dist-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+.kiq-dist-key {
+    font-size: 0.65em;
+    font-weight: 600;
+    font-family: var(--font-mono) !important;
+    min-width: 52px;
+}
+.kiq-dist-track {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+}
+.kiq-dist-fill {
+    height: 100%;
+    border-radius: 1px;
+    transition: width 0.6s ease;
+}
+.kiq-dist-count {
+    font-size: 0.65em;
+    color: var(--text-secondary);
+    font-family: var(--font-mono) !important;
+    min-width: 16px;
+    text-align: right;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    background: var(--bg-surface) !important;
+    border-bottom: 1px solid var(--border) !important;
+    gap: 0 !important;
+    padding: 0 24px !important;
+}
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.68em !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    padding: 14px 20px !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    transition: color 0.2s ease !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    color: var(--text-secondary) !important;
+}
+.stTabs [aria-selected="true"] {
+    color: var(--red) !important;
+    border-bottom: 2px solid var(--red) !important;
+    background: transparent !important;
+}
+.stTabs [data-baseweb="tab-panel"] {
+    padding: 24px !important;
+    background: var(--bg-base) !important;
+}
+
+/* ── Signal Cards ───────────────────────────────────────────── */
 .signal-card-high {
-    background: #0c0608; border: 1px solid #3a1010;
-    border-left: 3px solid #cc2200; padding: 14px 16px;
-    border-radius: 2px; margin: 6px 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    padding: 16px 18px;
+    border-radius: var(--radius);
+    margin: 8px 0;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+.signal-card-high:hover {
+    background: var(--bg-elevated);
+    border-color: rgba(255,255,255,0.1);
 }
 .signal-card-medium {
-    background: #0c0b06; border: 1px solid #3a2e10;
-    border-left: 3px solid #e8b84b; padding: 14px 16px;
-    border-radius: 2px; margin: 6px 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    padding: 16px 18px;
+    border-radius: var(--radius);
+    margin: 8px 0;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+.signal-card-medium:hover {
+    background: var(--bg-elevated);
 }
 .signal-card-low {
-    background: #060c08; border: 1px solid #0e2e18;
-    border-left: 3px solid #1a7a3a; padding: 14px 16px;
-    border-radius: 2px; margin: 6px 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    padding: 16px 18px;
+    border-radius: var(--radius);
+    margin: 8px 0;
+}
+
+/* ── Signal Typography ──────────────────────────────────────── */
+.signal-meta {
+    font-size: 0.65em;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-family: var(--font-mono) !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
 }
 .signal-title {
-    font-size: 0.82em; font-weight: 500; color: #e0e0e0;
-    line-height: 1.4; margin-bottom: 8px;
-}
-.signal-meta {
-    font-size: 0.68em; color: #555; letter-spacing: 0.05em;
-    text-transform: uppercase; margin-bottom: 6px;
+    font-size: 0.88em;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: 10px;
+    font-family: var(--font-sans) !important;
 }
 .signal-prob {
-    font-size: 1.1em; font-weight: 600; color: #e8b84b;
-    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--amber);
+    font-family: var(--font-mono) !important;
 }
-.signal-shift-up { color: #cc2200; font-weight: 600; }
-.signal-shift-down { color: #1a7a3a; font-weight: 600; }
+.signal-shift-up { color: var(--red); font-weight: 600; }
+.signal-shift-down { color: var(--green); font-weight: 600; }
+
+/* ── Badges ─────────────────────────────────────────────────── */
 .badge-high {
-    display: inline-block; background: #1a0505;
-    border: 1px solid #cc2200; color: #cc2200;
-    font-size: 0.6em; padding: 2px 6px; border-radius: 1px;
-    letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
+    display: inline-flex; align-items: center;
+    background: var(--red-dim); border: 1px solid var(--red);
+    color: var(--red); font-size: 0.6em; padding: 2px 7px;
+    border-radius: 2px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700;
+    font-family: var(--font-mono) !important;
 }
 .badge-medium {
-    display: inline-block; background: #1a1505;
-    border: 1px solid #e8b84b; color: #e8b84b;
-    font-size: 0.6em; padding: 2px 6px; border-radius: 1px;
-    letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
+    display: inline-flex; align-items: center;
+    background: var(--amber-dim); border: 1px solid var(--amber);
+    color: var(--amber); font-size: 0.6em; padding: 2px 7px;
+    border-radius: 2px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700;
+    font-family: var(--font-mono) !important;
 }
 .badge-low {
-    display: inline-block; background: #051a0a;
-    border: 1px solid #1a7a3a; color: #1a7a3a;
-    font-size: 0.6em; padding: 2px 6px; border-radius: 1px;
-    letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
+    display: inline-flex; align-items: center;
+    background: var(--green-dim); border: 1px solid var(--green);
+    color: var(--green); font-size: 0.6em; padding: 2px 7px;
+    border-radius: 2px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700;
+    font-family: var(--font-mono) !important;
 }
+
+/* ── Asset Rows ─────────────────────────────────────────────── */
 .asset-row-up {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 6px 10px; background: #06100a; border: 1px solid #0e2a14;
-    border-radius: 2px; margin: 3px 0; font-size: 0.75em;
+    padding: 7px 12px; background: rgba(0,201,122,0.04);
+    border: 1px solid rgba(0,201,122,0.12);
+    border-radius: var(--radius); margin: 3px 0; font-size: 0.75em;
 }
 .asset-row-down {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 6px 10px; background: #100606; border: 1px solid #2a0e0e;
-    border-radius: 2px; margin: 3px 0; font-size: 0.75em;
+    padding: 7px 12px; background: rgba(204,34,0,0.04);
+    border: 1px solid rgba(204,34,0,0.12);
+    border-radius: var(--radius); margin: 3px 0; font-size: 0.75em;
 }
-.asset-ticker { font-weight: 600; font-size: 0.9em; color: #e0e0e0; min-width: 50px; }
-.asset-name { color: #666; flex: 1; padding: 0 10px; font-size: 0.85em; }
-.asset-move-up { color: #2a9a4a; font-weight: 600; }
-.asset-move-down { color: #cc2200; font-weight: 600; }
-.asset-acc { color: #777; }
+.asset-ticker {
+    font-weight: 700; font-size: 0.9em; color: var(--text-primary);
+    min-width: 50px; font-family: var(--font-mono) !important;
+}
+.asset-name { color: var(--text-secondary); flex: 1; padding: 0 10px; font-size: 0.85em; }
+.asset-move-up { color: var(--green); font-weight: 600; font-family: var(--font-mono) !important; }
+.asset-move-down { color: var(--red); font-weight: 600; font-family: var(--font-mono) !important; }
+.asset-acc { color: var(--text-muted); font-family: var(--font-mono) !important; }
+
+/* ── AI Summary ─────────────────────────────────────────────── */
 .ai-summary {
-    background: #080c10; border: 1px solid #0e1e2e;
-    border-left: 2px solid #2a5a8a; padding: 12px 14px;
-    border-radius: 2px; font-size: 0.78em; color: #aab8c8;
-    line-height: 1.6; margin: 8px 0;
-    font-family: 'IBM Plex Sans', sans-serif;
+    background: rgba(59,130,246,0.04);
+    border: 1px solid rgba(59,130,246,0.15);
+    border-left: 2px solid var(--blue);
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    font-size: 0.8em;
+    color: rgba(200,210,230,0.9);
+    line-height: 1.7;
+    margin: 10px 0;
+    font-family: var(--font-sans) !important;
 }
+
+/* ── Stat Boxes ─────────────────────────────────────────────── */
 .stat-box {
-    background: #08080c; border: 1px solid #1a1a24;
-    padding: 14px 16px; border-radius: 2px; text-align: center;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    text-align: center;
 }
 .stat-value {
-    font-size: 1.6em; font-weight: 600; color: #e8b84b;
-    font-family: 'IBM Plex Mono', monospace; display: block;
+    font-size: 1.8em; font-weight: 700; color: var(--text-primary);
+    font-family: var(--font-mono) !important; display: block;
 }
 .stat-label {
-    font-size: 0.62em; color: #555; text-transform: uppercase;
-    letter-spacing: 0.1em; display: block; margin-top: 4px;
+    font-size: 0.6em; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.12em; display: block; margin-top: 6px;
+    font-family: var(--font-mono) !important;
 }
-.alert-banner {
-    background: #100404; border: 1px solid #cc2200;
-    padding: 10px 16px; border-radius: 2px; margin-bottom: 12px;
-    font-size: 0.75em; color: #cc2200; letter-spacing: 0.05em;
-    text-transform: uppercase; font-weight: 600;
-}
-.kiq-divider { border: none; border-top: 1px solid #1a1a24; margin: 12px 0; }
-.disclaimer {
-    font-size: 0.62em; color: #333; letter-spacing: 0.03em;
-    padding: 8px 0; border-top: 1px solid #111; margin-top: 8px;
-}
-.stTabs [data-baseweb="tab-list"] {
-    background: transparent; border-bottom: 1px solid #1a1a24; gap: 0;
-}
-.stTabs [data-baseweb="tab"] {
-    background: transparent; color: #555;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72em; letter-spacing: 0.1em; text-transform: uppercase;
-    padding: 8px 20px; border: none; border-bottom: 2px solid transparent;
-}
-.stTabs [aria-selected="true"] {
-    color: #e8b84b !important; border-bottom: 2px solid #e8b84b !important;
-    background: transparent !important;
-}
+
+/* ── Metrics ────────────────────────────────────────────────── */
 [data-testid="metric-container"] {
-    background: #08080c; border: 1px solid #1a1a24;
-    padding: 12px; border-radius: 2px;
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border) !important;
+    padding: 16px !important;
+    border-radius: var(--radius-lg) !important;
 }
 [data-testid="metric-container"] label {
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.65em !important; color: #555 !important;
-    text-transform: uppercase; letter-spacing: 0.08em;
+    font-family: var(--font-mono) !important;
+    font-size: 0.62em !important;
+    color: var(--text-muted) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
 }
 [data-testid="metric-container"] [data-testid="metric-value"] {
-    font-family: 'IBM Plex Mono', monospace !important;
-    color: #e8b84b !important; font-size: 1.4em !important;
+    font-family: var(--font-mono) !important;
+    color: var(--text-primary) !important;
+    font-size: 1.6em !important;
+    font-weight: 700 !important;
 }
+
+/* ── Buttons ────────────────────────────────────────────────── */
 .stButton button {
-    background: transparent; border: 1px solid #333; color: #777;
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.7em;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    border-radius: 2px; padding: 6px 14px;
+    background: transparent !important;
+    border: 1px solid var(--border-bright) !important;
+    color: var(--text-secondary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.68em !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    border-radius: var(--radius) !important;
+    padding: 8px 18px !important;
+    transition: all 0.2s ease !important;
 }
-.stButton button:hover { border-color: #e8b84b; color: #e8b84b; }
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #060608; }
-::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+.stButton button:hover {
+    border-color: var(--red) !important;
+    color: var(--red) !important;
+    background: var(--red-glow) !important;
+}
+
+/* ── Expanders ──────────────────────────────────────────────── */
+.streamlit-expanderHeader {
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.72em !important;
+    color: var(--text-muted) !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+}
+.streamlit-expanderContent {
+    border: 1px solid var(--border) !important;
+    border-top: none !important;
+    background: var(--bg-card) !important;
+}
+
+/* ── Inputs ─────────────────────────────────────────────────── */
+.stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox select {
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border-bright) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.82em !important;
+    border-radius: var(--radius) !important;
+}
+.stTextInput input:focus, .stNumberInput input:focus {
+    border-color: var(--red) !important;
+    box-shadow: 0 0 0 1px var(--red-glow) !important;
+}
+
+/* ── Divider ────────────────────────────────────────────────── */
+.kiq-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+}
+
+/* ── Disclaimer ─────────────────────────────────────────────── */
+.disclaimer {
+    font-size: 0.6em;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 10px;
+    font-family: var(--font-mono) !important;
+    line-height: 1.6;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* ── Mobile Responsive ──────────────────────────────────────── */
+@media (max-width: 768px) {
+    .stTabs [data-baseweb="tab"] {
+        padding: 10px 12px !important;
+        font-size: 0.6em !important;
+        letter-spacing: 0.06em !important;
+    }
+    .stTabs [data-baseweb="tab-panel"] {
+        padding: 16px !important;
+    }
+    .signal-card-high, .signal-card-medium, .signal-card-low {
+        padding: 12px 14px !important;
+    }
+    .signal-title { font-size: 0.82em !important; }
+    .main .block-container { padding: 0 !important; }
+}
+
+/* ── Data Table ─────────────────────────────────────────────── */
+.stDataFrame {
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg) !important;
+    overflow: hidden !important;
+}
+.stDataFrame table {
+    font-family: var(--font-mono) !important;
+    font-size: 0.75em !important;
+}
+
+/* ── Select/Dropdown ────────────────────────────────────────── */
+[data-baseweb="select"] {
+    font-family: var(--font-mono) !important;
+}
+[data-baseweb="select"] * {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -423,76 +743,114 @@ bets = fetch_bets()
 # --- Sidebar ---
 with st.sidebar:
     st.markdown("""
-    <div style="border-bottom:1px solid #1e1e2e; padding-bottom:12px; margin-bottom:16px;">
-        <span class="kiq-logo">⚡ KairosIQ</span>
-    </div>
-    <div style="font-size:0.62em; color:#444; letter-spacing:0.08em;
-         text-transform:uppercase; margin-bottom:16px;">
-        Intelligence before the market opens its eyes
+    <div class="kiq-logo-block">
+        <img src="app/static/kairos_logo.png"
+             class="kiq-logo-img"
+             alt="KairosIQ"
+             onerror="this.style.display='none'; document.getElementById('kiq-text-logo').style.display='block';">
+        <div id="kiq-text-logo" style="display:none; font-family:'Barlow Condensed',sans-serif;
+             font-size:1.6em; font-weight:700; letter-spacing:0.15em; color:#f0f0f4;">
+            KAIROS<span style="color:#cc2200;">IQ</span>
+        </div>
+        <div class="kiq-tagline">Geopolitical Intelligence Platform</div>
     </div>
     """, unsafe_allow_html=True)
 
+    # High confidence alert
     high_conf = [s for s in signals if s[7] == "high"]
     if high_conf:
         st.markdown(f"""
-        <div class="alert-banner">
-            ⚠ {len(high_conf)} HIGH CONFIDENCE SIGNAL{'S' if len(high_conf) > 1 else ''} ACTIVE
+        <div class="kiq-alert">
+            &#9888; {len(high_conf)} HIGH CONFIDENCE SIGNAL{'S' if len(high_conf) > 1 else ''} ACTIVE
         </div>
         """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"""
-        <div class="stat-box">
-            <span class="stat-value">{len(signals)}</span>
-            <span class="stat-label">Active</span>
-        </div>""", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="stat-box">
-            <span class="stat-value">{len(questions)}</span>
-            <span class="stat-label">Monitored</span>
-        </div>""", unsafe_allow_html=True)
+    # Key stats
+    trade_summary = fetch_trade_summary()
+    open_pos = trade_summary[6] if trade_summary else 0
+    total_pnl = float(trade_summary[5] or 0) if trade_summary else 0
+    pnl_color = "var(--green)" if total_pnl >= 0 else "var(--red)"
 
-    st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="kiq-stat-row">
+        <span class="kiq-stat-label">Active Signals</span>
+        <span class="kiq-stat-value">{len(signals)}</span>
+    </div>
+    <div class="kiq-stat-row">
+        <span class="kiq-stat-label">Markets Monitored</span>
+        <span class="kiq-stat-value">{len(questions):,}</span>
+    </div>
+    <div class="kiq-stat-row">
+        <span class="kiq-stat-label">Open Positions</span>
+        <span class="kiq-stat-value">{open_pos}</span>
+    </div>
+    <div class="kiq-stat-row">
+        <span class="kiq-stat-label">Total P&amp;L</span>
+        <span class="kiq-stat-value" style="color:{pnl_color};">${total_pnl:+.4f}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
+    # Signal distribution bars
     h = len([s for s in signals if s[7] == "high"])
     m = len([s for s in signals if s[7] == "medium"])
     l = len([s for s in signals if s[7] == "low"])
+    total_sig = max(h + m + l, 1)
+    h_pct = int(h / total_sig * 100)
+    m_pct = int(m / total_sig * 100)
+    l_pct = int(l / total_sig * 100)
 
     st.markdown(f"""
-    <div style="font-size:0.65em; color:#444; text-transform:uppercase;
-         letter-spacing:0.08em; margin-bottom:8px;">Signal Distribution</div>
-    <div style="display:flex; flex-direction:column; gap:4px;">
-        <div style="display:flex; justify-content:space-between; font-size:0.72em;">
-            <span style="color:#cc2200;">HIGH</span><span style="color:#888;">{h}</span>
+    <div class="kiq-dist-bar">
+        <div class="kiq-dist-label">Signal Distribution</div>
+        <div class="kiq-dist-row">
+            <span class="kiq-dist-key" style="color:var(--red);">HIGH</span>
+            <div class="kiq-dist-track">
+                <div class="kiq-dist-fill" style="width:{h_pct}%;background:var(--red);"></div>
+            </div>
+            <span class="kiq-dist-count">{h}</span>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:0.72em;">
-            <span style="color:#e8b84b;">MEDIUM</span><span style="color:#888;">{m}</span>
+        <div class="kiq-dist-row">
+            <span class="kiq-dist-key" style="color:var(--amber);">MED</span>
+            <div class="kiq-dist-track">
+                <div class="kiq-dist-fill" style="width:{m_pct}%;background:var(--amber);"></div>
+            </div>
+            <span class="kiq-dist-count">{m}</span>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:0.72em;">
-            <span style="color:#1a7a3a;">LOW</span><span style="color:#888;">{l}</span>
+        <div class="kiq-dist-row">
+            <span class="kiq-dist-key" style="color:var(--green);">LOW</span>
+            <div class="kiq-dist-track">
+                <div class="kiq-dist-fill" style="width:{l_pct}%;background:var(--green);"></div>
+            </div>
+            <span class="kiq-dist-count">{l}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+    # Last updated + refresh
     st.markdown(f"""
-    <div style="font-size:0.62em; color:#333; text-transform:uppercase; letter-spacing:0.06em;">
-        Last updated<br>
-        <span style="color:#555;">{datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</span>
+    <div style="padding:14px 20px; border-bottom:1px solid var(--border);">
+        <div style="font-size:0.6em; color:var(--text-muted); text-transform:uppercase;
+             letter-spacing:0.1em; font-family:'JetBrains Mono',monospace;">
+            Last Updated
+        </div>
+        <div style="font-size:0.68em; color:var(--text-secondary); margin-top:4px;
+             font-family:'JetBrains Mono',monospace;">
+            {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("↺  Refresh"):
+    st.markdown("<div style='padding:14px 20px;'>", unsafe_allow_html=True)
+    if st.button("&#8635; Refresh Dashboard"):
         st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("""
-    <div class="disclaimer">
-    KairosIQ is a data provider. All data is historical.
-    Not investment advice. Past performance does not
-    guarantee future results.
+    <div style="padding:16px 20px;">
+        <div class="disclaimer">
+            KairosIQ is a data provider. All signal data is historical pattern analysis.
+            Not investment advice. Past performance does not guarantee future results.
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
