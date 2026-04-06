@@ -240,7 +240,9 @@ def send_signal_email(signal):
         msg.attach(MIMEText(html_content, "html"))
 
         # Send via Gmail SMTP
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.ehlo()
+            server.starttls()
             server.login(
                 settings.GMAIL_ADDRESS,
                 settings.GMAIL_APP_PASSWORD
@@ -358,7 +360,9 @@ def send_test_email():
         """
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.ehlo()
+            server.starttls()
             server.login(
                 settings.GMAIL_ADDRESS,
                 settings.GMAIL_APP_PASSWORD
