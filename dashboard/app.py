@@ -501,7 +501,22 @@ header { visibility: hidden; }
 [data-testid="stDecoration"] { display: none !important; }
 [data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; }
 .stDeployButton { display: none !important; }
-[data-testid="collapsedControl"] { display: block !important; }
+[data-testid="collapsedControl"] { 
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 9999 !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border-bright) !important;
+    border-left: none !important;
+    border-radius: 0 4px 4px 0 !important;
+    padding: 8px 4px !important;
+    color: var(--text-secondary) !important;
+}
 [data-testid="stBaseButton-headerNoPadding"] { display: none !important; }
 button[kind="header"] { display: none !important; }
 .eyeqlp51 { display: none !important; }
