@@ -24,6 +24,7 @@ from signals.signal_engine import run_signal_engine
 from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
 from signals.signal_validator import run_signal_validator
+from alerts.exit_alert import run_exit_alerts
 
 def run_full_cycle():
     print("\n" + "=" * 60)
@@ -95,6 +96,12 @@ def run_full_cycle():
         run_email_alerts()
     except Exception as e:
         print(f"❌ Email alert error: {e}")
+
+    # Check open trades for expiring signals — send exit alerts
+    try:
+        run_exit_alerts()
+    except Exception as e:
+        print(f"❌ Exit alert error: {e}")
 
     try:
         expire_old_signals()
