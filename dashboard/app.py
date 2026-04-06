@@ -733,53 +733,168 @@ with tab1:
                         )
 
                         if url:
-                            st.markdown(f"""
-                            <div style="background:#08080e; {border_style}
-                                 padding:12px 14px; border-radius:2px; margin:6px 0;">
-                                <div style="display:flex; justify-content:space-between;
-                                     align-items:flex-start; margin-bottom:8px;">
-                                    <div style="flex:1;">
-                                        <span style="font-size:0.62em; color:{plat_color};
-                                             text-transform:uppercase; letter-spacing:0.1em;
-                                             font-weight:600; margin-right:8px;">
-                                            {r_platform.upper()}
-                                            {'  🟢 BETTABLE' if is_bettable else '  📊 VIEW ONLY'}
-                                        </span>
-                                        <span style="font-size:0.6em; color:#333;">
-                                            {'  ·  '.join(keywords)}
-                                        </span>
-                                        <div style="font-size:0.78em; color:#c8c8c8;
-                                             margin-top:4px; line-height:1.4;">
-                                            {q_text[:110]}
+                            # Determine YES/NO pattern based on signal direction and prob shift
+                            if is_bettable and r_platform == "kalshi":
+                                # Pattern logic: if signal is bullish on the event, lean YES
+                                # If prob shifted UP = event more likely = YES
+                                # If prob shifted DOWN = event less likely = NO
+                                pa = prob_after or 0
+                                pb = prob_before or 0
+                                shift_up = pa > pb
+
+                                # Cross-reference: does signal region match question keywords?
+                                q_lower = q_text.lower()
+                                region_match = any(
+                                    k in q_lower for k in
+                                    (region or "").lower().split()
+                                    if len(k) > 3
+                                )
+
+                                # Pattern confidence based on signal strength
+                                if strength >= 75 and region_match:
+                                    pattern_yes = shift_up
+                                    pattern_confidence = "HIGH"
+                                    pattern_conf_color = "#e8b84b"
+                                elif strength >= 50:
+                                    pattern_yes = shift_up
+                                    pattern_confidence = "MEDIUM"
+                                    pattern_conf_color = "#666"
+                                else:
+                                    pattern_yes = shift_up
+                                    pattern_confidence = "LOW"
+                                    pattern_conf_color = "#444"
+
+                                yes_style = (
+                                    "background:#0a1f0a; border:2px solid #2a9a4a; "
+                                    "color:#2a9a4a; font-weight:700; font-size:0.85em;"
+                                    if pattern_yes else
+                                    "background:#0c0c0c; border:1px solid #222; "
+                                    "color:#333; font-weight:400; font-size:0.85em;"
+                                )
+                                no_style = (
+                                    "background:#1f0a0a; border:2px solid #cc2200; "
+                                    "color:#cc2200; font-weight:700; font-size:0.85em;"
+                                    if not pattern_yes else
+                                    "background:#0c0c0c; border:1px solid #222; "
+                                    "color:#333; font-weight:400; font-size:0.85em;"
+                                )
+                                pattern_label = "YES" if pattern_yes else "NO"
+                                pattern_color = "#2a9a4a" if pattern_yes else "#cc2200"
+
+                                st.markdown(f"""
+                                <div style="background:#08080e; {border_style}
+                                     padding:12px 14px; border-radius:2px; margin:6px 0;">
+                                    <div style="display:flex; justify-content:space-between;
+                                         align-items:flex-start; margin-bottom:8px;">
+                                        <div style="flex:1;">
+                                            <span style="font-size:0.62em; color:{plat_color};
+                                                 text-transform:uppercase; letter-spacing:0.1em;
+                                                 font-weight:600; margin-right:8px;">
+                                                {r_platform.upper()} 🟢 BETTABLE
+                                            </span>
+                                            <div style="font-size:0.78em; color:#c8c8c8;
+                                                 margin-top:4px; line-height:1.4;">
+                                                {q_text[:110]}
+                                            </div>
+                                        </div>
+                                        <div style="text-align:right; margin-left:16px; min-width:90px;">
+                                            <div style="font-size:1.2em; font-weight:600;
+                                                 color:{prob_color}; font-family:'IBM Plex Mono';">
+                                                {prob_str}
+                                            </div>
+                                            <div style="font-size:0.58em; color:#444;
+                                                 text-transform:uppercase; letter-spacing:0.06em;">
+                                                Current Odds
+                                            </div>
                                         </div>
                                     </div>
-                                    <div style="text-align:right; margin-left:16px; min-width:90px;">
-                                        <div style="font-size:1.2em; font-weight:600;
-                                             color:{prob_color}; font-family:'IBM Plex Mono';">
-                                            {prob_str}
-                                        </div>
-                                        <div style="font-size:0.58em; color:#444;
-                                             text-transform:uppercase; letter-spacing:0.06em;">
-                                            {'Current Odds' if prob else 'Odds Pending'}
+                                    <div style="background:#111; height:2px; border-radius:1px;
+                                         margin-bottom:10px;">
+                                        <div style="background:{prob_color}; height:2px;
+                                             width:{prob_width}%; border-radius:1px; opacity:0.6;">
                                         </div>
                                     </div>
+                                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                        <div style="font-size:0.58em; color:{pattern_conf_color};
+                                             text-transform:uppercase; letter-spacing:0.08em;">
+                                            HISTORICAL PATTERN INDICATOR · {pattern_confidence} CONFIDENCE
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:8px; margin-bottom:10px;">
+                                        <div style="padding:8px 24px; border-radius:2px;
+                                             text-align:center; min-width:80px; {yes_style}
+                                             letter-spacing:0.1em;">
+                                            YES
+                                        </div>
+                                        <div style="padding:8px 24px; border-radius:2px;
+                                             text-align:center; min-width:80px; {no_style}
+                                             letter-spacing:0.1em;">
+                                            NO
+                                        </div>
+                                        <div style="font-size:0.65em; color:{pattern_color};
+                                             align-self:center; margin-left:4px;">
+                                            ← pattern favors {pattern_label}
+                                            based on {strength}/100 signal strength
+                                        </div>
+                                    </div>
+                                    <a href="{url}" target="_blank"
+                                       style="display:inline-block; background:transparent;
+                                              border:1px solid {plat_color}44; color:{plat_color};
+                                              font-size:0.62em; padding:4px 10px; border-radius:1px;
+                                              text-decoration:none; letter-spacing:0.08em;
+                                              text-transform:uppercase; font-weight:600;">
+                                        ↗ {bet_label}
+                                    </a>
                                 </div>
-                                <div style="background:#111; height:2px; border-radius:1px;
-                                     margin-bottom:8px;">
-                                    <div style="background:{prob_color}; height:2px;
-                                         width:{prob_width}%; border-radius:1px; opacity:0.6;">
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"""
+                                <div style="background:#08080e; {border_style}
+                                     padding:12px 14px; border-radius:2px; margin:6px 0;">
+                                    <div style="display:flex; justify-content:space-between;
+                                         align-items:flex-start; margin-bottom:8px;">
+                                        <div style="flex:1;">
+                                            <span style="font-size:0.62em; color:{plat_color};
+                                                 text-transform:uppercase; letter-spacing:0.1em;
+                                                 font-weight:600; margin-right:8px;">
+                                                {r_platform.upper()}
+                                                {'  🟢 BETTABLE' if is_bettable else '  📊 VIEW ONLY'}
+                                            </span>
+                                            <span style="font-size:0.6em; color:#333;">
+                                                {'  ·  '.join(keywords)}
+                                            </span>
+                                            <div style="font-size:0.78em; color:#c8c8c8;
+                                                 margin-top:4px; line-height:1.4;">
+                                                {q_text[:110]}
+                                            </div>
+                                        </div>
+                                        <div style="text-align:right; margin-left:16px; min-width:90px;">
+                                            <div style="font-size:1.2em; font-weight:600;
+                                                 color:{prob_color}; font-family:'IBM Plex Mono';">
+                                                {prob_str}
+                                            </div>
+                                            <div style="font-size:0.58em; color:#444;
+                                                 text-transform:uppercase; letter-spacing:0.06em;">
+                                                {'Current Odds' if prob else 'Odds Pending'}
+                                            </div>
+                                        </div>
                                     </div>
+                                    <div style="background:#111; height:2px; border-radius:1px;
+                                         margin-bottom:8px;">
+                                        <div style="background:{prob_color}; height:2px;
+                                             width:{prob_width}%; border-radius:1px; opacity:0.6;">
+                                        </div>
+                                    </div>
+                                    <a href="{url}" target="_blank"
+                                       style="display:inline-block; background:transparent;
+                                              border:1px solid {plat_color}44; color:{plat_color};
+                                              font-size:0.62em; padding:4px 10px; border-radius:1px;
+                                              text-decoration:none; letter-spacing:0.08em;
+                                              text-transform:uppercase; font-weight:600;">
+                                        ↗ {bet_label}
+                                    </a>
                                 </div>
-                                <a href="{url}" target="_blank"
-                                   style="display:inline-block; background:transparent;
-                                          border:1px solid {plat_color}44; color:{plat_color};
-                                          font-size:0.62em; padding:4px 10px; border-radius:1px;
-                                          text-decoration:none; letter-spacing:0.08em;
-                                          text-transform:uppercase; font-weight:600;">
-                                    ↗ {bet_label}
-                                </a>
-                            </div>
-                            """, unsafe_allow_html=True)
+                                """, unsafe_allow_html=True)
 
                     st.markdown("""
                     <div class="disclaimer">
