@@ -17,7 +17,9 @@ def get_setting(key, default=""):
     # Try Streamlit secrets
     try:
         import streamlit as st
-        return st.secrets.get(key, default)
+        if hasattr(st, 'secrets') and key in st.secrets:
+            return st.secrets[key]
+        return default
     except Exception:
         return default
 
