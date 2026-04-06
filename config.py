@@ -52,6 +52,9 @@ class Settings:
     # --- Metaculus ---
     METACULUS_API_TOKEN: str = get_setting("METACULUS_API_TOKEN")
 
+    # --- Resend Email ---
+    RESEND_API_KEY: str = get_setting("RESEND_API_KEY")
+
     # --- Alpaca ---
     ALPACA_PAPER_KEY:    str = get_setting("ALPACA_PAPER_KEY")
     ALPACA_PAPER_SECRET: str = get_setting("ALPACA_PAPER_SECRET")

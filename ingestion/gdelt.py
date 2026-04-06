@@ -52,34 +52,33 @@ def get_db_connection():
 
 
 def fetch_gdelt_rss():
-    """Fetch conflict articles via GDELT RSS — no rate limiting."""
+    """Fetch conflict articles via reliable RSS feeds — no rate limiting."""
     print("📡 Fetching GDELT events via RSS...")
     articles = []
 
+    # These RSS feeds are proven to work — same sources as ofac.py
     rss_urls = [
-        "https://www.gdeltproject.org/feeds/gkg/conflict.rss",
-        "https://www.gdeltproject.org/feeds/gkg/war.rss",
-        "https://www.gdeltproject.org/feeds/gkg/military.rss",
+        "https://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml",
+        "https://feeds.bbci.co.uk/news/world/europe/rss.xml",
+        "https://feeds.bbci.co.uk/news/world/asia/rss.xml",
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+        "https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml",
     ]
 
     for url in rss_urls:
         try:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:100]:
+            for entry in feed.entries[:50]:
                 articles.append({
-                    "title": entry.get("title", ""),
-                    "url":   entry.get("link", ""),
+                    "title":  entry.get("title", ""),
+                    "url":    entry.get("link", ""),
                     "source": entry.get("source", {}).get("title", ""),
+                    "summary": entry.get("summary", ""),
                 })
-            time.sleep(0.5)  # small polite delay between RSS calls
         except Exception as e:
-            print(f"   ⚠️  RSS feed error {url}: {e}")
+            print(f"   ⚠️  RSS error {url}: {e}")
             continue
-
-    # If RSS returned nothing, try doc API once with backoff
-    if not articles:
-        print("   RSS empty — trying doc API with backoff...")
-        articles = fetch_gdelt_doc_api()
 
     print(f"   Found {len(articles)} conflict articles")
     return articles
@@ -115,11 +114,11 @@ def fetch_gdelt_doc_api():
 def count_by_country(articles):
     country_counts = defaultdict(int)
     for article in articles:
-        title = article.get("title", "").upper()
-        source = article.get("source", "").upper()
-        text = f"{title} {source}"
+        title   = article.get("title", "").upper()
+        source  = article.get("source", "").upper()
+        summary = article.get("summary", "").upper()
+        text    = f"{title} {summary} {source}"
         for country in MONITORED_COUNTRIES:
-            # Handle multi-word countries
             search = country.replace("NORTHKOREA", "NORTH KOREA") \
                             .replace("SAUDIARABIA", "SAUDI ARABIA")
             if search in text or country in text:

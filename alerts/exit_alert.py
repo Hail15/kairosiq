@@ -6,15 +6,12 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-import smtplib
 import psycopg2
 import sys
 import os
 import json
 import requests
 from datetime import datetime, timezone
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
@@ -256,26 +253,28 @@ def send_exit_alert(trade, current_price):
         subject = (f"🚪 KairosIQ EXIT ALERT — {ticker} {side_label} "
                    f"({mode}) Signal Expired{pnl_str}")
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = settings.GMAIL_ADDRESS
-        msg["To"]      = settings.ALERT_EMAIL_TO
-
         html = build_exit_email(trade, current_price)
-        msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
-            server.sendmail(
-                settings.GMAIL_ADDRESS,
-                settings.ALERT_EMAIL_TO,
-                msg.as_string()
-            )
-
-        print(f"✅ Exit alert sent: {ticker} {side_label} ({mode})")
-        return True
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from":    "KairosIQ <onboarding@resend.dev>",
+                "to":      [settings.ALERT_EMAIL_TO],
+                "subject": subject,
+                "html":    html
+            },
+            timeout=15
+        )
+        if response.status_code in (200, 201):
+            print(f"✅ Exit alert sent: {ticker} {side_label} ({mode})")
+            return True
+        else:
+            print(f"❌ Resend error {response.status_code}: {response.text[:100]}")
+            return False
 
     except Exception as e:
         print(f"❌ Exit alert send error: {e}")
