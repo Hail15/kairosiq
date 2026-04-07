@@ -659,33 +659,135 @@ def fetch_similar_historical_event(event_category, region, description):
         if any(k in desc_lower for k in noise_keywords):
             return None
 
-        # ── Precise event matching ────────────────────────────────────────
+        # ── Precise event matching — 65 historical events ────────────────
         specific_event_id = None
 
+        # Taiwan / Cross-strait
         if "taiwan" in region_lower or "taiwan" in desc_lower:
             specific_event_id = "EVT_008"
-        elif "china" in region_lower and any(k in desc_lower for k in ["trade", "tariff", "mineral", "semiconductor", "export", "rare earth"]):
+        # China trade/tech/minerals
+        elif "china" in region_lower and any(k in desc_lower for k in ["trade", "tariff", "mineral", "semiconductor", "export", "rare earth", "huawei", "tech ban"]):
             specific_event_id = "EVT_012"
-        elif ("china" in region_lower or "us-china" in desc_lower) and not "taiwan" in desc_lower:
+        # South China Sea
+        elif any(k in desc_lower for k in ["south china sea", "fonop", "spratlys", "paracel"]):
+            specific_event_id = "EVT_029"
+        # China general
+        elif ("china" in region_lower or "us-china" in desc_lower) and "taiwan" not in desc_lower:
             specific_event_id = "EVT_006"
+        # Iran direct strike
+        elif any(k in desc_lower for k in ["iran strike", "israel strikes iran", "iran retaliat", "ballistic missile iran"]):
+            specific_event_id = "EVT_016"
+        # Soleimani
+        elif any(k in desc_lower for k in ["soleimani", "assassination", "killed general"]):
+            specific_event_id = "EVT_032"
+        # Iran general
         elif "iran" in region_lower or "iran" in desc_lower:
             specific_event_id = "EVT_007"
-        elif any(k in desc_lower for k in ["houthi", "red sea", "shipping lane", "strait of hormuz", "hormuz"]):
+        # Houthi / Red Sea / Hormuz
+        elif any(k in desc_lower for k in ["houthi", "red sea", "strait of hormuz", "hormuz", "shipping lane"]):
             specific_event_id = "EVT_004"
+        # Saudi oil attack
+        elif any(k in desc_lower for k in ["saudi", "abqaiq", "aramco", "saudi attack"]):
+            specific_event_id = "EVT_017"
+        # Yemen
+        elif any(k in desc_lower for k in ["yemen", "sanaa"]):
+            specific_event_id = "EVT_019"
+        # Nord Stream / pipelines
+        elif any(k in desc_lower for k in ["nord stream", "pipeline sabotage", "pipeline explosion"]):
+            specific_event_id = "EVT_021"
+        # Russia / Ukraine / TASS / RT
         elif "russia" in region_lower or "tass" in region_lower or "rt" in region_lower:
             specific_event_id = "EVT_002"
-        elif any(k in desc_lower for k in ["ukraine", "russia", "moscow", "kremlin", "putin"]):
+        elif any(k in desc_lower for k in ["ukraine", "russia", "moscow", "kremlin", "putin", "zelensky", "donbas"]):
             specific_event_id = "EVT_002"
-        elif any(k in desc_lower for k in ["israel", "gaza", "hamas", "hezbollah"]):
+        # Belarus
+        elif any(k in desc_lower for k in ["belarus", "lukashenko", "minsk"]):
+            specific_event_id = "EVT_023"
+        # Israel / Gaza / Hamas / Hezbollah
+        elif any(k in desc_lower for k in ["israel", "gaza", "hamas", "hezbollah", "west bank", "idf"]):
             specific_event_id = "EVT_003"
-        elif any(k in desc_lower for k in ["opec", "oil cut", "production cut", "saudi"]):
+        # Lebanon
+        elif any(k in desc_lower for k in ["lebanon", "beirut"]):
+            specific_event_id = "EVT_020"
+        # Arab Spring / MENA protests
+        elif any(k in desc_lower for k in ["arab spring", "tahrir", "tunisia", "egypt protest", "mena protest"]):
+            specific_event_id = "EVT_018"
+        # North Korea
+        elif any(k in desc_lower for k in ["north korea", "dprk", "icbm", "pyongyang", "kim jong", "nuclear test"]):
+            specific_event_id = "EVT_030"
+        # OPEC
+        elif any(k in desc_lower for k in ["opec", "oil cut", "production cut"]) and "saudi" not in desc_lower:
             specific_event_id = "EVT_009"
-        elif any(k in desc_lower for k in ["north korea", "icbm", "ballistic missile", "nuclear test", "pyongyang"]):
-            specific_event_id = "EVT_010"
-        elif any(k in desc_lower for k in ["cyber", "hack", "ransomware", "malware", "solarwinds", "cii"]):
+        # European energy
+        elif any(k in desc_lower for k in ["european energy", "eu energy", "energy crisis europe", "german energy", "ttf gas"]):
+            specific_event_id = "EVT_036"
+        # Brexit / UK political
+        elif any(k in desc_lower for k in ["brexit", "uk referendum", "british pound crash"]):
+            specific_event_id = "EVT_038"
+        # Fed / central bank
+        elif any(k in desc_lower for k in ["federal reserve", "fed rate", "rate hike", "central bank hike", "boe rate", "ecb rate"]):
+            specific_event_id = "EVT_033"
+        # SVB / bank collapse
+        elif any(k in desc_lower for k in ["bank collapse", "silicon valley bank", "svb", "credit suisse", "banking crisis"]):
+            specific_event_id = "EVT_035"
+        # Debt ceiling / sovereign debt
+        elif any(k in desc_lower for k in ["debt ceiling", "us debt", "debt default", "debt crisis"]):
+            specific_event_id = "EVT_034"
+        # Argentina / peso / EM currency
+        elif any(k in desc_lower for k in ["argentina", "peso crash", "imf bailout", "currency crisis", "devaluation"]):
+            specific_event_id = "EVT_051"
+        # Venezuela / sanctions
+        elif any(k in desc_lower for k in ["venezuela", "maduro", "caracas"]):
+            specific_event_id = "EVT_052"
+        # Brazil
+        elif any(k in desc_lower for k in ["brazil", "bolsonaro", "lula", "real crash"]):
+            specific_event_id = "EVT_054"
+        # Panama Canal
+        elif any(k in desc_lower for k in ["panama canal", "canal transit", "canal restriction"]):
+            specific_event_id = "EVT_055"
+        # Myanmar / coup
+        elif any(k in desc_lower for k in ["myanmar", "burma", "coup", "military takeover", "junta"]):
+            specific_event_id = "EVT_048"
+        # Pakistan
+        elif any(k in desc_lower for k in ["pakistan", "imran khan", "islamabad"]):
+            specific_event_id = "EVT_046"
+        # India-China
+        elif any(k in desc_lower for k in ["india china", "galwan", "himalayas border", "lac border"]):
+            specific_event_id = "EVT_047"
+        # Sri Lanka / EM collapse
+        elif any(k in desc_lower for k in ["sri lanka", "colombo", "default emerging"]):
+            specific_event_id = "EVT_049"
+        # Africa coups / Mali / Sahel
+        elif any(k in desc_lower for k in ["mali", "sahel", "niger coup", "burkina", "guinea coup", "gabon coup"]):
+            specific_event_id = "EVT_042"
+        # South Africa
+        elif any(k in desc_lower for k in ["south africa", "zuma", "johannesburg riots", "load shedding"]):
+            specific_event_id = "EVT_043"
+        # Ethiopia / Sudan / Africa conflict
+        elif any(k in desc_lower for k in ["ethiopia", "tigray", "sudan", "khartoum", "darfur"]):
+            specific_event_id = "EVT_041"
+        # Colonial Pipeline / infrastructure cyberattack
+        elif any(k in desc_lower for k in ["colonial pipeline", "pipeline hack", "infrastructure attack", "ransomware pipeline"]):
+            specific_event_id = "EVT_056"
+        # CrowdStrike / IT outage
+        elif any(k in desc_lower for k in ["crowdstrike", "it outage", "global outage", "bsod"]):
+            specific_event_id = "EVT_058"
+        # Cyber / hack general
+        elif any(k in desc_lower for k in ["cyber", "hack", "ransomware", "malware", "solarwinds", "cii", "internet disruption"]):
             specific_event_id = "EVT_013"
-        elif any(k in desc_lower for k in ["outbreak", "disease", "pandemic", "virus", "ebola", "mpox"]):
+        # Semiconductor shortage
+        elif any(k in desc_lower for k in ["semiconductor shortage", "chip shortage", "tsmc delay", "fab shortage"]):
+            specific_event_id = "EVT_062"
+        # Food crisis
+        elif any(k in desc_lower for k in ["food crisis", "wheat shortage", "food insecurity", "famine", "grain"]):
+            specific_event_id = "EVT_064"
+        # Shipping container / port congestion
+        elif any(k in desc_lower for k in ["port congestion", "container shortage", "shipping crisis", "freight rate"]):
+            specific_event_id = "EVT_061"
+        # Outbreak / disease
+        elif any(k in desc_lower for k in ["outbreak", "disease", "pandemic", "virus", "ebola", "mpox", "cholera"]):
             specific_event_id = "EVT_001"
+        # Category fallbacks
         elif event_category == "shipping_lane_disruption":
             specific_event_id = "EVT_004"
         elif event_category == "opec_production_decision":
@@ -702,6 +804,12 @@ def fetch_similar_historical_event(event_category, region, description):
             specific_event_id = "EVT_007"
         elif event_category == "disease_outbreak":
             specific_event_id = "EVT_001"
+        elif event_category == "emerging_market_political_crisis":
+            specific_event_id = "EVT_051"
+        elif event_category == "election_outcome_surprise":
+            specific_event_id = "EVT_038"
+        elif event_category == "us_sanctions_announcement":
+            specific_event_id = "EVT_006"
         else:
             # No good match — don't show a wrong precedent
             return None
@@ -737,6 +845,56 @@ def fetch_similar_historical_event(event_category, region, description):
             'EVT_013': 'cyber_attack',
             'EVT_014': 'us_china_trade_escalation',
             'EVT_015': 'russia_eastern_europe_conflict',
+            'EVT_016': 'iran_israel_strike',
+            'EVT_017': 'saudi_oil_attack',
+            'EVT_018': 'election_outcome_surprise',
+            'EVT_019': 'middle_east_military_escalation',
+            'EVT_020': 'emerging_market_political_crisis',
+            'EVT_021': 'pipelines_disruption',
+            'EVT_022': 'us_sanctions_announcement',
+            'EVT_023': 'emerging_market_political_crisis',
+            'EVT_024': 'russia_eastern_europe_conflict',
+            'EVT_025': 'russia_eastern_europe_conflict',
+            'EVT_026': 'disease_outbreak',
+            'EVT_027': 'emerging_market_political_crisis',
+            'EVT_028': 'us_china_trade_escalation',
+            'EVT_029': 'china_taiwan_tension',
+            'EVT_030': 'nuclear_wmd_escalation',
+            'EVT_031': 'election_outcome_surprise',
+            'EVT_032': 'soleimani_assassination',
+            'EVT_033': 'central_bank_policy',
+            'EVT_034': 'emerging_market_political_crisis',
+            'EVT_035': 'bank_collapse',
+            'EVT_036': 'european_energy_crisis',
+            'EVT_037': 'emerging_market_political_crisis',
+            'EVT_038': 'election_outcome_surprise',
+            'EVT_039': 'emerging_market_political_crisis',
+            'EVT_040': 'european_energy_crisis',
+            'EVT_041': 'russia_eastern_europe_conflict',
+            'EVT_042': 'coup_risk',
+            'EVT_043': 'emerging_market_political_crisis',
+            'EVT_044': 'emerging_market_political_crisis',
+            'EVT_045': 'middle_east_military_escalation',
+            'EVT_046': 'nuclear_wmd_escalation',
+            'EVT_047': 'china_taiwan_tension',
+            'EVT_048': 'coup_risk',
+            'EVT_049': 'emerging_market_political_crisis',
+            'EVT_050': 'emerging_market_political_crisis',
+            'EVT_051': 'currency_crisis',
+            'EVT_052': 'us_sanctions_announcement',
+            'EVT_053': 'emerging_market_political_crisis',
+            'EVT_054': 'election_outcome_surprise',
+            'EVT_055': 'canal_disruption',
+            'EVT_056': 'pipeline_cyberattack',
+            'EVT_057': 'cyber_attack',
+            'EVT_058': 'cyber_attack',
+            'EVT_059': 'us_china_trade_escalation',
+            'EVT_060': 'us_china_trade_escalation',
+            'EVT_061': 'shipping_lane_disruption',
+            'EVT_062': 'semiconductor_shortage',
+            'EVT_063': 'semiconductor_shortage',
+            'EVT_064': 'food_crisis',
+            'EVT_065': 'opec_production_decision',
         }
 
         mapped_type = evt_type_map.get(evt_id, event_category)
