@@ -639,6 +639,103 @@ def format_assets(assets_json):
 def conf_badge(c):
     return f'<span class="badge-{c}">{c}</span>'
 
+@st.cache_data(ttl=3600)
+def fetch_similar_historical_event(event_category, region, description):
+    """Find the most similar historical event from Kyle's database."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # Map event category to domain keywords
+        domain_map = {
+            'middle_east_military_escalation': ['Armed Conflict & Military', 'Energy & Resource Security'],
+            'russia_eastern_europe_conflict':  ['Armed Conflict & Military'],
+            'china_taiwan_tension':            ['Armed Conflict & Military'],
+            'nuclear_wmd_escalation':          ['Armed Conflict & Military'],
+            'conflict_spike':                  ['Armed Conflict & Military'],
+            'state_media_shift':               ['Armed Conflict & Military'],
+            'shipping_lane_disruption':        ['Maritime & Trade Flows'],
+            'opec_production_decision':        ['Energy & Resource Security'],
+            'us_china_trade_escalation':       ['Economic & Financial Intelligence'],
+            'us_sanctions_announcement':       ['Diplomatic & Political'],
+            'election_outcome_surprise':       ['Diplomatic & Political'],
+            'emerging_market_political_crisis':['Diplomatic & Political'],
+            'disease_outbreak':                ['Biosecurity & Health'],
+            'cyber_attack':                    ['Cyber & Information Warfare'],
+        }
+
+        domains = domain_map.get(event_category, ['Armed Conflict & Military'])
+        placeholders = ','.join(['%s'] * len(domains))
+
+        cur.execute(f"""
+            SELECT id, event_name, date_start, domain, severity,
+                   geographic_scope, indicators_triggered
+            FROM historical_gpi_events
+            WHERE domain = ANY(%s)
+            ORDER BY date_start DESC
+            LIMIT 3;
+        """, (domains,))
+
+        events = cur.fetchall()
+        cur.close()
+
+        if not events:
+            return None
+
+        # Get asset impacts for the best match
+        best = events[0]
+        evt_id, evt_name, evt_date, evt_domain, evt_severity, evt_scope, evt_indicators = best
+
+        # Get top asset moves from asset_mappings for this event type
+        conn2 = get_db()
+        cur2 = conn2.cursor()
+
+        # Map historical event to event_type
+        evt_type_map = {
+            'EVT_001': 'disease_outbreak',
+            'EVT_002': 'russia_eastern_europe_conflict',
+            'EVT_003': 'middle_east_military_escalation',
+            'EVT_004': 'shipping_lane_disruption',
+            'EVT_005': 'russia_eastern_europe_conflict',
+            'EVT_006': 'us_china_trade_escalation',
+            'EVT_007': 'middle_east_military_escalation',
+            'EVT_008': 'china_taiwan_tension',
+            'EVT_009': 'opec_production_decision',
+            'EVT_010': 'nuclear_wmd_escalation',
+            'EVT_011': 'emerging_market_political_crisis',
+            'EVT_012': 'us_china_trade_escalation',
+            'EVT_013': 'cyber_attack',
+            'EVT_014': 'us_china_trade_escalation',
+            'EVT_015': 'russia_eastern_europe_conflict',
+        }
+
+        mapped_type = evt_type_map.get(evt_id, event_category)
+
+        cur2.execute("""
+            SELECT asset_ticker, asset_name, historical_direction,
+                   avg_move_72h, directional_accuracy, confidence_rating
+            FROM asset_mappings
+            WHERE event_type = %s
+            AND transmission_channel = 'historical_verified'
+            AND confidence_rating IN ('high', 'medium')
+            ORDER BY ABS(avg_move_72h) DESC
+            LIMIT 4;
+        """, (mapped_type,))
+
+        top_assets = cur2.fetchall()
+        cur2.close()
+
+        return {
+            "id":         evt_id,
+            "name":       evt_name,
+            "date":       evt_date.strftime("%b %Y") if evt_date else "—",
+            "domain":     evt_domain,
+            "severity":   evt_severity,
+            "top_assets": top_assets,
+        }
+    except Exception as e:
+        return None
+
 # --- Data Fetching ---
 def fetch_active_signals():
     conn = get_db()
@@ -1375,6 +1472,63 @@ with tab1:
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
+
+            # Historical Event Comparison
+            hist_event = fetch_similar_historical_event(
+                event_category, region, description
+            )
+            if hist_event:
+                severity_colors = {
+                    "EXTREME": "#cc2200",
+                    "HIGH":    "#e8b84b",
+                    "MEDIUM":  "#2a9a4a",
+                    "LOW":     "#555",
+                }
+                sev_color = severity_colors.get(hist_event["severity"], "#555")
+
+                asset_lines = ""
+                for a in hist_event["top_assets"]:
+                    t, name, dirn, move, acc, conf = a
+                    arrow = "▲" if dirn == "up" else "▼"
+                    move_color = "var(--green)" if dirn == "up" else "var(--red)"
+                    sign = "+" if dirn == "up" else ""
+                    asset_lines += (
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);">'
+                        f'<span style="font-weight:700;color:#e0e0e0;font-family:JetBrains Mono,monospace;font-size:0.85em;">{t}</span>'
+                        f'<span style="color:#555;font-size:0.75em;flex:1;padding:0 10px;">{(name or "")[:25]}</span>'
+                        f'<span style="color:{move_color};font-weight:600;font-family:JetBrains Mono,monospace;font-size:0.85em;">'
+                        f'{arrow} {sign}{abs(float(move or 0)):.1f}% avg 72h</span>'
+                        f'<span style="color:#555;font-size:0.7em;margin-left:10px;">{int((acc or 0)*100)}% acc</span>'
+                        f'</div>'
+                    )
+
+                st.markdown(
+                    f'<div style="background:rgba(59,130,246,0.04);border:1px solid rgba(59,130,246,0.15);'
+                    f'border-left:3px solid #3b82f6;padding:14px 16px;border-radius:4px;margin:8px 0;">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+                    f'<div style="font-size:0.62em;color:#3b82f6;text-transform:uppercase;'
+                    f'letter-spacing:0.1em;font-weight:700;font-family:JetBrains Mono,monospace;">'
+                    f'&#9889; CLOSEST HISTORICAL PRECEDENT</div>'
+                    f'<div style="font-size:0.6em;color:#555;font-family:JetBrains Mono,monospace;">'
+                    f'Source: Kyle Worsley Intelligence Framework</div>'
+                    f'</div>'
+                    f'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'
+                    f'<div style="font-size:0.9em;font-weight:600;color:#e0e0e0;">{hist_event["name"]}</div>'
+                    f'<div style="display:flex;gap:10px;align-items:center;">'
+                    f'<span style="font-size:0.65em;color:#555;font-family:JetBrains Mono,monospace;">{hist_event["date"]}</span>'
+                    f'<span style="font-size:0.6em;color:{sev_color};background:rgba(255,255,255,0.05);'
+                    f'padding:2px 7px;border-radius:2px;font-weight:700;letter-spacing:0.08em;">'
+                    f'{hist_event["severity"]}</span>'
+                    f'</div></div>'
+                    f'<div style="font-size:0.68em;color:#555;margin-bottom:10px;font-family:JetBrains Mono,monospace;">'
+                    f'Domain: {hist_event["domain"]}</div>'
+                    f'{asset_lines}'
+                    f'<div style="font-size:0.6em;color:#333;margin-top:8px;font-family:JetBrains Mono,monospace;">'
+                    f'Historical data only. Not investment advice. Past events may not predict future outcomes.</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
             # AI Brief
             with st.expander("▸  INTELLIGENCE BRIEF"):
@@ -2606,28 +2760,47 @@ with tab6:
                     color = "#2a9a4a" if unreal >= 0 else "#cc2200"
                     unreal_str = f'<span style="color:{color};">${unreal:+.4f}</span>'
 
-                st.markdown(f"""
-                <div style="background:#08080c; border:1px solid #1a1a24;
-                            border-left:3px solid #e8b84b; padding:12px 16px;
-                            border-radius:2px; margin:4px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <span style="font-size:1em; font-weight:600; color:#e0e0e0;">{ticker}</span>
-                            &nbsp;
-                            <span style="font-size:0.8em; color:{side_color}; font-weight:600;">{side.upper()}</span>
-                            &nbsp; {mode_badge}
-                        </div>
-                        <div style="font-size:0.7em; color:#555;">{time_str} UTC</div>
-                    </div>
-                    <div style="font-size:0.72em; color:#555; margin-top:6px; display:flex; gap:24px;">
-                        <span>Entry: <b style="color:#e0e0e0;">{entry_str}</b></span>
-                        <span>Current: <b style="color:#e0e0e0;">{curr_str}</b></span>
-                        <span>Unrealized P&L: <b>{unreal_str}</b></span>
-                        <span>Notional: <b style="color:#e0e0e0;">${float(notional):.2f}</b></span>
-                    </div>
-                    <div style="font-size:0.68em; color:#444; margin-top:4px;">{notes or ""}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                pct_str = "—"
+                if curr_price and entry_price:
+                    mult = 1 if side == "buy" else -1
+                    pct = mult * (curr_price - float(entry_price)) / float(entry_price) * 100
+                    pct_color = "#2a9a4a" if pct >= 0 else "#cc2200"
+                    pct_str = f'<span style="color:{pct_color};">{pct:+.2f}%</span>'
+
+                st.markdown(
+                    f'<div style="background:#08080c;border:1px solid #1a1a24;'
+                    f'border-left:3px solid #e8b84b;padding:14px 18px;border-radius:4px;margin:6px 0;">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+                    f'<div style="display:flex;align-items:center;gap:10px;">'
+                    f'<span style="font-size:1.1em;font-weight:700;color:#e0e0e0;font-family:JetBrains Mono,monospace;">{ticker}</span>'
+                    f'<span style="font-size:0.75em;color:{side_color};font-weight:600;background:{"rgba(42,154,74,0.12)" if side=="buy" else "rgba(204,34,0,0.12)"};'
+                    f'padding:2px 8px;border-radius:2px;">{side.upper()}</span>'
+                    f'{mode_badge}'
+                    f'</div>'
+                    f'<span style="font-size:0.65em;color:#555;font-family:JetBrains Mono,monospace;">{time_str} UTC</span>'
+                    f'</div>'
+                    f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">'
+                    f'<div style="background:#0d0d18;padding:10px 12px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);">'
+                    f'<div style="font-size:0.58em;color:#44445a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;font-family:JetBrains Mono,monospace;">Entry</div>'
+                    f'<div style="font-size:0.9em;font-weight:600;color:#e0e0e0;font-family:JetBrains Mono,monospace;">{entry_str}</div>'
+                    f'</div>'
+                    f'<div style="background:#0d0d18;padding:10px 12px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);">'
+                    f'<div style="font-size:0.58em;color:#44445a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;font-family:JetBrains Mono,monospace;">Current</div>'
+                    f'<div style="font-size:0.9em;font-weight:600;color:#e0e0e0;font-family:JetBrains Mono,monospace;">{curr_str}</div>'
+                    f'</div>'
+                    f'<div style="background:#0d0d18;padding:10px 12px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);">'
+                    f'<div style="font-size:0.58em;color:#44445a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;font-family:JetBrains Mono,monospace;">Unrealized P&amp;L</div>'
+                    f'<div style="font-size:0.9em;font-weight:600;font-family:JetBrains Mono,monospace;">{unreal_str}</div>'
+                    f'</div>'
+                    f'<div style="background:#0d0d18;padding:10px 12px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);">'
+                    f'<div style="font-size:0.58em;color:#44445a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;font-family:JetBrains Mono,monospace;">Notional</div>'
+                    f'<div style="font-size:0.9em;font-weight:600;color:#e0e0e0;font-family:JetBrains Mono,monospace;">${float(notional):.2f}</div>'
+                    f'</div>'
+                    f'</div>'
+                    f'<div style="font-size:0.65em;color:#444;margin-top:8px;font-family:JetBrains Mono,monospace;">{notes or ""}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
                 with st.expander(f"Close position — {ticker}"):
                     exit_price_input = st.number_input(
