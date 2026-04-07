@@ -695,7 +695,7 @@ def fetch_similar_historical_event(event_category, region, description):
         elif any(k in desc_lower for k in ["nord stream", "pipeline sabotage", "pipeline explosion"]):
             specific_event_id = "EVT_021"
         # Russia / Ukraine / TASS / RT — always EVT_002
-        elif "russia" in region_lower or "tass" in region_lower or "- rt" in region_lower or "russia - rt" in region_lower or "russia - tass" in region_lower:
+        elif any(k in region_lower for k in ["russia", "tass", "rt", "kremlin"]) or any(k in desc_lower for k in ["russia", "kremlin", "putin", "moscow", "ukraine", "russian"]):
             specific_event_id = "EVT_002"
         elif any(k in desc_lower for k in ["ukraine", "russia", "moscow", "kremlin", "putin", "zelensky", "donbas"]):
             specific_event_id = "EVT_002"
@@ -712,7 +712,7 @@ def fetch_similar_historical_event(event_category, region, description):
         elif any(k in desc_lower for k in ["arab spring", "tahrir", "tunisia", "egypt protest", "mena protest"]):
             specific_event_id = "EVT_018"
         # North Korea
-        elif any(k in desc_lower for k in ["north korea", "dprk", "icbm", "pyongyang", "kim jong", "nuclear test", "kim ju", "north korean", "succession north"]):
+        elif "north korea" in region_lower or any(k in desc_lower for k in ["north korea", "dprk", "icbm", "pyongyang", "kim jong", "nuclear test", "kim ju", "north korean", "succession"]):
             specific_event_id = "EVT_030"
         # OPEC
         elif any(k in desc_lower for k in ["opec", "oil cut", "production cut"]) and "saudi" not in desc_lower:

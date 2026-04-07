@@ -128,27 +128,36 @@ def get_signal_metadata(assets, prob_shift, confidence_score, source_platform):
 
 def map_event_to_category(event_description):
     text = (event_description or "").lower()
-    if any(w in text for w in ["oil", "opec", "petroleum", "crude"]):
+    if any(w in text for w in ["north korea", "dprk", "kim jong", "kim ju", "pyongyang", "icbm"]):
+        return "nuclear_wmd_escalation"
+    elif any(w in text for w in ["nuclear", "nuke", "wmd", "ballistic missile"]):
+        return "nuclear_wmd_escalation"
+    elif any(w in text for w in ["oil", "opec", "petroleum", "crude"]):
         return "opec_production_decision"
     elif any(w in text for w in ["taiwan", "strait"]):
         return "china_taiwan_tension"
-    elif any(w in text for w in ["russia", "ukraine", "nato"]):
+    elif any(w in text for w in ["russia", "ukraine", "nato", "kremlin", "putin", "moscow"]):
         return "russia_eastern_europe_conflict"
-    elif any(w in text for w in ["iran", "israel", "gaza",
-                                  "middle east", "hezbollah"]):
+    elif any(w in text for w in ["kharg", "restrike", "u.s. strikes iran", "us strikes iran"]):
+        return "iran_israel_strike"
+    elif any(w in text for w in ["iran", "israel", "gaza", "middle east", "hezbollah", "hamas"]):
         return "middle_east_military_escalation"
-    elif any(w in text for w in ["nuclear", "nuke", "wmd"]):
-        return "nuclear_wmd_escalation"
-    elif any(w in text for w in ["china", "xi", "beijing",
-                                  "trade war", "tariff"]):
+    elif any(w in text for w in ["china", "xi", "beijing", "trade war", "tariff"]):
         return "us_china_trade_escalation"
     elif any(w in text for w in ["sanction", "embargo"]):
         return "us_sanctions_announcement"
-    elif any(w in text for w in ["election", "vote",
-                                  "president", "prime minister"]):
-        return "election_outcome_surprise"
-    elif any(w in text for w in ["ship", "canal", "blockade", "hormuz"]):
+    elif any(w in text for w in ["houthi", "red sea", "hormuz", "ship", "canal", "blockade"]):
         return "shipping_lane_disruption"
+    elif any(w in text for w in ["pakistan", "islamabad", "imran khan"]):
+        return "emerging_market_political_crisis"
+    elif any(w in text for w in ["coup", "junta", "military takeover"]):
+        return "coup_risk"
+    elif any(w in text for w in ["election", "vote", "president", "prime minister"]):
+        return "election_outcome_surprise"
+    elif any(w in text for w in ["cyber", "hack", "ransomware", "malware"]):
+        return "cyber_attack"
+    elif any(w in text for w in ["outbreak", "disease", "pandemic", "virus"]):
+        return "disease_outbreak"
     else:
         return "emerging_market_political_crisis"
 
