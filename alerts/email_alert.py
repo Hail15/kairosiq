@@ -176,7 +176,8 @@ def get_unalerted_signals():
     conn = get_db_connection()
     cur  = conn.cursor()
     cur.execute("""
-        SELECT s.id, s.event_description, s.region, s.event_category,
+        SELECT DISTINCT ON (s.event_category, s.region)
+               s.id, s.event_description, s.region, s.event_category,
                s.probability_before, s.probability_after, s.probability_shift,
                s.confidence_score, s.source_platform, s.affected_assets,
                s.signal_time, s.expires_at
@@ -188,12 +189,19 @@ def get_unalerted_signals():
         AND s.id::text NOT IN (
             SELECT signal_id::text
             FROM signal_alerts_sent
-            WHERE alerted_at >= NOW() - INTERVAL '48 hours'
+            WHERE alerted_at >= NOW() - INTERVAL '24 hours'
         )
-        ORDER BY
+        AND NOT EXISTS (
+            SELECT 1 FROM signal_alerts_sent sas
+            JOIN signals s2 ON s2.id::text = sas.signal_id::text
+            WHERE s2.event_category = s.event_category
+            AND s2.region = s.region
+            AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
+        )
+        ORDER BY s.event_category, s.region,
             CASE s.confidence_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 END,
-            s.signal_time DESC
-        LIMIT 10;
+            s.probability_shift DESC
+        LIMIT 8;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -219,6 +227,11 @@ def mark_signal_alerted(signal_id):
 
 def run_email_alerts():
     print("\n📧 Running email alert check...")
+
+    # Skip alerts on startup to prevent flood after Railway redeploys
+    if os.environ.get("KAIROS_STARTUP_CYCLE") == "1":
+        print("   ⏳ Startup grace period — skipping alerts this cycle")
+        return
 
     if not settings.RESEND_API_KEY:
         print("   ⚠️  No RESEND_API_KEY configured — skipping")

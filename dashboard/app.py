@@ -593,19 +593,18 @@ def generate_signal_summary(event_description, region, prob_before,
                 f"{(a.get('accuracy', 0) or 0)*100:.0f}% accuracy, "
                 f"{a.get('sample_size', 0)} instances\n"
             )
-        prompt = f"""You are a geopolitical market intelligence analyst.
-Signal: {event_description}
+        prompt = f"""You are a geopolitical market intelligence analyst. Write a concise 2-sentence intelligence brief.
+
+Signal: {event_description[:200]}
 Region: {region}
-Probability: {prob_before}% → {prob_after}% ({prob_shift}% shift)
-Historical asset data:
-{asset_text}
-Write a 3-4 sentence factual intelligence brief. Be direct and analytical.
-Frame everything as historical data. Never say buy or sell.
-No investment advice. Just intelligence. Always complete your sentences fully."""
+Probability shift: {prob_shift}%
+Key assets: {asset_text[:300]}
+
+Rules: Maximum 2 sentences. Always complete both sentences fully. No bullet points. No headers. No investment advice. Historical data only."""
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=300,
+            max_tokens=200,
             messages=[{"role": "user", "content": prompt}]
         )
         return message.content[0].text

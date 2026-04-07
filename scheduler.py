@@ -136,7 +136,18 @@ if __name__ == "__main__":
     print("   Press Ctrl+C to stop")
     print("")
 
+    # ── Startup grace period ──────────────────────────────────
+    # Skip alerts on first cycle after restart to prevent
+    # flooding Telegram/email when Railway redeploys
+    print("   ⏳ Startup grace period — skipping alerts on first cycle...")
+    import os
+    os.environ["KAIROS_STARTUP_CYCLE"] = "1"
+
     run_full_cycle()
+
+    # Clear startup flag after first cycle
+    os.environ.pop("KAIROS_STARTUP_CYCLE", None)
+    print("   ✅ Grace period complete — alerts enabled")
 
     while True:
         schedule.run_pending()
