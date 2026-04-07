@@ -188,7 +188,7 @@ def notify_signal(signal):
     up_section   = "\n".join(up_lines)   if up_lines   else "—"
     down_section = "\n".join(down_lines) if down_lines else "—"
 
-    desc_short = description[:160] + "..." if len(description) > 160 else description
+    desc_short = description[:280] + "..." if len(description) > 280 else description
 
     message = (
         f"{conf_emoji} <b>KairosIQ {confidence} SIGNAL — {domain.upper()}</b>\n\n"

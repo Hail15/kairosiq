@@ -599,13 +599,13 @@ Region: {region}
 Probability: {prob_before}% → {prob_after}% ({prob_shift}% shift)
 Historical asset data:
 {asset_text}
-Write a 2-3 sentence factual intelligence brief. Be direct and analytical.
+Write a 3-4 sentence factual intelligence brief. Be direct and analytical.
 Frame everything as historical data. Never say buy or sell.
-No investment advice. Just intelligence."""
+No investment advice. Just intelligence. Always complete your sentences fully."""
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=150,
+            max_tokens=300,
             messages=[{"role": "user", "content": prompt}]
         )
         return message.content[0].text
@@ -1130,7 +1130,7 @@ with tab1:
             domain = get_domain(event_category, platform, description)
             domain_color = DOMAIN_COLORS.get(domain, "#555")
 
-            desc_safe = description[:180].replace('<','&lt;').replace('>','&gt;')
+            desc_safe = (description[:280] + "...").replace('<','&lt;').replace('>','&gt;') if len(description) > 280 else description.replace('<','&lt;').replace('>','&gt;')
             prob_b = safe_float(prob_before)
             prob_a = safe_float(prob_after)
             prob_s = safe_float(prob_shift)
