@@ -646,64 +646,72 @@ def fetch_similar_historical_event(event_category, region, description):
         conn = get_db()
         cur = conn.cursor()
 
-        # Precise event ID mapping based on category + region
         region_lower = (region or "").lower()
-        desc_lower = (description or "").lower()
+        desc_lower   = (description or "").lower()
 
-        # Direct event mapping — most specific first
+        # ── Signals that have no meaningful historical precedent ──────────
+        noise_keywords = [
+            "student loan", "minimum wage", "mortgage", "nhs", "school",
+            "election uk", "budget", "inflation cap", "interest rate cap",
+            "plan 2", "postgraduate", "salmonella", "listeria", "oscar",
+            "grammy", "pope", "artemis", "moon", "climate summit",
+        ]
+        if any(k in desc_lower for k in noise_keywords):
+            return None
+
+        # ── Precise event matching ────────────────────────────────────────
         specific_event_id = None
-        if "taiwan" in region_lower or "taiwan" in desc_lower:
-            specific_event_id = "EVT_008"  # 2022 Taiwan Strait Crisis
-        elif "china" in region_lower and any(k in desc_lower for k in ["trade", "tariff", "mineral", "semiconductor", "export"]):
-            specific_event_id = "EVT_012"  # China Critical Mineral Restrictions
-        elif "china" in region_lower or "us-china" in desc_lower:
-            specific_event_id = "EVT_006"  # US-China Trade War
-        elif "iran" in region_lower or "iran" in desc_lower:
-            specific_event_id = "EVT_007"  # Iran Nuclear Tensions
-        elif any(k in desc_lower for k in ["houthi", "red sea", "shipping", "hormuz"]):
-            specific_event_id = "EVT_004"  # Houthi Red Sea
-        elif "russia" in region_lower or "ukraine" in desc_lower:
-            specific_event_id = "EVT_002"  # Russia/Ukraine
-        elif any(k in desc_lower for k in ["israel", "gaza", "hamas"]):
-            specific_event_id = "EVT_003"  # Hamas/Gaza
-        elif any(k in desc_lower for k in ["opec", "oil cut", "production cut"]):
-            specific_event_id = "EVT_009"  # OPEC cut
-        elif any(k in desc_lower for k in ["north korea", "icbm", "missile", "nuclear"]):
-            specific_event_id = "EVT_010"  # North Korea
-        elif any(k in desc_lower for k in ["cyber", "hack", "ransomware", "malware"]):
-            specific_event_id = "EVT_013"  # SolarWinds
-        elif any(k in desc_lower for k in ["outbreak", "disease", "pandemic", "virus"]):
-            specific_event_id = "EVT_001"  # COVID
 
-        if specific_event_id:
-            cur.execute("""
-                SELECT id, event_name, date_start, domain, severity,
-                       geographic_scope, indicators_triggered
-                FROM historical_gpi_events
-                WHERE id = %s;
-            """, (specific_event_id,))
+        if "taiwan" in region_lower or "taiwan" in desc_lower:
+            specific_event_id = "EVT_008"
+        elif "china" in region_lower and any(k in desc_lower for k in ["trade", "tariff", "mineral", "semiconductor", "export", "rare earth"]):
+            specific_event_id = "EVT_012"
+        elif ("china" in region_lower or "us-china" in desc_lower) and not "taiwan" in desc_lower:
+            specific_event_id = "EVT_006"
+        elif "iran" in region_lower or "iran" in desc_lower:
+            specific_event_id = "EVT_007"
+        elif any(k in desc_lower for k in ["houthi", "red sea", "shipping lane", "strait of hormuz", "hormuz"]):
+            specific_event_id = "EVT_004"
+        elif "russia" in region_lower or "tass" in region_lower or "rt" in region_lower:
+            specific_event_id = "EVT_002"
+        elif any(k in desc_lower for k in ["ukraine", "russia", "moscow", "kremlin", "putin"]):
+            specific_event_id = "EVT_002"
+        elif any(k in desc_lower for k in ["israel", "gaza", "hamas", "hezbollah"]):
+            specific_event_id = "EVT_003"
+        elif any(k in desc_lower for k in ["opec", "oil cut", "production cut", "saudi"]):
+            specific_event_id = "EVT_009"
+        elif any(k in desc_lower for k in ["north korea", "icbm", "ballistic missile", "nuclear test", "pyongyang"]):
+            specific_event_id = "EVT_010"
+        elif any(k in desc_lower for k in ["cyber", "hack", "ransomware", "malware", "solarwinds", "cii"]):
+            specific_event_id = "EVT_013"
+        elif any(k in desc_lower for k in ["outbreak", "disease", "pandemic", "virus", "ebola", "mpox"]):
+            specific_event_id = "EVT_001"
+        elif event_category == "shipping_lane_disruption":
+            specific_event_id = "EVT_004"
+        elif event_category == "opec_production_decision":
+            specific_event_id = "EVT_009"
+        elif event_category == "us_china_trade_escalation":
+            specific_event_id = "EVT_006"
+        elif event_category == "china_taiwan_tension":
+            specific_event_id = "EVT_008"
+        elif event_category == "nuclear_wmd_escalation":
+            specific_event_id = "EVT_010"
+        elif event_category == "russia_eastern_europe_conflict":
+            specific_event_id = "EVT_002"
+        elif event_category == "middle_east_military_escalation":
+            specific_event_id = "EVT_007"
+        elif event_category == "disease_outbreak":
+            specific_event_id = "EVT_001"
         else:
-            # Fallback to domain matching
-            domain_map = {
-                'middle_east_military_escalation': 'Armed Conflict & Military',
-                'russia_eastern_europe_conflict':  'Armed Conflict & Military',
-                'china_taiwan_tension':            'Armed Conflict & Military',
-                'nuclear_wmd_escalation':          'Armed Conflict & Military',
-                'conflict_spike':                  'Armed Conflict & Military',
-                'shipping_lane_disruption':        'Maritime & Trade Flows',
-                'opec_production_decision':        'Energy & Resource Security',
-                'us_china_trade_escalation':       'Economic & Financial Intelligence',
-                'us_sanctions_announcement':       'Diplomatic & Political',
-                'disease_outbreak':                'Biosecurity & Health',
-            }
-            domain = domain_map.get(event_category, 'Armed Conflict & Military')
-            cur.execute("""
-                SELECT id, event_name, date_start, domain, severity,
-                       geographic_scope, indicators_triggered
-                FROM historical_gpi_events
-                WHERE domain = %s
-                ORDER BY date_start DESC LIMIT 1;
-            """, (domain,))
+            # No good match — don't show a wrong precedent
+            return None
+
+        cur.execute("""
+            SELECT id, event_name, date_start, domain, severity,
+                   geographic_scope, indicators_triggered
+            FROM historical_gpi_events
+            WHERE id = %s;
+        """, (specific_event_id,))
 
         event = cur.fetchone()
         cur.close()
@@ -713,7 +721,6 @@ def fetch_similar_historical_event(event_category, region, description):
 
         evt_id, evt_name, evt_date, evt_domain, evt_severity, evt_scope, evt_indicators = event
 
-        # Get top verified asset moves for this event
         evt_type_map = {
             'EVT_001': 'disease_outbreak',
             'EVT_002': 'russia_eastern_europe_conflict',
