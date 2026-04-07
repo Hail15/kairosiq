@@ -646,51 +646,74 @@ def fetch_similar_historical_event(event_category, region, description):
         conn = get_db()
         cur = conn.cursor()
 
-        # Map event category to domain keywords
-        domain_map = {
-            'middle_east_military_escalation': ['Armed Conflict & Military', 'Energy & Resource Security'],
-            'russia_eastern_europe_conflict':  ['Armed Conflict & Military'],
-            'china_taiwan_tension':            ['Armed Conflict & Military'],
-            'nuclear_wmd_escalation':          ['Armed Conflict & Military'],
-            'conflict_spike':                  ['Armed Conflict & Military'],
-            'state_media_shift':               ['Armed Conflict & Military'],
-            'shipping_lane_disruption':        ['Maritime & Trade Flows'],
-            'opec_production_decision':        ['Energy & Resource Security'],
-            'us_china_trade_escalation':       ['Economic & Financial Intelligence'],
-            'us_sanctions_announcement':       ['Diplomatic & Political'],
-            'election_outcome_surprise':       ['Diplomatic & Political'],
-            'emerging_market_political_crisis':['Diplomatic & Political'],
-            'disease_outbreak':                ['Biosecurity & Health'],
-            'cyber_attack':                    ['Cyber & Information Warfare'],
-        }
+        # Precise event ID mapping based on category + region
+        region_lower = (region or "").lower()
+        desc_lower = (description or "").lower()
 
-        domains = domain_map.get(event_category, ['Armed Conflict & Military'])
-        placeholders = ','.join(['%s'] * len(domains))
+        # Direct event mapping — most specific first
+        specific_event_id = None
+        if "taiwan" in region_lower or "taiwan" in desc_lower:
+            specific_event_id = "EVT_008"  # 2022 Taiwan Strait Crisis
+        elif "china" in region_lower and any(k in desc_lower for k in ["trade", "tariff", "mineral", "semiconductor", "export"]):
+            specific_event_id = "EVT_012"  # China Critical Mineral Restrictions
+        elif "china" in region_lower or "us-china" in desc_lower:
+            specific_event_id = "EVT_006"  # US-China Trade War
+        elif "iran" in region_lower or "iran" in desc_lower:
+            specific_event_id = "EVT_007"  # Iran Nuclear Tensions
+        elif any(k in desc_lower for k in ["houthi", "red sea", "shipping", "hormuz"]):
+            specific_event_id = "EVT_004"  # Houthi Red Sea
+        elif "russia" in region_lower or "ukraine" in desc_lower:
+            specific_event_id = "EVT_002"  # Russia/Ukraine
+        elif any(k in desc_lower for k in ["israel", "gaza", "hamas"]):
+            specific_event_id = "EVT_003"  # Hamas/Gaza
+        elif any(k in desc_lower for k in ["opec", "oil cut", "production cut"]):
+            specific_event_id = "EVT_009"  # OPEC cut
+        elif any(k in desc_lower for k in ["north korea", "icbm", "missile", "nuclear"]):
+            specific_event_id = "EVT_010"  # North Korea
+        elif any(k in desc_lower for k in ["cyber", "hack", "ransomware", "malware"]):
+            specific_event_id = "EVT_013"  # SolarWinds
+        elif any(k in desc_lower for k in ["outbreak", "disease", "pandemic", "virus"]):
+            specific_event_id = "EVT_001"  # COVID
 
-        cur.execute(f"""
-            SELECT id, event_name, date_start, domain, severity,
-                   geographic_scope, indicators_triggered
-            FROM historical_gpi_events
-            WHERE domain = ANY(%s)
-            ORDER BY date_start DESC
-            LIMIT 3;
-        """, (domains,))
+        if specific_event_id:
+            cur.execute("""
+                SELECT id, event_name, date_start, domain, severity,
+                       geographic_scope, indicators_triggered
+                FROM historical_gpi_events
+                WHERE id = %s;
+            """, (specific_event_id,))
+        else:
+            # Fallback to domain matching
+            domain_map = {
+                'middle_east_military_escalation': 'Armed Conflict & Military',
+                'russia_eastern_europe_conflict':  'Armed Conflict & Military',
+                'china_taiwan_tension':            'Armed Conflict & Military',
+                'nuclear_wmd_escalation':          'Armed Conflict & Military',
+                'conflict_spike':                  'Armed Conflict & Military',
+                'shipping_lane_disruption':        'Maritime & Trade Flows',
+                'opec_production_decision':        'Energy & Resource Security',
+                'us_china_trade_escalation':       'Economic & Financial Intelligence',
+                'us_sanctions_announcement':       'Diplomatic & Political',
+                'disease_outbreak':                'Biosecurity & Health',
+            }
+            domain = domain_map.get(event_category, 'Armed Conflict & Military')
+            cur.execute("""
+                SELECT id, event_name, date_start, domain, severity,
+                       geographic_scope, indicators_triggered
+                FROM historical_gpi_events
+                WHERE domain = %s
+                ORDER BY date_start DESC LIMIT 1;
+            """, (domain,))
 
-        events = cur.fetchall()
+        event = cur.fetchone()
         cur.close()
 
-        if not events:
+        if not event:
             return None
 
-        # Get asset impacts for the best match
-        best = events[0]
-        evt_id, evt_name, evt_date, evt_domain, evt_severity, evt_scope, evt_indicators = best
+        evt_id, evt_name, evt_date, evt_domain, evt_severity, evt_scope, evt_indicators = event
 
-        # Get top asset moves from asset_mappings for this event type
-        conn2 = get_db()
-        cur2 = conn2.cursor()
-
-        # Map historical event to event_type
+        # Get top verified asset moves for this event
         evt_type_map = {
             'EVT_001': 'disease_outbreak',
             'EVT_002': 'russia_eastern_europe_conflict',
@@ -711,6 +734,8 @@ def fetch_similar_historical_event(event_category, region, description):
 
         mapped_type = evt_type_map.get(evt_id, event_category)
 
+        conn2 = get_db()
+        cur2 = conn2.cursor()
         cur2.execute("""
             SELECT asset_ticker, asset_name, historical_direction,
                    avg_move_72h, directional_accuracy, confidence_rating
