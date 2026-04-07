@@ -163,8 +163,43 @@ def notify_signal(signal):
             pass
 
     # Build asset lines
-    up_assets   = [a for a in assets if a.get("direction") == "up"][:4]
+    up_assets   = [a for a in assets if a.get("direction") == "up"][:6]
     down_assets = [a for a in assets if a.get("direction") == "down"][:3]
+
+    # Deduplicate by ticker AND by gold equivalents
+    GOLD_TICKERS = {"GC=F", "GLD", "IAU", "GLDM", "SGOL"}
+
+    seen = set()
+    gold_seen = False
+    deduped_up = []
+    for a in up_assets:
+        t = a.get("ticker", "")
+        is_gold = t in GOLD_TICKERS
+        if is_gold and gold_seen:
+            continue
+        if t in seen:
+            continue
+        seen.add(t)
+        if is_gold:
+            gold_seen = True
+        deduped_up.append(a)
+    up_assets = deduped_up[:4]
+
+    seen2 = set()
+    gold_seen2 = False
+    deduped_down = []
+    for a in down_assets:
+        t = a.get("ticker", "")
+        is_gold = t in GOLD_TICKERS
+        if is_gold and gold_seen2:
+            continue
+        if t in seen2:
+            continue
+        seen2.add(t)
+        if is_gold:
+            gold_seen2 = True
+        deduped_down.append(a)
+    down_assets = deduped_down[:3]
 
     up_lines   = []
     down_lines = []
@@ -188,7 +223,7 @@ def notify_signal(signal):
     up_section   = "\n".join(up_lines)   if up_lines   else "—"
     down_section = "\n".join(down_lines) if down_lines else "—"
 
-    desc_short = description[:280] + "..." if len(description) > 280 else description
+    desc_short = description[:200] + "..." if len(description) > 200 else description
 
     message = (
         f"{conf_emoji} <b>KairosIQ {confidence} SIGNAL — {domain.upper()}</b>\n\n"
@@ -203,6 +238,10 @@ def notify_signal(signal):
         f"🔴 <b>HISTORICALLY DOWN:</b>\n{down_section}\n\n"
         f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
     )
+
+    # Telegram hard limit is 4096 chars — trim if needed
+    if len(message) > 4000:
+        message = message[:3950] + "...\n\n🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
 
     return send_telegram(message)
 

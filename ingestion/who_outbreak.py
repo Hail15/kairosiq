@@ -41,10 +41,15 @@ HIGH_IMPACT_KEYWORDS = [
 # Keywords that disqualify an entry — food recalls, admin news, etc
 NOISE_KEYWORDS = [
     "salmonella", "listeria", "botulism", "moringa", "oyster",
-    "supplement", "food recall", "dietary", "vaccine supply",
+    "supplement", "food recall", "dietary",
+    "vaccine supply", "vaccination resumes", "preventive campaign",
+    "vaccination campaign", "cholera vaccination", "preventive cholera",
     "negotiations", "agreement annex", "working group",
     "milestone", "commitment", "collaboration", "reaffirmed",
-    "minimum wage", "cholera vaccination resumes",
+    "minimum wage", "critical milestone", "global supply reaches",
+    "routine immunization", "immunization campaign", "health workers trained",
+    "surveillance strengthened", "capacity building", "technical assistance",
+    "funding secured", "grant approved", "donation",
 ]
 
 FINANCIALLY_RELEVANT_REGIONS = {
