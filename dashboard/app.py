@@ -673,8 +673,8 @@ def fetch_similar_historical_event(event_category, region, description):
         # China general
         elif ("china" in region_lower or "us-china" in desc_lower) and "taiwan" not in desc_lower:
             specific_event_id = "EVT_006"
-        # Iran direct strike
-        elif any(k in desc_lower for k in ["iran strike", "israel strikes iran", "iran retaliat", "ballistic missile iran"]):
+        # Iran direct strike / US strikes Iran
+        elif any(k in desc_lower for k in ["iran strike", "israel strikes iran", "iran retaliat", "ballistic missile iran", "u.s. strikes", "us strikes", "kharg", "strike iran", "strikes iran", "restrike"]):
             specific_event_id = "EVT_016"
         # Soleimani
         elif any(k in desc_lower for k in ["soleimani", "assassination", "killed general"]):
@@ -694,8 +694,8 @@ def fetch_similar_historical_event(event_category, region, description):
         # Nord Stream / pipelines
         elif any(k in desc_lower for k in ["nord stream", "pipeline sabotage", "pipeline explosion"]):
             specific_event_id = "EVT_021"
-        # Russia / Ukraine / TASS / RT
-        elif "russia" in region_lower or "tass" in region_lower or "rt" in region_lower:
+        # Russia / Ukraine / TASS / RT — always EVT_002
+        elif "russia" in region_lower or "tass" in region_lower or "- rt" in region_lower or "russia - rt" in region_lower or "russia - tass" in region_lower:
             specific_event_id = "EVT_002"
         elif any(k in desc_lower for k in ["ukraine", "russia", "moscow", "kremlin", "putin", "zelensky", "donbas"]):
             specific_event_id = "EVT_002"
@@ -712,7 +712,7 @@ def fetch_similar_historical_event(event_category, region, description):
         elif any(k in desc_lower for k in ["arab spring", "tahrir", "tunisia", "egypt protest", "mena protest"]):
             specific_event_id = "EVT_018"
         # North Korea
-        elif any(k in desc_lower for k in ["north korea", "dprk", "icbm", "pyongyang", "kim jong", "nuclear test"]):
+        elif any(k in desc_lower for k in ["north korea", "dprk", "icbm", "pyongyang", "kim jong", "nuclear test", "kim ju", "north korean", "succession north"]):
             specific_event_id = "EVT_030"
         # OPEC
         elif any(k in desc_lower for k in ["opec", "oil cut", "production cut"]) and "saudi" not in desc_lower:
@@ -959,6 +959,13 @@ def fetch_active_signals():
         AND event_description NOT LIKE '%migrants%'
         AND event_description NOT LIKE '%Oscar%'
         AND event_description NOT LIKE '%Grammy%'
+        AND event_description NOT LIKE '%Kanye%'
+        AND event_description NOT LIKE '%festival%'
+        AND event_description NOT LIKE '%Wireless Festival%'
+        AND event_description NOT LIKE '%student loan%'
+        AND event_description NOT LIKE '%Taylor Swift%'
+        AND event_description NOT LIKE '%Beyonce%'
+        AND event_description NOT LIKE '%music festival%'
         ORDER BY event_category, region,
             signal_time DESC,
             CASE confidence_score WHEN 'high' THEN 1
@@ -1269,7 +1276,10 @@ with tab1:
         def get_domain(category, platform, description):
             text = (description or "").lower()
             cat  = (category or "").lower()
-            if any(k in cat for k in ["military","conflict","nuclear","russia","taiwan","china_taiwan","state_media"]):
+            # Military/conflict keywords in description override category
+            if any(k in text for k in ["strike", "airstrike", "bomb", "missile", "troops", "war", "invasion", "attack on", "military", "combat", "drone strike", "restrikes", "kharg", "assassination"]):
+                return "Military & Conflict"
+            elif any(k in cat for k in ["military","conflict","nuclear","russia","taiwan","china_taiwan","state_media"]):
                 return "Military & Conflict"
             elif any(k in cat for k in ["opec","shipping","trade","sanctions","energy"]):
                 return "Energy & Trade"
@@ -1700,7 +1710,7 @@ with tab1:
                     f'letter-spacing:0.1em;font-weight:700;font-family:JetBrains Mono,monospace;">'
                     f'&#9889; CLOSEST HISTORICAL PRECEDENT</div>'
                     f'<div style="font-size:0.6em;color:#555;font-family:JetBrains Mono,monospace;">'
-                    f'Source: Kyle Worsley Intelligence Framework</div>'
+                    f'Source: The Worsley Intelligence Framework</div>'
                     f'</div>'
                     f'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'
                     f'<div style="font-size:0.9em;font-weight:600;color:#e0e0e0;">{hist_event["name"]}</div>'

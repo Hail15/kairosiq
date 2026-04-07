@@ -63,9 +63,11 @@ SIGNAL_KEYWORDS = [
 NOISE_KEYWORDS = [
     "pope", "easter", "moon", "artemis", "astronaut",
     "minimum wage", "arson", "ambulance", "lobster", "cyber attack jlr",
-    "migrant workers", "mortgage", "jobs surge", "job",
-    "salmonella", "listeria", "food recall", "supplement",
-    "hungary", "gas pipeline election",
+    "migrant workers", "mortgage", "salmonella", "listeria", "food recall", "supplement",
+    "hungary", "kanye", "west festival", "wireless festival", "music festival",
+    "taylor swift", "beyonce", "celebrity", "grammy", "oscar", "academy award",
+    "student loan", "plan 2", "postgraduate loan", "nhs", "school curriculum",
+    "interest rate cap", "wage cap", "cost of living benefit",
 ]
 
 # Map keywords to signal categories
