@@ -1310,6 +1310,27 @@ with tab1:
             signal_time = signal[10]
             expires_at = signal[11]
 
+            # Re-derive event_category from description+region for accuracy
+            # Stored category may be stale or wrong for news signals
+            desc_lower = description.lower()
+            region_lower = region.lower()
+            if any(k in desc_lower for k in ["kharg", "restrike", "us strikes iran", "u.s. strikes iran"]):
+                event_category = "iran_israel_strike"
+            elif any(k in region_lower for k in ["russia", "tass", "rt"]) or any(k in desc_lower for k in ["russia", "kremlin", "putin", "moscow", "ukraine"]):
+                event_category = "russia_eastern_europe_conflict"
+            elif "taiwan" in region_lower or "taiwan" in desc_lower:
+                event_category = "china_taiwan_tension"
+            elif "north korea" in region_lower or any(k in desc_lower for k in ["north korea", "kim jong", "kim ju", "dprk", "pyongyang"]):
+                event_category = "nuclear_wmd_escalation"
+            elif any(k in desc_lower for k in ["houthi", "red sea", "hormuz", "canal disruption"]):
+                event_category = "shipping_lane_disruption"
+            elif "iran" in region_lower or "iran" in desc_lower:
+                event_category = "middle_east_military_escalation"
+            elif any(k in desc_lower for k in ["israel", "gaza", "hamas", "hezbollah"]):
+                event_category = "middle_east_military_escalation"
+            elif any(k in desc_lower for k in ["opec", "production cut", "oil cut"]):
+                event_category = "opec_production_decision"
+
             assets = format_assets(assets_json)
             pb = prob_before or 0
             pa = prob_after or 0
