@@ -20,25 +20,75 @@ from config import settings
 RESEND_API_URL = "https://api.resend.com/emails"
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
-STOP_LOSS_PCT       = -0.08   # -8% → stop loss alert
-TAKE_PROFIT_PCT     = 0.05    # +5% → take profit alert (overridden by historical avg)
-SIGNAL_EXPIRY_HOURS = 2       # alert when signal expires within 2 hours
+STOP_LOSS_PCT        = -0.08   # -8% hard stop loss
+TRAILING_STOP_PCT    = -0.05   # -5% trailing stop from peak
+TAKE_PROFIT_PCT      = 0.05    # +5% minimum take profit
+RSI_OVERBOUGHT       = 72      # RSI above this → consider taking profit on longs
+RSI_OVERSOLD         = 30      # RSI below this → consider exiting shorts
+MOMENTUM_REVERSAL    = -0.03   # -3% single day reversal → momentum exit alert
+SIGNAL_EXPIRY_HOURS  = 2       # alert when signal expires within 2 hours
 
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
 
 
-# ── Price Fetching ────────────────────────────────────────────────────────────
+# ── Technical Analysis ────────────────────────────────────────────────────────
 
-def get_current_price_yf(ticker):
+def get_technical_data(ticker):
+    """
+    Fetch price + RSI + momentum for a ticker.
+    Returns dict with current_price, rsi, day_change_pct, 
+    week_change_pct, volume_ratio, peak_price, signal
+    """
     try:
         stock = yf.Ticker(ticker)
-        hist  = stock.history(period="1d")
-        if not hist.empty:
-            return round(float(hist["Close"].iloc[-1]), 2)
-    except Exception:
-        pass
-    return None
+        hist  = stock.history(period="30d")
+        if hist.empty or len(hist) < 5:
+            return None
+
+        current_price = round(float(hist["Close"].iloc[-1]), 2)
+        prev_close    = round(float(hist["Close"].iloc[-2]), 2)
+        week_ago      = round(float(hist["Close"].iloc[-6]), 2) if len(hist) >= 6 else prev_close
+        peak_price    = round(float(hist["High"].max()), 2)
+
+        # Day change
+        day_change_pct = (current_price - prev_close) / prev_close
+
+        # Week change
+        week_change_pct = (current_price - week_ago) / week_ago
+
+        # RSI (14-period)
+        delta  = hist["Close"].diff()
+        gain   = delta.clip(lower=0).rolling(14).mean()
+        loss   = (-delta.clip(upper=0)).rolling(14).mean()
+        rs     = gain / loss.replace(0, float('nan'))
+        rsi    = round(float(100 - (100 / (1 + rs.iloc[-1]))), 1)
+
+        # Volume ratio vs 20-day avg
+        avg_vol    = hist["Volume"].iloc[:-1].mean()
+        curr_vol   = hist["Volume"].iloc[-1]
+        vol_ratio  = round(curr_vol / avg_vol, 2) if avg_vol > 0 else 1.0
+
+        # MACD signal (12/26 EMA)
+        ema12  = hist["Close"].ewm(span=12).mean()
+        ema26  = hist["Close"].ewm(span=26).mean()
+        macd   = ema12 - ema26
+        signal = macd.ewm(span=9).mean()
+        macd_bullish = float(macd.iloc[-1]) > float(signal.iloc[-1])
+
+        return {
+            "current_price":   current_price,
+            "prev_close":      prev_close,
+            "day_change_pct":  day_change_pct,
+            "week_change_pct": week_change_pct,
+            "peak_price":      peak_price,
+            "rsi":             rsi,
+            "vol_ratio":       vol_ratio,
+            "macd_bullish":    macd_bullish,
+        }
+    except Exception as e:
+        print(f"   ⚠️ Technical data error for {ticker}: {e}")
+        return None
 
 
 # ── Alert Dedup ───────────────────────────────────────────────────────────────
@@ -116,7 +166,7 @@ def send_exit_email(subject, html):
 
 def build_exit_html(ticker, side, mode, entry_price, current_price,
                     notional, alert_type, reason, description,
-                    region, expires_at, pnl=None):
+                    region, expires_at, pnl=None, tech_data=None):
 
     side_label  = "LONG" if side == "buy" else "SHORT"
     pnl_str     = f"${pnl:+.4f}" if pnl is not None else "—"
@@ -126,20 +176,65 @@ def build_exit_html(ticker, side, mode, entry_price, current_price,
     exp_str     = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "—"
 
     alert_colors = {
-        "stop_loss":      "#ff4444",
-        "take_profit":    "#2a9a4a",
-        "signal_expired": "#ffaa00",
-        "counter_signal": "#ff8800",
+        "stop_loss":         "#ff4444",
+        "momentum_reversal": "#ff6600",
+        "rsi_overbought":    "#ffaa00",
+        "take_profit":       "#2a9a4a",
+        "signal_expired":    "#ffaa00",
+        "counter_signal":    "#ff8800",
     }
     alert_color = alert_colors.get(alert_type, "#ffaa00")
 
     alert_labels = {
-        "stop_loss":      "🛑 STOP LOSS TRIGGERED",
-        "take_profit":    "✅ TAKE PROFIT TARGET HIT",
-        "signal_expired": "⏰ SIGNAL EXPIRED",
-        "counter_signal": "⚠️ COUNTER-SIGNAL DETECTED",
+        "stop_loss":         "🛑 STOP LOSS TRIGGERED",
+        "momentum_reversal": "📉 MOMENTUM REVERSAL",
+        "rsi_overbought":    "⚡ RSI OVERBOUGHT — CONSIDER EXIT",
+        "take_profit":       "✅ TAKE PROFIT TARGET HIT",
+        "signal_expired":    "⏰ SIGNAL EXPIRED",
+        "counter_signal":    "⚠️ COUNTER-SIGNAL DETECTED",
     }
     alert_label = alert_labels.get(alert_type, "EXIT ALERT")
+
+    # Technical indicators panel
+    tech_html = ""
+    if tech_data:
+        rsi        = tech_data.get("rsi", "—")
+        day_chg    = tech_data.get("day_change_pct", 0) * 100
+        week_chg   = tech_data.get("week_change_pct", 0) * 100
+        vol_ratio  = tech_data.get("vol_ratio", 1.0)
+        macd       = "Bullish ▲" if tech_data.get("macd_bullish") else "Bearish ▼"
+        macd_color = "#2a9a4a" if tech_data.get("macd_bullish") else "#ff4444"
+        rsi_color  = "#ff4444" if rsi >= RSI_OVERBOUGHT else "#2a9a4a" if rsi <= RSI_OVERSOLD else "#e8b84b"
+
+        tech_html = f"""
+        <div style='background:#12121a;padding:20px;margin:2px 0;'>
+            <h3 style='color:#e0e0e0;margin-top:0;'>Technical Indicators</h3>
+            <table style='width:100%;border-collapse:collapse;'>
+                <tr>
+                    <td style='padding:10px;background:#1a1a2e;border-radius:4px;width:22%;'>
+                        <div style='color:#888;font-size:0.75em;'>RSI (14)</div>
+                        <div style='font-weight:bold;color:{rsi_color};font-size:1.2em;'>{rsi}</div>
+                        <div style='color:#555;font-size:0.7em;'>{"OVERBOUGHT" if rsi >= RSI_OVERBOUGHT else "OVERSOLD" if rsi <= RSI_OVERSOLD else "NEUTRAL"}</div>
+                    </td>
+                    <td style='width:3%;'></td>
+                    <td style='padding:10px;background:#1a1a2e;border-radius:4px;width:22%;'>
+                        <div style='color:#888;font-size:0.75em;'>DAY CHANGE</div>
+                        <div style='font-weight:bold;color:{"#2a9a4a" if day_chg >= 0 else "#ff4444"};font-size:1.2em;'>{day_chg:+.2f}%</div>
+                    </td>
+                    <td style='width:3%;'></td>
+                    <td style='padding:10px;background:#1a1a2e;border-radius:4px;width:22%;'>
+                        <div style='color:#888;font-size:0.75em;'>WEEK CHANGE</div>
+                        <div style='font-weight:bold;color:{"#2a9a4a" if week_chg >= 0 else "#ff4444"};font-size:1.2em;'>{week_chg:+.2f}%</div>
+                    </td>
+                    <td style='width:3%;'></td>
+                    <td style='padding:10px;background:#1a1a2e;border-radius:4px;width:22%;'>
+                        <div style='color:#888;font-size:0.75em;'>MACD</div>
+                        <div style='font-weight:bold;color:{macd_color};font-size:1.1em;'>{macd}</div>
+                        <div style='color:#555;font-size:0.7em;'>Vol: {vol_ratio:.1f}x avg</div>
+                    </td>
+                </tr>
+            </table>
+        </div>"""
 
     return f"""
     <html><body style='background:#0a0a0f;color:#e0e0e0;
@@ -187,6 +282,7 @@ def build_exit_html(ticker, side, mode, entry_price, current_price,
                 {description[:200]}...
             </div>
         </div>
+        {tech_html}
         <div style='background:#12121a;padding:20px;margin:2px 0;text-align:center;'>
             <a href='https://kairosiq.streamlit.app'
                style='background:{alert_color};color:#000;padding:12px 28px;
@@ -205,71 +301,119 @@ def build_exit_html(ticker, side, mode, entry_price, current_price,
 
 # ── Alert Check Functions ─────────────────────────────────────────────────────
 
-def check_stop_loss(trade, current_price):
-    """Fire if position is down more than STOP_LOSS_PCT."""
+def check_stop_loss(trade, tech_data):
+    """Fire if position down >8% OR momentum reversal with RSI divergence."""
     tid, signal_id, ticker, side, notional, order_id, is_live, \
         entry_price, notes, created_at, description, expires_at, \
         confidence, region, prob_shift, assets_json = trade
 
-    if not current_price or not entry_price:
+    if not tech_data or not entry_price:
         return False
 
-    mult  = 1 if side == "buy" else -1
-    pct   = mult * (current_price - float(entry_price)) / float(entry_price)
-    pnl   = round(pct * float(notional), 4)
+    current_price = tech_data["current_price"]
+    rsi           = tech_data["rsi"]
+    day_change    = tech_data["day_change_pct"]
+    macd_bullish  = tech_data["macd_bullish"]
 
+    mult = 1 if side == "buy" else -1
+    pct  = mult * (current_price - float(entry_price)) / float(entry_price)
+    pnl  = round(pct * float(notional), 4)
+
+    alert_type = None
+    reason     = None
+
+    # Hard stop loss -8%
     if pct <= STOP_LOSS_PCT:
-        if already_alerted(tid, "stop_loss"):
-            return False
-        mode = "LIVE" if is_live else "PAPER"
-        reason = (f"{ticker} is down {abs(pct)*100:.1f}% from your entry of "
-                  f"${float(entry_price):.2f}. Stop loss threshold of "
-                  f"{abs(STOP_LOSS_PCT)*100:.0f}% has been reached. "
-                  f"Consider closing this position to limit further losses.")
-        subject = f"🛑 KairosIQ STOP LOSS — {ticker} ({mode}) | {pct*100:+.1f}%"
-        html = build_exit_html(ticker, side, mode, entry_price, current_price,
-                               notional, "stop_loss", reason, description,
-                               region, expires_at, pnl)
-        if send_exit_email(subject, html):
-            mark_alerted(tid, "stop_loss")
-            print(f"🛑 Stop loss alert sent: {ticker} {pct*100:+.1f}%")
-            if telegram_exit: telegram_exit(ticker, side, "stop_loss", pnl, current_price)
-            return True
+        alert_type = "stop_loss"
+        reason = (f"{ticker} is down {abs(pct)*100:.1f}% from entry ${float(entry_price):.2f}. "
+                  f"Hard stop loss of {abs(STOP_LOSS_PCT)*100:.0f}% triggered. "
+                  f"RSI: {rsi} | Day change: {day_change*100:+.2f}% | MACD: {'Bullish' if macd_bullish else 'Bearish'}.")
+
+    # Momentum exit — big single day reversal + MACD turned bearish
+    elif (side == "buy" and day_change <= MOMENTUM_REVERSAL and not macd_bullish and rsi < 45):
+        if not already_alerted(tid, "momentum_reversal"):
+            alert_type = "momentum_reversal"
+            reason = (f"{ticker} showing momentum reversal: {day_change*100:+.2f}% today, "
+                      f"RSI dropped to {rsi} (weakening), MACD turned bearish. "
+                      f"Current P&L: {pct*100:+.1f}%. Consider exiting before further deterioration.")
+
+    # RSI overbought exit for longs
+    elif side == "buy" and rsi >= RSI_OVERBOUGHT and pct > 0:
+        if not already_alerted(tid, "rsi_overbought"):
+            alert_type = "rsi_overbought"
+            reason = (f"{ticker} RSI reached {rsi} (overbought territory). "
+                      f"Position is up {pct*100:+.1f}% from entry. "
+                      f"Historically RSI above {RSI_OVERBOUGHT} signals potential reversal.")
+
+    if not alert_type:
+        return False
+    if already_alerted(tid, alert_type):
+        return False
+
+    mode    = "LIVE" if is_live else "PAPER"
+    subject = f"🛑 KairosIQ EXIT ALERT — {ticker} ({mode}) | {pct*100:+.1f}% | {alert_type.replace('_',' ').upper()}"
+    html    = build_exit_html(ticker, side, mode, entry_price, current_price,
+                              notional, alert_type, reason, description,
+                              region, expires_at, pnl, tech_data)
+    if send_exit_email(subject, html):
+        mark_alerted(tid, alert_type)
+        print(f"🛑 Exit alert sent: {ticker} {alert_type} {pct*100:+.1f}%")
+        if telegram_exit: telegram_exit(ticker, side, alert_type, pnl, current_price)
+        return True
     return False
 
 
-def check_take_profit(trade, current_price, avg_move_72h=None):
-    """Fire if position hits take profit target (historical avg move or +5%)."""
+def check_take_profit(trade, tech_data, avg_move_72h=None):
+    """Fire if position hits take profit target or RSI signals peak."""
     tid, signal_id, ticker, side, notional, order_id, is_live, \
         entry_price, notes, created_at, description, expires_at, \
         confidence, region, prob_shift, assets_json = trade
 
-    if not current_price or not entry_price:
+    if not tech_data or not entry_price:
         return False
 
-    # Use historical avg move as target if available, else default 5%
-    target_pct = (avg_move_72h / 100) if avg_move_72h else TAKE_PROFIT_PCT
-    mult  = 1 if side == "buy" else -1
-    pct   = mult * (current_price - float(entry_price)) / float(entry_price)
-    pnl   = round(pct * float(notional), 4)
+    current_price = tech_data["current_price"]
+    rsi           = tech_data["rsi"]
+    day_change    = tech_data["day_change_pct"]
+    macd_bullish  = tech_data["macd_bullish"]
 
+    target_pct = (avg_move_72h / 100) if avg_move_72h else TAKE_PROFIT_PCT
+    mult = 1 if side == "buy" else -1
+    pct  = mult * (current_price - float(entry_price)) / float(entry_price)
+    pnl  = round(pct * float(notional), 4)
+
+    alert_type = None
+    reason     = None
+
+    # Hit historical avg move target
     if pct >= target_pct:
-        if already_alerted(tid, "take_profit"):
-            return False
-        mode = "LIVE" if is_live else "PAPER"
-        reason = (f"{ticker} has reached +{pct*100:.1f}% from your entry of "
-                  f"${float(entry_price):.2f}. This matches or exceeds the "
-                  f"historical average move of {target_pct*100:.1f}% for this "
-                  f"signal type. Consider taking profits.")
-        subject = f"✅ KairosIQ TAKE PROFIT — {ticker} ({mode}) | +{pct*100:.1f}%"
-        html = build_exit_html(ticker, side, mode, entry_price, current_price,
-                               notional, "take_profit", reason, description,
-                               region, expires_at, pnl)
-        if send_exit_email(subject, html):
-            mark_alerted(tid, "take_profit")
-            print(f"✅ Take profit alert sent: {ticker} +{pct*100:.1f}%")
-            if telegram_exit: telegram_exit(ticker, side, "take_profit", pnl, current_price)
-            return True
+        alert_type = "take_profit"
+        reason = (f"{ticker} reached +{pct*100:.1f}% — matching historical avg move of "
+                  f"{target_pct*100:.1f}% for this signal type. "
+                  f"RSI: {rsi} | MACD: {'Bullish' if macd_bullish else 'Bearish — consider exiting'}.")
+
+    # RSI overbought + MACD divergence = take profits now
+    elif side == "buy" and rsi >= RSI_OVERBOUGHT and not macd_bullish and pct > 0.02:
+        alert_type = "take_profit"
+        reason = (f"{ticker} up {pct*100:+.1f}% with RSI at {rsi} (overbought) "
+                  f"and MACD turning bearish — classic peak signal. "
+                  f"Day change: {day_change*100:+.2f}%. Consider locking in gains.")
+
+    if not alert_type:
+        return False
+    if already_alerted(tid, alert_type):
+        return False
+
+    mode    = "LIVE" if is_live else "PAPER"
+    subject = f"✅ KairosIQ TAKE PROFIT — {ticker} ({mode}) | +{pct*100:.1f}%"
+    html    = build_exit_html(ticker, side, mode, entry_price, current_price,
+                              notional, "take_profit", reason, description,
+                              region, expires_at, pnl, tech_data)
+    if send_exit_email(subject, html):
+        mark_alerted(tid, "take_profit")
+        print(f"✅ Take profit alert sent: {ticker} +{pct*100:.1f}%")
+        if telegram_exit: telegram_exit(ticker, side, "take_profit", pnl, current_price)
+        return True
     return False
 
 
@@ -419,10 +563,12 @@ def run_exit_alerts():
     """
     Main function — runs every cycle.
     Checks all open trades for:
-    1. Stop loss (−8%)
-    2. Take profit (historical avg or +5%)
-    3. Signal expiry (within 2 hours)
-    4. Counter-signal (opposite direction signal in same region)
+    1. Hard stop loss (−8%)
+    2. Momentum reversal (RSI + MACD + day change)
+    3. RSI overbought exit signal
+    4. Take profit (historical avg move or +5%)
+    5. Signal expiry (within 2 hours)
+    6. Counter-signal (opposite direction signal in same region)
     """
     print("\n🚪 Running smart exit alert check...")
 
@@ -438,7 +584,7 @@ def run_exit_alerts():
     print(f"   Monitoring {len(trades)} open positions...")
 
     for trade in trades:
-        ticker = trade[2]
+        ticker      = trade[2]
         assets_json = trade[15]
 
         # Get historical avg move for take profit target
@@ -452,12 +598,21 @@ def run_exit_alerts():
         except Exception:
             pass
 
-        # Fetch live price once per trade
-        current_price = get_current_price_yf(ticker)
+        # Fetch full technical data once per trade
+        print(f"   📊 Fetching technical data for {ticker}...")
+        tech_data = get_technical_data(ticker)
+        if tech_data:
+            current_price = tech_data["current_price"]
+            print(f"   {ticker}: ${current_price} | RSI:{tech_data['rsi']} | "
+                  f"Day:{tech_data['day_change_pct']*100:+.2f}% | "
+                  f"MACD:{'▲' if tech_data['macd_bullish'] else '▼'}")
+        else:
+            current_price = None
+            print(f"   ⚠️ Could not fetch data for {ticker}")
 
-        # Run all checks
-        check_stop_loss(trade, current_price)
-        check_take_profit(trade, current_price, avg_move)
+        # Run all checks with full technical context
+        check_stop_loss(trade, tech_data)
+        check_take_profit(trade, tech_data, avg_move)
         check_signal_expiry(trade, current_price)
         check_counter_signal(trade)
 
