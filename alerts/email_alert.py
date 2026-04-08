@@ -186,22 +186,16 @@ def get_unalerted_signals():
         AND s.expires_at > NOW()
         AND s.confidence_score IN ('high', 'medium')
         AND s.signal_time >= NOW() - INTERVAL '48 hours'
-        AND s.id::text NOT IN (
-            SELECT signal_id::text
-            FROM signal_alerts_sent
-            WHERE alerted_at >= NOW() - INTERVAL '24 hours'
-        )
         AND NOT EXISTS (
             SELECT 1 FROM signal_alerts_sent sas
-            JOIN signals s2 ON s2.id::text = sas.signal_id::text
-            WHERE s2.event_category = s.event_category
-            AND s2.region = s.region
+            WHERE sas.event_category = s.event_category
+            AND sas.region = s.region
             AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
         )
         ORDER BY s.event_category, s.region,
             CASE s.confidence_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 END,
             s.probability_shift DESC
-        LIMIT 8;
+        LIMIT 5;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -209,20 +203,34 @@ def get_unalerted_signals():
     return rows
 
 
-def mark_signal_alerted(signal_id):
+def mark_signal_alerted(signal_id, event_category=None, region=None):
     try:
         conn = get_db_connection()
         cur  = conn.cursor()
         cur.execute("""
-            INSERT INTO signal_alerts_sent (signal_id, alerted_at)
-            VALUES (%s, NOW())
+            INSERT INTO signal_alerts_sent (signal_id, event_category, region, alerted_at)
+            VALUES (%s, %s, %s, NOW())
             ON CONFLICT DO NOTHING;
-        """, (str(signal_id),))
+        """, (str(signal_id), event_category or '', region or ''))
         conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
         print(f"⚠️  mark_signal_alerted error: {e}")
+        # Fallback without new columns
+        try:
+            conn = get_db_connection()
+            cur  = conn.cursor()
+            cur.execute("""
+                INSERT INTO signal_alerts_sent (signal_id, alerted_at)
+                VALUES (%s, NOW())
+                ON CONFLICT DO NOTHING;
+            """, (str(signal_id),))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
 
 
 def run_email_alerts():
@@ -276,7 +284,7 @@ def run_email_alerts():
                 print(f"✅ Email sent: {signal[1][:60]}...")
 
             # Mark alerted if either email or telegram succeeded
-            mark_signal_alerted(signal[0])
+            mark_signal_alerted(signal[0], signal[3], signal[2])
 
         except Exception as e:
             print(f"❌ Alert error for signal {signal[0]}: {e}")
