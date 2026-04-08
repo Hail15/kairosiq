@@ -176,7 +176,7 @@ def get_unalerted_signals():
     conn = get_db_connection()
     cur  = conn.cursor()
     cur.execute("""
-        SELECT DISTINCT ON (s.event_category, s.region)
+        SELECT DISTINCT ON (s.event_category, s.region, s.source_platform)
                s.id, s.event_description, s.region, s.event_category,
                s.probability_before, s.probability_after, s.probability_shift,
                s.confidence_score, s.source_platform, s.affected_assets,
@@ -190,12 +190,13 @@ def get_unalerted_signals():
             SELECT 1 FROM signal_alerts_sent sas
             WHERE sas.event_category = s.event_category
             AND sas.region = s.region
+            AND COALESCE(sas.source_platform, '') = COALESCE(s.source_platform, '')
             AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
         )
-        ORDER BY s.event_category, s.region,
+        ORDER BY s.event_category, s.region, s.source_platform,
             CASE s.confidence_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 END,
             s.probability_shift DESC
-        LIMIT 5;
+        LIMIT 6;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -203,29 +204,28 @@ def get_unalerted_signals():
     return rows
 
 
-def mark_signal_alerted(signal_id, event_category=None, region=None):
+def mark_signal_alerted(signal_id, event_category=None, region=None, source_platform=None):
     try:
         conn = get_db_connection()
         cur  = conn.cursor()
         cur.execute("""
-            INSERT INTO signal_alerts_sent (signal_id, event_category, region, alerted_at)
-            VALUES (%s, %s, %s, NOW())
+            INSERT INTO signal_alerts_sent (signal_id, event_category, region, source_platform, alerted_at)
+            VALUES (%s, %s, %s, %s, NOW())
             ON CONFLICT DO NOTHING;
-        """, (str(signal_id), event_category or '', region or ''))
+        """, (str(signal_id), event_category or '', region or '', source_platform or ''))
         conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
         print(f"⚠️  mark_signal_alerted error: {e}")
-        # Fallback without new columns
         try:
             conn = get_db_connection()
             cur  = conn.cursor()
             cur.execute("""
-                INSERT INTO signal_alerts_sent (signal_id, alerted_at)
-                VALUES (%s, NOW())
+                INSERT INTO signal_alerts_sent (signal_id, event_category, region, alerted_at)
+                VALUES (%s, %s, %s, NOW())
                 ON CONFLICT DO NOTHING;
-            """, (str(signal_id),))
+            """, (str(signal_id), event_category or '', region or ''))
             conn.commit()
             cur.close()
             conn.close()
@@ -290,7 +290,7 @@ def run_email_alerts():
 
             # Mark alerted if Telegram or email succeeded
             if telegram_sent or email_enabled:
-                mark_signal_alerted(signal[0], category, region)
+                mark_signal_alerted(signal[0], category, region, signal[8])
 
         except Exception as e:
             print(f"❌ Alert error for signal {signal[0]}: {e}")
