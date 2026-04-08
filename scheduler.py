@@ -27,6 +27,106 @@ from signals.signal_validator import run_signal_validator
 from alerts.exit_alert import run_exit_alerts
 from processing.asset_mapper import backfill_missing_assets
 
+def run_morning_digest():
+    """
+    Fires once daily at 9am ET.
+    Sends a clean summary of all active signals + open positions to Telegram.
+    """
+    print("\n☀️ Running morning digest...")
+    try:
+        import psycopg2
+        from config import settings
+        from alerts.telegram_alert import notify_morning_digest
+
+        conn = psycopg2.connect(settings.DATABASE_URL)
+        cur  = conn.cursor()
+
+        # Get active signals
+        cur.execute("""
+            SELECT DISTINCT ON (event_category, region)
+                   id, event_description, region, event_category,
+                   probability_before, probability_after, probability_shift,
+                   confidence_score, source_platform, affected_assets, signal_time
+            FROM signals
+            WHERE is_active = true
+            AND expires_at > NOW()
+            AND confidence_score IN ('high', 'medium')
+            ORDER BY event_category, region,
+                CASE confidence_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 END,
+                probability_shift DESC
+            LIMIT 10;
+        """)
+        rows = cur.fetchall()
+
+        signals = []
+        for r in rows:
+            assets = []
+            try:
+                assets = r[9] if isinstance(r[9], list) else \
+                         __import__('json').loads(r[9]) if r[9] else []
+            except Exception:
+                pass
+
+            # Get top asset
+            top_asset = ""
+            top_move  = ""
+            if assets:
+                best = sorted(assets, key=lambda a: abs(a.get("avg_move_72h", 0) or 0), reverse=True)
+                if best:
+                    direction = "▲" if best[0].get("direction") == "up" else "▼"
+                    top_asset = best[0].get("ticker", "")
+                    top_move  = f"{direction} {abs(best[0].get('avg_move_72h', 0) or 0):.1f}% avg 72h"
+
+            from processing.asset_mapper import calculate_signal_strength
+            strength = calculate_signal_strength(
+                r[6] or 0, r[7] or "low", r[8] or "", assets
+            ).get("signal_strength", 50)
+
+            signals.append({
+                "confidence":  r[7] or "low",
+                "region":      r[2] or "Global",
+                "platform":    r[8] or "",
+                "description": r[1] or "",
+                "strength":    strength,
+                "top_asset":   top_asset,
+                "top_move":    top_move,
+            })
+
+        # Get open positions
+        cur.execute("""
+            SELECT ticker, entry_price, is_live
+            FROM alpaca_trades
+            WHERE closed_at IS NULL
+            ORDER BY created_at DESC;
+        """)
+        trade_rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Get current prices for positions
+        open_positions = []
+        if trade_rows:
+            import yfinance as yf
+            for ticker, entry_price, is_live in trade_rows:
+                try:
+                    hist = yf.Ticker(ticker).history(period="1d")
+                    if not hist.empty:
+                        curr = float(hist["Close"].iloc[-1])
+                        pct  = (curr - float(entry_price)) / float(entry_price) * 100
+                        open_positions.append({
+                            "ticker": ticker,
+                            "pct":    round(pct, 2),
+                            "live":   is_live,
+                        })
+                except Exception:
+                    pass
+
+        notify_morning_digest(signals, open_positions)
+        print(f"   ✅ Morning digest sent — {len(signals)} signals, {len(open_positions)} positions")
+
+    except Exception as e:
+        print(f"   ❌ Morning digest error: {e}")
+
 def run_full_cycle():
     print("\n" + "=" * 60)
     print(f"⚡ KairosIQ Cycle Starting: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -127,6 +227,7 @@ def run_validator_cycle():
 # Schedule
 schedule.every(15).minutes.do(run_full_cycle)
 schedule.every(1).hours.do(run_validator_cycle)
+schedule.every().day.at("14:00").do(run_morning_digest)  # 9am ET = 14:00 UTC
 
 if __name__ == "__main__":
     print("⚡ KairosIQ Scheduler Starting...")

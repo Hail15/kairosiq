@@ -9,6 +9,7 @@ import requests
 import json
 import sys
 import os
+from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
@@ -332,6 +333,81 @@ def notify_test():
         "⚠️ Counter-signal alerts\n\n"
         "🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
     )
+    return send_telegram(message)
+
+
+def notify_morning_digest(signals, open_positions=None):
+    """
+    Send a clean morning briefing with all active signals summarized.
+    Fires once daily at 9am ET.
+    """
+    if not signals:
+        message = (
+            "☀️ <b>KairosIQ Morning Brief</b>\n\n"
+            f"📅 {datetime.now().strftime('%A, %B %d %Y')}\n\n"
+            "No active signals at this time.\n"
+            "All monitored markets are within normal ranges.\n\n"
+            "🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
+        )
+        return send_telegram(message)
+
+    # Group signals by domain
+    high   = [s for s in signals if s.get("confidence") == "high"]
+    medium = [s for s in signals if s.get("confidence") == "medium"]
+
+    lines = []
+    lines.append(f"☀️ <b>KairosIQ Morning Brief</b>")
+    lines.append(f"📅 {datetime.now().strftime('%A, %B %d %Y — %H:%M UTC')}")
+    lines.append("")
+    lines.append(f"<b>{len(signals)} Active Signals</b> | "
+                 f"🔴 {len(high)} High · 🟡 {len(medium)} Medium")
+    lines.append("─" * 30)
+
+    # High confidence first
+    if high:
+        lines.append("\n🔴 <b>HIGH CONFIDENCE</b>")
+        for s in high[:3]:
+            region   = s.get("region", "Global")
+            platform = s.get("platform", "")
+            strength = s.get("strength", 0)
+            desc     = s.get("description", "")[:80]
+            top_asset = s.get("top_asset", "")
+            top_move  = s.get("top_move", "")
+            lines.append(
+                f"• <b>{region}</b> [{platform}] — Strength {strength}/100\n"
+                f"  {desc}...\n"
+                f"  📈 Top: {top_asset} {top_move}"
+            )
+
+    # Medium confidence
+    if medium:
+        lines.append("\n🟡 <b>MEDIUM CONFIDENCE</b>")
+        for s in medium[:4]:
+            region   = s.get("region", "Global")
+            platform = s.get("platform", "")
+            strength = s.get("strength", 0)
+            desc     = s.get("description", "")[:60]
+            lines.append(f"• <b>{region}</b> [{platform}] {strength}/100 — {desc}...")
+
+    # Open positions
+    if open_positions:
+        lines.append("\n💼 <b>OPEN POSITIONS</b>")
+        for p in open_positions:
+            ticker  = p.get("ticker", "")
+            pct     = p.get("pct", 0)
+            arrow   = "▲" if pct >= 0 else "▼"
+            color   = "+" if pct >= 0 else ""
+            lines.append(f"• {ticker} {arrow} {color}{pct:.1f}%")
+
+    lines.append("")
+    lines.append("🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>")
+
+    message = "\n".join(lines)
+
+    # Enforce Telegram 4096 char limit
+    if len(message) > 4000:
+        message = message[:3950] + "...\n\n🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
+
     return send_telegram(message)
 
 
