@@ -3469,6 +3469,30 @@ with tab7:
         """, unsafe_allow_html=True)
 
         if signals:
+            # Get recently closed tickers — don't recommend these
+            recently_closed = set()
+            try:
+                conn_rc = get_db()
+                cur_rc  = conn_rc.cursor()
+                cur_rc.execute("""
+                    SELECT DISTINCT ticker FROM alpaca_trades
+                    WHERE closed_at IS NOT NULL
+                    AND closed_at >= NOW() - INTERVAL '7 days';
+                """)
+                recently_closed = {row[0] for row in cur_rc.fetchall()}
+                cur_rc.close()
+                conn_rc.close()
+            except Exception:
+                pass
+
+            if recently_closed:
+                st.markdown(
+                    f'<div style="font-size:0.62em;color:var(--text-muted);'
+                    f'font-family:JetBrains Mono,monospace;margin-bottom:8px;">'
+                    f'⚠️ EXCLUDING RECENTLY CLOSED: {", ".join(recently_closed)}</div>',
+                    unsafe_allow_html=True
+                )
+
             # Deduplicate — collect best rec per ticker across all signals
             seen_tickers = {}
             for signal in signals[:20]:
@@ -3486,6 +3510,14 @@ with tab7:
 
                 metadata = get_signal_metadata(assets, prob_shift, confidence, platform)
                 best     = get_best_performer(assets)
+
+                # Skip if best asset was recently closed
+                if best and best.get("ticker", "") in recently_closed:
+                    # Try next best asset
+                    best = next((a for a in sorted(assets,
+                        key=lambda x: abs(x.get("avg_move_72h") or 0), reverse=True)
+                        if a.get("ticker", "") not in recently_closed), None)
+
                 rec      = build_trade_recommendation(
                     sig_id,
                     metadata.get("signal_strength", 0),
@@ -3501,6 +3533,10 @@ with tab7:
 
                 ticker   = rec["ticker"]
                 strength = rec["signal_strength"]
+
+                # Skip recently closed tickers
+                if ticker in recently_closed:
+                    continue
 
                 # Keep only the highest strength rec per ticker
                 if ticker not in seen_tickers or strength > seen_tickers[ticker]["signal_strength"]:
