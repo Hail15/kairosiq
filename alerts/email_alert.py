@@ -241,55 +241,61 @@ def run_email_alerts():
         print("   ⏳ Startup grace period — skipping alerts this cycle")
         return
 
-    if not settings.RESEND_API_KEY:
-        print("   ⚠️  No RESEND_API_KEY configured — skipping")
-        return
+    email_enabled = bool(settings.RESEND_API_KEY)
+    if not email_enabled:
+        print("   ⚠️  No RESEND_API_KEY — Telegram only mode")
+
+    # Import Telegram notifier
+    try:
+        from alerts.telegram_alert import notify_signal as telegram_notify
+    except Exception:
+        try:
+            from telegram_alert import notify_signal as telegram_notify
+        except Exception:
+            telegram_notify = None
 
     signals = get_unalerted_signals()
     if not signals:
         print("   No new signals to alert.")
         return
 
-    # Import Telegram notifier
-    try:
-        from alerts.telegram_alert import notify_signal as telegram_notify
-    except Exception:
-        telegram_notify = None
-
     print(f"   Found {len(signals)} signals to alert")
-    sent = 0
     for signal in signals:
         try:
             confidence = signal[7] or "unknown"
             prob_shift = signal[6]
             region     = signal[2] or "Global"
-            subject    = (f"⚡ KairosIQ {confidence.upper()} SIGNAL — "
-                         f"{region} | {prob_shift:.1f}% shift"
-                         if prob_shift else
-                         f"⚡ KairosIQ {confidence.upper()} SIGNAL — {region}")
+            category   = signal[3] or ""
 
-            html = build_signal_email(signal)
-            email_sent = send_email(settings.ALERT_EMAIL_TO, subject, html)
-
-            # Telegram fires regardless of email success
+            # Always fire Telegram first — works even when email quota exceeded
+            telegram_sent = False
             if telegram_notify:
                 try:
                     telegram_notify(signal)
-                    print(f"📱 Telegram sent")
+                    telegram_sent = True
+                    print(f"📱 Telegram sent: {region} {category}")
                 except Exception as te:
                     print(f"⚠️  Telegram error: {te}")
 
-            if email_sent:
-                sent += 1
-                print(f"✅ Email sent: {signal[1][:60]}...")
+            # Email is best-effort
+            if email_enabled:
+                subject = (f"⚡ KairosIQ {confidence.upper()} SIGNAL — "
+                          f"{region} | {prob_shift:.1f}% shift"
+                          if prob_shift else
+                          f"⚡ KairosIQ {confidence.upper()} SIGNAL — {region}")
+                html = build_signal_email(signal)
+                email_sent = send_email(settings.ALERT_EMAIL_TO, subject, html)
+                if email_sent:
+                    print(f"✅ Email sent: {signal[1][:60]}...")
 
-            # Mark alerted if either email or telegram succeeded
-            mark_signal_alerted(signal[0], signal[3], signal[2])
+            # Mark alerted if Telegram or email succeeded
+            if telegram_sent or email_enabled:
+                mark_signal_alerted(signal[0], category, region)
 
         except Exception as e:
             print(f"❌ Alert error for signal {signal[0]}: {e}")
 
-    print(f"✅ Email alerts complete. {sent} emails sent.")
+    print(f"✅ Alert cycle complete.")
 
 
 def send_test_email():
