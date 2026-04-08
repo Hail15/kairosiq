@@ -895,6 +895,10 @@ def fetch_similar_historical_event(event_category, region, description):
             'EVT_064': 'food_crisis',
             'EVT_065': 'opec_production_decision',
         }
+        # Also handle tariff category
+        if event_category == 'global_tariff_escalation':
+            mapped_type = 'global_tariff_escalation'
+        }
 
         mapped_type = evt_type_map.get(evt_id, event_category)
 
@@ -1354,6 +1358,28 @@ with tab1:
             prob_b = safe_float(prob_before)
             prob_a = safe_float(prob_after)
             prob_s = safe_float(prob_shift)
+            # Detect news/GDELT signals with fake 0% baseline
+            is_event_based = (
+                platform.upper() in ['GDELT', 'NEWS_INTELLIGENCE', 'STATE_MEDIA',
+                                     'CLOUDFLARE_RADAR', 'WHO_OUTBREAK', 'OFAC', 'USGS']
+                or (prob_before is None or prob_before == 0)
+            )
+            if is_event_based:
+                prob_display = (
+                    f'<span style="background:rgba(204,34,0,0.12);border:1px solid var(--red);'
+                    f'color:var(--red);padding:3px 10px;border-radius:3px;'
+                    f'font-family:JetBrains Mono,monospace;font-size:0.85em;font-weight:700;'
+                    f'letter-spacing:0.08em;">&#9889; EVENT DETECTED</span>'
+                    f'&nbsp;&nbsp;<span class="{shift_class}" style="font-size:0.82em;">'
+                    f'Signal Strength {prob_s}pts</span>'
+                )
+            else:
+                prob_display = (
+                    f'<span class="signal-prob">{prob_b}%</span>'
+                    f'<span style="color:#333;font-size:0.8em;">&#8594;</span>'
+                    f'<span class="signal-prob">{prob_a}%</span>'
+                    f'<span class="{shift_class}" style="font-size:0.85em;">{direction} {prob_s}% SHIFT</span>'
+                )
             st.markdown(
                 f'<div class="signal-card-{confidence}">'
                 f'<div class="signal-meta">{time_str} UTC &nbsp;&middot;&nbsp; {region.upper()} &nbsp;&middot;&nbsp; '
@@ -1363,10 +1389,7 @@ with tab1:
                 f' {new_badge}</div>'
                 f'<div class="signal-title">{desc_safe}</div>'
                 f'<div style="display:flex;align-items:baseline;gap:16px;margin-top:6px;">'
-                f'<span class="signal-prob">{prob_b}%</span>'
-                f'<span style="color:#333;font-size:0.8em;">&#8594;</span>'
-                f'<span class="signal-prob">{prob_a}%</span>'
-                f'<span class="{shift_class}" style="font-size:0.85em;">{direction} {prob_s}% SHIFT</span>'
+                f'{prob_display}'
                 f'</div></div>',
                 unsafe_allow_html=True
             )

@@ -132,6 +132,8 @@ def map_event_to_category(event_description):
         return "nuclear_wmd_escalation"
     elif any(w in text for w in ["nuclear", "nuke", "wmd", "ballistic missile"]):
         return "nuclear_wmd_escalation"
+    elif any(w in text for w in ["reciprocal tariff", "trade war", "tariff escalation", "import duty", "tariff hike", "tariff increase", "blanket tariff"]):
+        return "global_tariff_escalation"
     elif any(w in text for w in ["oil", "opec", "petroleum", "crude"]):
         return "opec_production_decision"
     elif any(w in text for w in ["taiwan", "strait"]):

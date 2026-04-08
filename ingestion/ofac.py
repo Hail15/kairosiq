@@ -43,7 +43,8 @@ SIGNAL_KEYWORDS = [
     # Sanctions & Trade
     "sanction", "embargo", "tariff", "trade war", "export ban",
     "asset freeze", "blocked", "restricted", "blacklist",
-    "designated", "ofac",
+    "designated", "ofac", "reciprocal tariff", "trade deficit",
+    "import duty", "customs duty", "trade deal", "trade agreement",
     # Political shock
     "coup", "assassination", "president resign", "prime minister resign",
     "government collapse", "emergency declared", "martial law",
@@ -54,6 +55,7 @@ SIGNAL_KEYWORDS = [
     # Financial
     "central bank", "interest rate", "federal reserve", "inflation surge",
     "currency crisis", "debt default", "bank collapse", "market crash",
+    "recession", "stagflation", "yield curve",
     # Countries
     "iran", "russia", "ukraine", "china", "taiwan", "israel",
     "gaza", "north korea", "venezuela", "saudi arabia",
@@ -81,17 +83,24 @@ CATEGORY_MAP = {
     "taiwan": "china_taiwan_tension",
     "north korea": "nuclear_wmd_escalation",
     "nuclear": "nuclear_wmd_escalation",
+    "reciprocal tariff": "global_tariff_escalation",
+    "trade war": "global_tariff_escalation",
+    "tariff": "global_tariff_escalation",
+    "import duty": "global_tariff_escalation",
+    "trade deal": "global_tariff_escalation",
     "sanction": "us_sanctions_announcement",
     "embargo": "us_sanctions_announcement",
-    "tariff": "us_china_trade_escalation",
-    "trade war": "us_china_trade_escalation",
+    "export ban": "us_sanctions_announcement",
     "opec": "opec_production_decision",
     "oil": "opec_production_decision",
     "hormuz": "shipping_lane_disruption",
     "suez": "shipping_lane_disruption",
     "venezuela": "emerging_market_political_crisis",
     "saudi": "opec_production_decision",
-    "federal reserve": "us_sanctions_announcement",
+    "federal reserve": "central_bank_policy",
+    "interest rate": "central_bank_policy",
+    "recession": "global_tariff_escalation",
+    "market crash": "global_tariff_escalation",
     "coup": "emerging_market_political_crisis",
 }
 
