@@ -486,6 +486,28 @@ html, body, [class*="css"] {
     background: radial-gradient(circle at top right, rgba(232,184,75,0.06), transparent 70%);
     pointer-events: none;
 }
+.signal-card-extreme {
+    background: linear-gradient(135deg, rgba(204,34,0,0.08) 0%, var(--bg-card) 60%);
+    border: 1px solid rgba(204,34,0,0.5) !important;
+    border-left: 4px solid #cc2200 !important;
+    box-shadow: 0 0 20px rgba(204,34,0,0.15);
+    position: relative;
+    overflow: hidden;
+    animation: pulse-border 2s infinite;
+}
+.signal-card-extreme::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle at top right, rgba(204,34,0,0.12), transparent 70%);
+    pointer-events: none;
+}
+@keyframes pulse-border {
+    0%   { box-shadow: 0 0 10px rgba(204,34,0,0.1); }
+    50%  { box-shadow: 0 0 25px rgba(204,34,0,0.25); }
+    100% { box-shadow: 0 0 10px rgba(204,34,0,0.1); }
+}
 
 /* ── Tab Panel Padding ──────────────────────────────────────── */
 .stTabs [data-baseweb="tab-panel"] {
@@ -636,6 +658,8 @@ def format_assets(assets_json):
     except: return []
 
 def conf_badge(c):
+    if c == "extreme":
+        return '<span style="background:rgba(204,34,0,0.2);border:1px solid #cc2200;color:#cc2200;padding:2px 8px;border-radius:3px;font-family:JetBrains Mono,monospace;font-size:0.75em;font-weight:700;letter-spacing:0.08em;">🔥 EXTREME</span>'
     return f'<span class="badge-{c}">{c}</span>'
 
 @st.cache_data(ttl=3600)
@@ -1484,7 +1508,7 @@ with tab1:
                     f'<span class="{shift_class}" style="font-size:0.85em;">{direction} {prob_s}% SHIFT</span>'
                 )
             st.markdown(
-                f'<div class="signal-card-{confidence}">'
+                f'<div class="signal-card-{confidence if confidence != "extreme" else "extreme"}">'
                 f'<div class="signal-meta">{time_str} UTC &nbsp;&middot;&nbsp; {region.upper()} &nbsp;&middot;&nbsp; '
                 f'{platform.upper()} &nbsp;&middot;&nbsp; {conf_badge(confidence)} &nbsp;&middot;&nbsp; '
                 f'EXPIRES {time_remaining(expires_at)} &nbsp;&middot;&nbsp; '

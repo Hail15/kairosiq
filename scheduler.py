@@ -26,6 +26,7 @@ from alerts.email_alert import run_email_alerts
 from signals.signal_validator import run_signal_validator
 from alerts.exit_alert import run_exit_alerts
 from processing.asset_mapper import backfill_missing_assets
+from signals.convergence_engine import run_convergence_engine
 
 def run_morning_digest():
     """
@@ -197,6 +198,12 @@ def run_full_cycle():
         backfill_missing_assets()
     except Exception as e:
         print(f"❌ Asset backfill error: {e}")
+
+    # Run convergence engine — detects when 3+ independent sources confirm same event
+    try:
+        run_convergence_engine()
+    except Exception as e:
+        print(f"❌ Convergence engine error: {e}")
 
     # Always run email alerts every cycle — catches news/GDELT/Cloudflare signals too
     try:
