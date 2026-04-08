@@ -1364,14 +1364,21 @@ with tab1:
                                      'CLOUDFLARE_RADAR', 'WHO_OUTBREAK', 'OFAC', 'USGS']
                 or (prob_before is None or prob_before == 0)
             )
+            # Pre-calculate signal strength for EVENT DETECTED display
+            _pre_strength = 50
+            if assets:
+                _pre_meta = get_signal_metadata(assets, prob_shift, confidence, platform)
+                _pre_strength = _pre_meta.get("signal_strength", 50)
+
             if is_event_based:
                 prob_display = (
                     f'<span style="background:rgba(204,34,0,0.12);border:1px solid var(--red);'
                     f'color:var(--red);padding:3px 10px;border-radius:3px;'
                     f'font-family:JetBrains Mono,monospace;font-size:0.85em;font-weight:700;'
                     f'letter-spacing:0.08em;">&#9889; EVENT DETECTED</span>'
-                    f'&nbsp;&nbsp;<span class="{shift_class}" style="font-size:0.82em;">'
-                    f'Signal Strength {prob_s}pts</span>'
+                    f'&nbsp;&nbsp;<span style="color:var(--amber);font-size:0.82em;'
+                    f'font-family:JetBrains Mono,monospace;font-weight:600;">'
+                    f'Signal Strength {_pre_strength}/100</span>'
                 )
             else:
                 prob_display = (
