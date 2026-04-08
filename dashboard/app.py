@@ -1296,9 +1296,11 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13 = st.tabs([
     "LIVE SIGNALS", "WORLD MAP", "SIGNAL DETAIL", "BET TRACKER",
-    "TRACK RECORD", "PROBABILITY CHARTS", "TRADING", "SCENARIO BUILDER", "COUNTRY RISK"
+    "TRACK RECORD", "PROBABILITY CHARTS", "TRADING",
+    "SCENARIO BUILDER", "COUNTRY RISK",
+    "PORTFOLIO", "BACKTESTER", "GPI INDEX", "SIGNAL Q&A"
 ])
 
 # ============================================================
@@ -4251,5 +4253,622 @@ with tab9:
     Country Intelligence Index (CII) scores are derived from active signal data only.
     Scores reflect current geopolitical signal activity, not absolute country risk.
     This is not investment advice.
+    </div>
+    """, unsafe_allow_html=True)
+# ============================================================
+# TAB 10 — PORTFOLIO GPI EXPOSURE
+# ============================================================
+with tab10:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            PORTFOLIO <span style="color:#cc2200;">GPI EXPOSURE</span>
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Upload your holdings — see geopolitical risk exposure mapped to active signals
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="font-size:0.72em;color:var(--text-secondary);margin-bottom:16px;line-height:1.7;">
+        Enter your portfolio holdings below. KairosIQ will map each position to active
+        geopolitical signals and calculate your overall GPI exposure score.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Portfolio input
+    st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:8px;">ENTER HOLDINGS</div>', unsafe_allow_html=True)
+
+    col_ticker, col_value, col_add = st.columns([2, 2, 1])
+    with col_ticker:
+        port_ticker = st.text_input("Ticker", placeholder="e.g. RTX", key="port_ticker").upper().strip()
+    with col_value:
+        port_value = st.number_input("Position value ($)", min_value=0.0, value=0.0, step=100.0, key="port_value")
+    with col_add:
+        st.markdown("<br>", unsafe_allow_html=True)
+        add_holding = st.button("+ ADD", key="add_holding", use_container_width=True)
+
+    if "portfolio_holdings" not in st.session_state:
+        st.session_state["portfolio_holdings"] = {}
+
+    if add_holding and port_ticker and port_value > 0:
+        st.session_state["portfolio_holdings"][port_ticker] = port_value
+        st.success(f"Added {port_ticker} ${port_value:,.0f}")
+
+    holdings = st.session_state.get("portfolio_holdings", {})
+
+    col_clear, _ = st.columns([1, 4])
+    with col_clear:
+        if st.button("Clear Portfolio", key="clear_portfolio"):
+            st.session_state["portfolio_holdings"] = {}
+            holdings = {}
+
+    if holdings:
+        total_value = sum(holdings.values())
+        st.markdown(f"""
+        <div style="background:var(--bg-card);border:1px solid var(--border);
+             border-radius:4px;padding:14px;margin:12px 0;">
+            <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                 letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:8px;">
+                CURRENT HOLDINGS — TOTAL ${total_value:,.0f}
+            </div>
+        """, unsafe_allow_html=True)
+
+        for ticker, value in holdings.items():
+            pct = (value / total_value * 100) if total_value > 0 else 0
+            st.markdown(
+                f'<div style="display:flex;justify-content:space-between;padding:6px 0;'
+                f'border-bottom:1px solid rgba(255,255,255,0.04);">'
+                f'<span style="color:#e0e0e0;font-weight:700;font-family:JetBrains Mono,monospace;">{ticker}</span>'
+                f'<span style="color:var(--text-secondary);">${value:,.0f}</span>'
+                f'<span style="color:var(--text-muted);font-size:0.82em;">{pct:.1f}%</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Map to active signals
+        st.markdown('<hr class="kiq-divider" style="margin:16px 0;">', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">GEOPOLITICAL EXPOSURE ANALYSIS</div>', unsafe_allow_html=True)
+
+        exposed = []
+        for sig in signals:
+            sig_assets_raw = sig[9]
+            try:
+                sig_assets = sig_assets_raw if isinstance(sig_assets_raw, list) else \
+                             json.loads(sig_assets_raw) if sig_assets_raw else []
+            except Exception:
+                sig_assets = []
+
+            for a in sig_assets:
+                t = a.get("ticker", "")
+                if t in holdings:
+                    exposed.append({
+                        "ticker":    t,
+                        "value":     holdings[t],
+                        "signal":    sig[1][:80],
+                        "region":    sig[2],
+                        "confidence": sig[7],
+                        "direction": a.get("direction", ""),
+                        "move":      a.get("avg_move_72h", 0) or 0,
+                    })
+
+        if exposed:
+            # GPI score — simple weighted exposure
+            total_exposure = sum(abs(e["move"]) * e["value"] / total_value for e in exposed)
+            gpi_score = min(100, int(total_exposure * 5))
+            score_color = "#cc2200" if gpi_score >= 70 else "#e8b84b" if gpi_score >= 40 else "#2a9a4a"
+            score_label = "HIGH RISK" if gpi_score >= 70 else "ELEVATED" if gpi_score >= 40 else "NORMAL"
+
+            st.markdown(f"""
+            <div style="text-align:center;padding:20px;background:var(--bg-card);
+                 border:1px solid {score_color};border-radius:4px;margin-bottom:16px;">
+                <div style="font-size:3em;font-weight:700;color:{score_color};
+                     font-family:'Barlow Condensed',sans-serif;">{gpi_score}</div>
+                <div style="color:{score_color};font-size:0.7em;font-weight:700;
+                     font-family:JetBrains Mono,monospace;letter-spacing:0.1em;">
+                     GPI EXPOSURE SCORE · {score_label}
+                </div>
+                <div style="color:var(--text-muted);font-size:0.65em;margin-top:6px;">
+                    {len(exposed)} of your positions are exposed to active geopolitical signals
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for e in exposed:
+                dir_color = "var(--red)" if e["direction"] == "down" else "var(--green)"
+                dir_arrow = "▼" if e["direction"] == "down" else "▲"
+                st.markdown(
+                    f'<div style="padding:10px 14px;background:var(--bg-card);'
+                    f'border:1px solid var(--border);border-left:3px solid {dir_color};'
+                    f'border-radius:4px;margin:4px 0;">'
+                    f'<div style="display:flex;justify-content:space-between;">'
+                    f'<span style="font-weight:700;color:#e0e0e0;font-family:JetBrains Mono,monospace;">{e["ticker"]}</span>'
+                    f'<span style="color:{dir_color};font-weight:700;">{dir_arrow} {abs(e["move"]):.1f}% avg 72h</span>'
+                    f'</div>'
+                    f'<div style="color:var(--text-muted);font-size:0.7em;margin-top:4px;">'
+                    f'{e["region"]} · {e["signal"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown("""
+            <div style="color:var(--green);font-family:JetBrains Mono,monospace;
+                 font-size:0.8em;padding:20px;text-align:center;">
+                ✅ None of your holdings are currently exposed to active geopolitical signals.
+                GPI Exposure Score: LOW
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="disclaimer" style="margin-top:20px;">
+    Portfolio GPI analysis is based on historical asset-signal correlations only.
+    Not investment advice. Past correlations do not guarantee future results.
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# TAB 11 — BACKTESTER
+# ============================================================
+with tab11:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            SIGNAL <span style="color:#cc2200;">BACKTESTER</span>
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Test historical signal performance against real asset outcomes
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        bt_category = st.selectbox("Event category:", [
+            "All", "middle_east_military_escalation", "russia_eastern_europe_conflict",
+            "china_taiwan_tension", "nuclear_wmd_escalation", "shipping_lane_disruption",
+            "global_tariff_escalation", "opec_production_decision", "cyber_attack"
+        ], key="bt_category")
+    with col2:
+        bt_confidence = st.selectbox("Min confidence:", ["All", "high", "medium"], key="bt_confidence")
+    with col3:
+        bt_asset = st.text_input("Filter by asset ticker:", placeholder="e.g. GLD", key="bt_asset").upper().strip()
+
+    run_backtest = st.button("▶ RUN BACKTEST", use_container_width=True, key="run_backtest")
+
+    if run_backtest:
+        try:
+            conn_bt = get_db()
+            cur_bt  = conn_bt.cursor()
+
+            query = """
+                SELECT s.event_description, s.region, s.event_category,
+                       s.confidence_score, s.source_platform,
+                       s.probability_shift, s.signal_time,
+                       s.affected_assets,
+                       so.asset_ticker, so.price_at_24h, so.price_at_72h,
+                       so.price_at_168h, so.price_at_signal
+                FROM signals s
+                LEFT JOIN signal_outcomes so ON so.signal_id = s.id
+                WHERE so.price_at_signal IS NOT NULL
+                AND so.price_at_72h IS NOT NULL
+            """
+            params = []
+            if bt_category != "All":
+                query += " AND s.event_category = %s"
+                params.append(bt_category)
+            if bt_confidence != "All":
+                query += " AND s.confidence_score = %s"
+                params.append(bt_confidence)
+            if bt_asset:
+                query += " AND so.asset_ticker = %s"
+                params.append(bt_asset)
+
+            query += " ORDER BY s.signal_time DESC LIMIT 50;"
+            cur_bt.execute(query, params)
+            bt_results = cur_bt.fetchall()
+            cur_bt.close()
+            conn_bt.close()
+
+            if bt_results:
+                wins = 0
+                losses = 0
+                total_return = 0.0
+                rows_display = []
+
+                for r in bt_results:
+                    desc, region, category, conf, platform, shift, sig_time, \
+                    assets_raw, asset_ticker, p24, p72, p168, p_entry = r
+
+                    if not p_entry or not p72:
+                        continue
+
+                    pct_72h = (float(p72) - float(p_entry)) / float(p_entry) * 100
+                    total_return += pct_72h
+
+                    # Determine if this was a win (signal direction matched)
+                    try:
+                        assets = assets_raw if isinstance(assets_raw, list) else json.loads(assets_raw or "[]")
+                        matched = next((a for a in assets if a.get("ticker") == asset_ticker), None)
+                        expected_dir = matched.get("direction", "") if matched else ""
+                        is_win = (expected_dir == "up" and pct_72h > 0) or \
+                                 (expected_dir == "down" and pct_72h < 0)
+                    except Exception:
+                        is_win = pct_72h > 0
+
+                    if is_win:
+                        wins += 1
+                    else:
+                        losses += 1
+
+                    rows_display.append({
+                        "date":       str(sig_time)[:10] if sig_time else "—",
+                        "region":     region or "—",
+                        "asset":      asset_ticker or "—",
+                        "conf":       conf or "—",
+                        "entry":      f"${float(p_entry):.2f}",
+                        "72h":        f"${float(p72):.2f}",
+                        "return_72h": f"{pct_72h:+.1f}%",
+                        "result":     "WIN ✅" if is_win else "LOSS ❌",
+                    })
+
+                total_trades = wins + losses
+                win_rate = wins / total_trades * 100 if total_trades > 0 else 0
+                avg_return = total_return / total_trades if total_trades > 0 else 0
+
+                # Summary metrics
+                m1, m2, m3, m4 = st.columns(4)
+                for col, val, label, color in [
+                    (m1, str(total_trades), "Total Signals", "#f0f0f4"),
+                    (m2, f"{win_rate:.0f}%", "Win Rate", "var(--green)" if win_rate >= 55 else "var(--red)"),
+                    (m3, f"{avg_return:+.1f}%", "Avg 72h Return", "var(--green)" if avg_return >= 0 else "var(--red)"),
+                    (m4, str(wins), "Wins", "var(--green)"),
+                ]:
+                    with col:
+                        st.markdown(f"""
+                        <div class="stat-box" style="text-align:center;">
+                            <span class="stat-value" style="color:{color};">{val}</span>
+                            <span class="stat-label">{label}</span>
+                        </div>""", unsafe_allow_html=True)
+
+                st.markdown('<hr class="kiq-divider" style="margin:16px 0;">', unsafe_allow_html=True)
+
+                for row in rows_display[:20]:
+                    res_color = "var(--green)" if "WIN" in row["result"] else "var(--red)"
+                    ret_color = "var(--green)" if "+" in row["return_72h"] else "var(--red)"
+                    st.markdown(
+                        f'<div style="display:flex;gap:12px;align-items:center;'
+                        f'padding:8px 12px;background:var(--bg-card);'
+                        f'border:1px solid var(--border);border-radius:4px;margin:3px 0;'
+                        f'font-family:JetBrains Mono,monospace;font-size:0.72em;">'
+                        f'<span style="color:var(--text-muted);min-width:80px;">{row["date"]}</span>'
+                        f'<span style="color:#e0e0e0;min-width:80px;">{row["region"][:12]}</span>'
+                        f'<span style="color:#e0e0e0;font-weight:700;min-width:50px;">{row["asset"]}</span>'
+                        f'<span style="color:var(--text-muted);min-width:60px;">{row["conf"].upper()}</span>'
+                        f'<span style="color:var(--text-muted);min-width:70px;">{row["entry"]}</span>'
+                        f'<span style="color:var(--text-muted);min-width:70px;">{row["72h"]}</span>'
+                        f'<span style="color:{ret_color};font-weight:700;min-width:60px;">{row["return_72h"]}</span>'
+                        f'<span style="color:{res_color};font-weight:700;">{row["result"]}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.info("No completed signal outcomes yet. The backtester requires signals with recorded asset outcomes. Check back as more signals complete their lifecycle.")
+
+        except Exception as e:
+            st.error(f"Backtest error: {e}")
+
+    st.markdown("""
+    <div class="disclaimer" style="margin-top:20px;">
+    Backtester uses historical signal outcomes recorded by KairosIQ.
+    Results are for informational purposes only. Not investment advice.
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# TAB 12 — KAIROS GPI INDEX
+# ============================================================
+with tab12:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            KAIROS<span style="color:#cc2200;">IQ</span> GPI INDEX
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Proprietary Geopolitical Pressure Index — Updated every 15 minutes
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    try:
+        # Build GPI from active signals
+        gpi_components = {
+            "Armed Conflict & Military":   {"weight": 0.25, "score": 0},
+            "Energy & Trade":              {"weight": 0.20, "score": 0},
+            "Political & Diplomatic":      {"weight": 0.15, "score": 0},
+            "Cyber & Information":         {"weight": 0.12, "score": 0},
+            "Economic & Financial":        {"weight": 0.12, "score": 0},
+            "Maritime & Trade Flows":      {"weight": 0.08, "score": 0},
+            "Nuclear & WMD":               {"weight": 0.08, "score": 0},
+        }
+
+        domain_to_gpi = {
+            "Military & Conflict": "Armed Conflict & Military",
+            "Energy & Trade":      "Energy & Trade",
+            "Political":           "Political & Diplomatic",
+            "Cyber & Tech":        "Cyber & Information",
+            "Financial":           "Economic & Financial",
+            "Environment":         "Maritime & Trade Flows",
+        }
+
+        conf_weights = {"extreme": 40, "high": 25, "medium": 12, "low": 5}
+
+        for sig in signals:
+            domain = get_domain(sig[3] or "", sig[8] or "", sig[1] or "")
+            gpi_key = domain_to_gpi.get(domain, "Armed Conflict & Military")
+            conf_score = conf_weights.get(sig[7] or "low", 5)
+            shift_score = min(float(sig[6] or 0) * 0.5, 20)
+
+            # Nuclear gets special treatment
+            if "nuclear" in (sig[3] or "").lower() or "nuclear" in (sig[1] or "").lower():
+                gpi_components["Nuclear & WMD"]["score"] += conf_score + shift_score
+            else:
+                gpi_components[gpi_key]["score"] += conf_score + shift_score
+
+        # Normalize each component to 0-100 then weight
+        max_component = max((v["score"] for v in gpi_components.values()), default=1)
+        max_component = max(max_component, 1)
+
+        weighted_total = 0.0
+        for key, data in gpi_components.items():
+            normalized = min(100, (data["score"] / max_component) * 100)
+            gpi_components[key]["normalized"] = normalized
+            weighted_total += normalized * data["weight"]
+
+        gpi_score = min(100, int(weighted_total))
+
+        # Historical context
+        gpi_baseline = 28  # Long-run average (calm periods)
+        gpi_2022_peak = 78  # Russia-Ukraine invasion peak
+        gpi_percentile = min(99, int((gpi_score / 100) * 99))
+
+        score_color = "#cc2200" if gpi_score >= 65 else "#e8b84b" if gpi_score >= 40 else "#2a9a4a"
+        score_label = "CRITICAL" if gpi_score >= 75 else "ELEVATED" if gpi_score >= 55 else "MODERATE" if gpi_score >= 35 else "CALM"
+
+        # Main GPI display
+        col_score, col_context = st.columns([1, 2])
+        with col_score:
+            st.markdown(f"""
+            <div style="text-align:center;padding:30px 20px;background:var(--bg-card);
+                 border:2px solid {score_color};border-radius:8px;">
+                <div style="font-size:0.6em;color:var(--text-muted);text-transform:uppercase;
+                     letter-spacing:0.15em;font-family:JetBrains Mono,monospace;">
+                     KAIROSIQ GPI INDEX
+                </div>
+                <div style="font-size:4.5em;font-weight:700;color:{score_color};
+                     font-family:'Barlow Condensed',sans-serif;line-height:1.1;margin:8px 0;">
+                     {gpi_score}
+                </div>
+                <div style="color:{score_color};font-size:0.75em;font-weight:700;
+                     font-family:JetBrains Mono,monospace;letter-spacing:0.12em;">
+                     {score_label}
+                </div>
+                <div style="color:var(--text-muted);font-size:0.6em;margin-top:8px;">
+                     Updated {datetime.now().strftime('%H:%M UTC')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_context:
+            st.markdown(f"""
+            <div style="background:var(--bg-card);border:1px solid var(--border);
+                 border-radius:8px;padding:20px;">
+                <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                     letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">
+                     HISTORICAL CONTEXT
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-secondary);font-size:0.78em;">Long-run baseline (calm)</span>
+                        <span style="color:var(--green);font-family:JetBrains Mono,monospace;font-weight:700;">{gpi_baseline}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-secondary);font-size:0.78em;">Current reading</span>
+                        <span style="color:{score_color};font-family:JetBrains Mono,monospace;font-weight:700;">{gpi_score}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-secondary);font-size:0.78em;">Ukraine invasion peak (2022)</span>
+                        <span style="color:var(--red);font-family:JetBrains Mono,monospace;font-weight:700;">{gpi_2022_peak}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-secondary);font-size:0.78em;">Active signals contributing</span>
+                        <span style="color:#e0e0e0;font-family:JetBrains Mono,monospace;font-weight:700;">{len(signals)}</span>
+                    </div>
+                </div>
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);
+                     color:var(--text-muted);font-size:0.65em;line-height:1.6;">
+                    The KairosIQ GPI Index is a proprietary composite of {len(gpi_components)} 
+                    geopolitical indicator domains weighted by historical market sensitivity.
+                    Methodology: The Worsley Intelligence Framework.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Component breakdown
+        st.markdown('<hr class="kiq-divider" style="margin:20px 0 12px;">', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">COMPONENT BREAKDOWN</div>', unsafe_allow_html=True)
+
+        for component, data in sorted(gpi_components.items(), key=lambda x: x[1]["normalized"], reverse=True):
+            norm  = data.get("normalized", 0)
+            wt    = data["weight"]
+            contrib = norm * wt
+            bar_color = "#cc2200" if norm >= 65 else "#e8b84b" if norm >= 35 else "#2a9a4a"
+
+            st.markdown(
+                f'<div style="margin:6px 0;">'
+                f'<div style="display:flex;justify-content:space-between;margin-bottom:3px;">'
+                f'<span style="color:var(--text-secondary);font-size:0.72em;">{component}</span>'
+                f'<span style="color:{bar_color};font-family:JetBrains Mono,monospace;'
+                f'font-size:0.72em;font-weight:700;">{norm:.0f}/100 · {wt*100:.0f}% weight</span>'
+                f'</div>'
+                f'<div style="background:rgba(255,255,255,0.06);border-radius:2px;height:6px;">'
+                f'<div style="width:{max(2,norm)}%;background:{bar_color};height:6px;border-radius:2px;"></div>'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
+
+    except Exception as e:
+        st.error(f"GPI Index error: {e}")
+
+    st.markdown("""
+    <div class="disclaimer" style="margin-top:20px;">
+    The KairosIQ GPI Index is a proprietary composite intelligence score.
+    It reflects current signal activity, not absolute geopolitical risk levels.
+    Methodology: The Worsley Intelligence Framework — 12 domains, 124 indicators.
+    Not investment advice.
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# TAB 13 — SIGNAL Q&A
+# ============================================================
+with tab13:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            SIGNAL <span style="color:#cc2200;">Q&A</span>
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Ask natural language questions about active signals and historical patterns
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    # Example questions
+    st.markdown("""
+    <div style="font-size:0.65em;color:var(--text-muted);margin-bottom:12px;
+         font-family:JetBrains Mono,monospace;">
+    EXAMPLE QUESTIONS:
+    </div>
+    """, unsafe_allow_html=True)
+
+    example_questions = [
+        "What happened to oil the last 3 times Iran threatened Hormuz?",
+        "Which assets are most exposed to the current Iran signal?",
+        "What is the GPI Index telling us right now?",
+        "Which signals have the highest convergence confidence today?",
+        "How does the current situation compare to 2022 Russia-Ukraine?",
+    ]
+
+    cols = st.columns(len(example_questions))
+    selected_question = ""
+    for i, (col, q) in enumerate(zip(cols, example_questions)):
+        with col:
+            if st.button(q[:30] + "...", key=f"eq_{i}", use_container_width=True):
+                selected_question = q
+
+    user_question = st.text_input(
+        "Ask a question:",
+        value=selected_question,
+        placeholder="e.g. What happened to gold the last 3 times Iran escalated?",
+        key="signal_qa_input"
+    )
+
+    ask_button = st.button("⚡ ASK", use_container_width=True, key="ask_signal_qa")
+
+    if ask_button and user_question:
+        with st.spinner("Analyzing signals and historical data..."):
+            try:
+                import anthropic
+
+                # Build context from active signals and historical events
+                signal_context = "\n".join([
+                    f"- {s[2]} | {s[3]} | {s[7]} confidence | {s[1][:100]}"
+                    for s in signals[:10]
+                ])
+
+                # Pull relevant historical events
+                conn_qa = get_db()
+                cur_qa  = conn_qa.cursor()
+                cur_qa.execute("""
+                    SELECT event_name, event_date, region, event_type,
+                           primary_asset_impact, secondary_asset_impact, notes
+                    FROM historical_gpi_events
+                    ORDER BY confidence_score DESC
+                    LIMIT 20;
+                """)
+                hist_events = cur_qa.fetchall()
+                cur_qa.close()
+                conn_qa.close()
+
+                hist_context = "\n".join([
+                    f"- {h[0]} ({str(h[1])[:10]}) | {h[2]} | {h[3]} | "
+                    f"Primary impact: {(h[4] or '')[:80]} | Notes: {(h[6] or '')[:80]}"
+                    for h in hist_events
+                ])
+
+                system_prompt = """You are KairosIQ's intelligence analyst — an expert in 
+geopolitical risk and financial markets. You have access to the platform's active signals 
+and 65 verified historical geopolitical events with documented asset impacts.
+
+Answer questions concisely and specifically. Always cite specific historical events when 
+relevant. Format your response with clear sections. Keep it under 400 words.
+Never give specific investment advice — always frame as historical pattern analysis.
+End with a brief disclaimer."""
+
+                user_prompt = f"""ACTIVE SIGNALS (right now):
+{signal_context}
+
+HISTORICAL EVENT DATABASE (65 verified events):
+{hist_context}
+
+USER QUESTION: {user_question}
+
+Answer based on the above data. Be specific about historical patterns and current signal context."""
+
+                client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+                response = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=600,
+                    messages=[{"role": "user", "content": user_prompt}],
+                    system=system_prompt
+                )
+
+                answer = response.content[0].text
+
+                st.markdown(f"""
+                <div style="background:var(--bg-card);border:1px solid var(--border);
+                     border-left:3px solid var(--red);border-radius:4px;
+                     padding:20px;margin-top:12px;line-height:1.8;
+                     color:var(--text-secondary);font-size:0.82em;">
+                     {answer.replace(chr(10), '<br>')}
+                </div>
+                """, unsafe_allow_html=True)
+
+            except Exception as e:
+                st.error(f"Q&A error: {e}")
+
+    st.markdown("""
+    <div class="disclaimer" style="margin-top:20px;">
+    Signal Q&A uses AI analysis of historical geopolitical data and current platform signals.
+    All responses are for informational purposes only. Not investment advice.
+    Historical patterns do not guarantee future results.
     </div>
     """, unsafe_allow_html=True)
