@@ -895,10 +895,10 @@ def fetch_similar_historical_event(event_category, region, description):
             'EVT_064': 'food_crisis',
             'EVT_065': 'opec_production_decision',
         }
-        # Also handle tariff category
+
+        # Handle tariff category override
         if event_category == 'global_tariff_escalation':
             mapped_type = 'global_tariff_escalation'
-        }
 
         mapped_type = evt_type_map.get(evt_id, event_category)
 
