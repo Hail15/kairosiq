@@ -958,8 +958,7 @@ def fetch_active_signals():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT DISTINCT ON (event_category, region)
-               id, event_description, region, event_category,
+        SELECT id, event_description, region, event_category,
                probability_before, probability_after, probability_shift,
                confidence_score, source_platform, affected_assets,
                signal_time, expires_at, source_question_id
@@ -1030,8 +1029,8 @@ def fetch_active_signals():
         AND event_description NOT LIKE '%chipmaking step%'
         AND event_description NOT LIKE '%packaging capacity%'
         ORDER BY
-            CASE confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
             signal_time DESC,
+            CASE confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
             probability_shift DESC
         LIMIT 20;
     """)
