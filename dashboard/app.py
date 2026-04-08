@@ -1310,69 +1310,8 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
-        # Count signals per domain for filter badges
-        domain_counts = {}
-        for _s in signals:
-            _d = get_domain(_s[3] or "", _s[8] or "", _s[1] or "")
-            domain_counts[_d] = domain_counts.get(_d, 0) + 1
-
-        active_filter_now = st.session_state.get("domain_filter", "ALL")
-
+        # Filter buttons defined after get_domain (below)
         col_all, col_mil, col_energy, col_cyber, col_pol, col_fin, col_env = st.columns(7)
-        with col_all:
-            _lbl = f"ALL ({len(signals)})" if active_filter_now == "ALL" else f"ALL"
-            filter_all = st.button(_lbl, key="filter_all", use_container_width=True)
-        with col_mil:
-            _c = domain_counts.get("Military & Conflict", 0)
-            _lbl = f"🔴 MIL ({_c})" if active_filter_now == "Military & Conflict" else f"⬤ MIL ({_c})"
-            filter_mil = st.button(_lbl, key="filter_mil", use_container_width=True)
-        with col_energy:
-            _c = domain_counts.get("Energy & Trade", 0)
-            _lbl = f"🟡 NRG ({_c})" if active_filter_now == "Energy & Trade" else f"⬤ NRG ({_c})"
-            filter_energy = st.button(_lbl, key="filter_energy", use_container_width=True)
-        with col_cyber:
-            _c = domain_counts.get("Cyber & Tech", 0)
-            _lbl = f"🔵 CYB ({_c})" if active_filter_now == "Cyber & Tech" else f"⬤ CYB ({_c})"
-            filter_cyber = st.button(_lbl, key="filter_cyber", use_container_width=True)
-        with col_pol:
-            _c = domain_counts.get("Political", 0)
-            _lbl = f"🟣 POL ({_c})" if active_filter_now == "Political" else f"⬤ POL ({_c})"
-            filter_pol = st.button(_lbl, key="filter_pol", use_container_width=True)
-        with col_fin:
-            _c = domain_counts.get("Financial", 0)
-            _lbl = f"🩵 FIN ({_c})" if active_filter_now == "Financial" else f"⬤ FIN ({_c})"
-            filter_fin = st.button(_lbl, key="filter_fin", use_container_width=True)
-        with col_env:
-            _c = domain_counts.get("Environment", 0)
-            _lbl = f"🟢 ENV ({_c})" if active_filter_now == "Environment" else f"⬤ ENV ({_c})"
-            filter_env = st.button(_lbl, key="filter_env", use_container_width=True)
-
-        # Track active filter in session state
-        if filter_all:
-            st.session_state["domain_filter"] = "ALL"
-        elif filter_mil:
-            st.session_state["domain_filter"] = "Military & Conflict"
-        elif filter_energy:
-            st.session_state["domain_filter"] = "Energy & Trade"
-        elif filter_cyber:
-            st.session_state["domain_filter"] = "Cyber & Tech"
-        elif filter_pol:
-            st.session_state["domain_filter"] = "Political"
-        elif filter_fin:
-            st.session_state["domain_filter"] = "Financial"
-        elif filter_env:
-            st.session_state["domain_filter"] = "Environment"
-
-        active_filter = st.session_state.get("domain_filter", "ALL")
-
-        # Show active filter indicator
-        if active_filter != "ALL":
-            filter_color = DOMAIN_COLORS.get(active_filter, "#555")
-            st.markdown(
-                f'<div style="font-size:0.65em;color:{filter_color};font-family:JetBrains Mono,monospace;'
-                f'margin-bottom:12px;letter-spacing:0.1em;">SHOWING: {active_filter.upper()} SIGNALS ONLY</div>',
-                unsafe_allow_html=True
-            )
 
         def get_domain(category, platform, description):
             text = (description or "").lower()
@@ -1396,6 +1335,62 @@ with tab1:
                 return "Financial"
             else:
                 return "Military & Conflict"
+
+        # Count signals per domain for filter badges (now get_domain is defined)
+        domain_counts = {}
+        for _s in signals:
+            _d = get_domain(_s[3] or "", _s[8] or "", _s[1] or "")
+            domain_counts[_d] = domain_counts.get(_d, 0) + 1
+
+        active_filter_now = st.session_state.get("domain_filter", "ALL")
+
+        # Populate filter buttons now that get_domain and domain_counts exist
+        with col_all:
+            _lbl = f"ALL ({len(signals)})"
+            filter_all = st.button(_lbl, key="filter_all", use_container_width=True)
+        with col_mil:
+            _c = domain_counts.get("Military & Conflict", 0)
+            filter_mil = st.button(f"🔴 MIL ({_c})", key="filter_mil", use_container_width=True)
+        with col_energy:
+            _c = domain_counts.get("Energy & Trade", 0)
+            filter_energy = st.button(f"🟡 NRG ({_c})", key="filter_energy", use_container_width=True)
+        with col_cyber:
+            _c = domain_counts.get("Cyber & Tech", 0)
+            filter_cyber = st.button(f"🔵 CYB ({_c})", key="filter_cyber", use_container_width=True)
+        with col_pol:
+            _c = domain_counts.get("Political", 0)
+            filter_pol = st.button(f"🟣 POL ({_c})", key="filter_pol", use_container_width=True)
+        with col_fin:
+            _c = domain_counts.get("Financial", 0)
+            filter_fin = st.button(f"🩵 FIN ({_c})", key="filter_fin", use_container_width=True)
+        with col_env:
+            _c = domain_counts.get("Environment", 0)
+            filter_env = st.button(f"🟢 ENV ({_c})", key="filter_env", use_container_width=True)
+
+        if filter_all:
+            st.session_state["domain_filter"] = "ALL"
+        elif filter_mil:
+            st.session_state["domain_filter"] = "Military & Conflict"
+        elif filter_energy:
+            st.session_state["domain_filter"] = "Energy & Trade"
+        elif filter_cyber:
+            st.session_state["domain_filter"] = "Cyber & Tech"
+        elif filter_pol:
+            st.session_state["domain_filter"] = "Political"
+        elif filter_fin:
+            st.session_state["domain_filter"] = "Financial"
+        elif filter_env:
+            st.session_state["domain_filter"] = "Environment"
+
+        active_filter = st.session_state.get("domain_filter", "ALL")
+
+        if active_filter != "ALL":
+            filter_color = DOMAIN_COLORS.get(active_filter, "#555")
+            st.markdown(
+                f'<div style="font-size:0.65em;color:{filter_color};font-family:JetBrains Mono,monospace;'
+                f'margin-bottom:12px;letter-spacing:0.1em;">SHOWING: {active_filter.upper()} SIGNALS ONLY</div>',
+                unsafe_allow_html=True
+            )
 
         for signal in signals:
             sig_id = signal[0]
