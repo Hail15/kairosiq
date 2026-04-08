@@ -38,14 +38,14 @@ NEWS_FEEDS = [
         "credibility": 0.88
     },
     {
-        "url": "https://feeds.reuters.com/reuters/worldNews",
-        "name": "Reuters World",
-        "credibility": 0.97
+        "url": "https://www.theguardian.com/world/rss",
+        "name": "Guardian World",
+        "credibility": 0.93
     },
     {
-        "url": "https://feeds.reuters.com/reuters/businessNews",
-        "name": "Reuters Business",
-        "credibility": 0.97
+        "url": "https://www.theguardian.com/business/rss",
+        "name": "Guardian Business",
+        "credibility": 0.93
     },
     {
         "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362",

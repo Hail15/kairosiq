@@ -143,7 +143,7 @@ def fetch_vessel_disruption_signals():
 
 
 def maritime_signal_exists(cur, waterway):
-    """Check if we already fired a maritime signal for this waterway today."""
+    """Check if we already fired a maritime signal for this specific waterway today."""
     cur.execute("""
         SELECT id FROM signals
         WHERE source_platform = 'MARINETRAFFIC'
@@ -166,12 +166,23 @@ def run_marine_traffic_ingestion():
 
     conn = get_db()
     cur  = conn.cursor()
-    saved = 0
 
+    # Get all waterways that already fired today in one query
+    cur.execute("""
+        SELECT event_description FROM signals
+        WHERE source_platform = 'MARINETRAFFIC'
+        AND signal_time >= NOW() - INTERVAL '24 hours'
+        AND is_active = true;
+    """)
+    already_fired_descs = [row[0] for row in cur.fetchall()]
+
+    saved = 0
     for d in disruptions:
         waterway = d["waterway"]
 
-        if maritime_signal_exists(cur, waterway):
+        # Check if this specific waterway already fired
+        already_fired = any(waterway in desc for desc in already_fired_descs)
+        if already_fired:
             print(f"   ⏭ Maritime signal already fired for {waterway}")
             continue
 
