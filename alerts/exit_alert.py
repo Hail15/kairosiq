@@ -19,6 +19,9 @@ from config import settings
 
 RESEND_API_URL = "https://api.resend.com/emails"
 
+# Global Telegram exit notifier — set at runtime
+telegram_exit = None
+
 # ── Thresholds ────────────────────────────────────────────────────────────────
 STOP_LOSS_PCT        = -0.08   # -8% hard stop loss
 TRAILING_STOP_PCT    = -0.05   # -5% trailing stop from peak
@@ -41,7 +44,14 @@ def get_technical_data(ticker):
     week_change_pct, volume_ratio, peak_price, signal
     """
     try:
-        stock = yf.Ticker(ticker)
+        # Fix common ticker issues
+        yf_ticker = ticker
+        if ticker == "VIX":
+            yf_ticker = "^VIX"
+        elif ticker == "$VIX":
+            yf_ticker = "^VIX"
+
+        stock = yf.Ticker(yf_ticker)
         hist  = stock.history(period="30d")
         if hist.empty or len(hist) < 5:
             return None
@@ -329,7 +339,15 @@ def check_stop_loss(trade, tech_data):
                   f"Hard stop loss of {abs(STOP_LOSS_PCT)*100:.0f}% triggered. "
                   f"RSI: {rsi} | Day change: {day_change*100:+.2f}% | MACD: {'Bullish' if macd_bullish else 'Bearish'}.")
 
-    # Momentum exit — big single day reversal + MACD turned bearish
+    # Extreme single-day move -8% regardless of other indicators
+    elif side == "buy" and day_change <= -0.08:
+        if not already_alerted(tid, "momentum_reversal"):
+            alert_type = "momentum_reversal"
+            reason = (f"{ticker} crashed {day_change*100:+.2f}% in a single session. "
+                      f"This is an extreme move suggesting a macro override of the original signal thesis. "
+                      f"Current P&L from entry: {pct*100:+.1f}%. Review position immediately.")
+
+    # Momentum exit — reversal + MACD turned bearish
     elif (side == "buy" and day_change <= MOMENTUM_REVERSAL and not macd_bullish and rsi < 45):
         if not already_alerted(tid, "momentum_reversal"):
             alert_type = "momentum_reversal"
@@ -355,12 +373,22 @@ def check_stop_loss(trade, tech_data):
     html    = build_exit_html(ticker, side, mode, entry_price, current_price,
                               notional, alert_type, reason, description,
                               region, expires_at, pnl, tech_data)
-    if send_exit_email(subject, html):
-        mark_alerted(tid, alert_type)
-        print(f"🛑 Exit alert sent: {ticker} {alert_type} {pct*100:+.1f}%")
-        if telegram_exit: telegram_exit(ticker, side, alert_type, pnl, current_price)
-        return True
-    return False
+
+    # Always mark alerted and fire Telegram — don't wait for email success
+    mark_alerted(tid, alert_type)
+    print(f"🛑 Exit alert: {ticker} {alert_type} {pct*100:+.1f}%")
+
+    # Fire Telegram immediately — works even if Resend quota exceeded
+    try:
+        if telegram_exit:
+            telegram_exit(ticker, side, alert_type, pnl, current_price)
+            print(f"📱 Exit Telegram sent: {ticker}")
+    except Exception as te:
+        print(f"⚠️ Telegram exit error: {te}")
+
+    # Email is best-effort — quota may be exceeded
+    send_exit_email(subject, html)
+    return True
 
 
 def check_take_profit(trade, tech_data, avg_move_72h=None):
@@ -409,12 +437,16 @@ def check_take_profit(trade, tech_data, avg_move_72h=None):
     html    = build_exit_html(ticker, side, mode, entry_price, current_price,
                               notional, "take_profit", reason, description,
                               region, expires_at, pnl, tech_data)
-    if send_exit_email(subject, html):
-        mark_alerted(tid, "take_profit")
-        print(f"✅ Take profit alert sent: {ticker} +{pct*100:.1f}%")
-        if telegram_exit: telegram_exit(ticker, side, "take_profit", pnl, current_price)
-        return True
-    return False
+
+    mark_alerted(tid, "take_profit")
+    print(f"✅ Take profit alert: {ticker} +{pct*100:.1f}%")
+    try:
+        if telegram_exit:
+            telegram_exit(ticker, side, "take_profit", pnl, current_price)
+    except Exception as te:
+        print(f"⚠️ Telegram exit error: {te}")
+    send_exit_email(subject, html)
+    return True
 
 
 def check_signal_expiry(trade, current_price):
@@ -454,11 +486,15 @@ def check_signal_expiry(trade, current_price):
         html = build_exit_html(ticker, side, mode, entry_price, current_price,
                                notional, "signal_expired", reason, description,
                                region, expires_at, pnl)
-        if send_exit_email(subject, html):
-            mark_alerted(tid, "signal_expired")
-            print(f"⏰ Signal expiry alert sent: {ticker}")
-            if telegram_exit: telegram_exit(ticker, side, "signal_expired", pnl, current_price)
-            return True
+        mark_alerted(tid, "signal_expired")
+        print(f"⏰ Signal expiry alert: {ticker}")
+        try:
+            if telegram_exit:
+                telegram_exit(ticker, side, "signal_expired", pnl, current_price)
+        except Exception as te:
+            print(f"⚠️ Telegram exit error: {te}")
+        send_exit_email(subject, html)
+        return True
     return False
 
 
@@ -564,17 +600,30 @@ def run_exit_alerts():
     Main function — runs every cycle.
     Checks all open trades for:
     1. Hard stop loss (−8%)
-    2. Momentum reversal (RSI + MACD + day change)
-    3. RSI overbought exit signal
-    4. Take profit (historical avg move or +5%)
-    5. Signal expiry (within 2 hours)
-    6. Counter-signal (opposite direction signal in same region)
+    2. Extreme single-day move (−8%+)
+    3. Momentum reversal (RSI + MACD + day change)
+    4. RSI overbought exit signal
+    5. Take profit (historical avg move or +5%)
+    6. Signal expiry (within 2 hours)
+    7. Counter-signal (opposite direction signal in same region)
     """
     print("\n🚪 Running smart exit alert check...")
 
+    # Import Telegram exit notifier
+    try:
+        from alerts.telegram_alert import notify_exit as _telegram_exit
+    except Exception:
+        try:
+            from telegram_alert import notify_exit as _telegram_exit
+        except Exception:
+            _telegram_exit = None
+
+    # Inject into module scope so check functions can use it
+    global telegram_exit
+    telegram_exit = _telegram_exit
+
     if not settings.RESEND_API_KEY:
-        print("   ⚠️  No RESEND_API_KEY — skipping")
-        return
+        print("   ⚠️  No RESEND_API_KEY — skipping email but Telegram still active")
 
     trades = get_open_trades_full()
     if not trades:
