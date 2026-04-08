@@ -1296,9 +1296,9 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "LIVE SIGNALS", "WORLD MAP", "SIGNAL DETAIL", "BET TRACKER",
-    "TRACK RECORD", "PROBABILITY CHARTS", "TRADING"
+    "TRACK RECORD", "PROBABILITY CHARTS", "TRADING", "SCENARIO BUILDER", "COUNTRY RISK"
 ])
 
 # ============================================================
@@ -3796,3 +3796,460 @@ with tab7:
     KairosIQ is not a registered broker-dealer or investment advisor.
     This is not investment advice.
     </div>""", unsafe_allow_html=True)
+
+# ============================================================
+# TAB 8 — SCENARIO BUILDER
+# ============================================================
+with tab8:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            SCENARIO <span style="color:#cc2200;">BUILDER</span>
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Define a hypothetical geopolitical event — see projected asset impacts
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    # Scenario presets
+    SCENARIO_PRESETS = {
+        "Custom": {"region": "", "category": "", "description": ""},
+        "China invades Taiwan": {
+            "region": "Taiwan",
+            "category": "china_taiwan_tension",
+            "description": "Chinese military forces begin amphibious assault on Taiwan. US carrier groups deployed to South China Sea. TSMC facilities at risk."
+        },
+        "Iran closes Strait of Hormuz": {
+            "region": "Middle East",
+            "category": "shipping_lane_disruption",
+            "description": "Iran mines the Strait of Hormuz following US sanctions escalation. 20% of global oil supply at risk. Emergency OPEC meeting called."
+        },
+        "Russia escalates Ukraine — nuclear threat": {
+            "region": "Russia",
+            "category": "nuclear_wmd_escalation",
+            "description": "Russia places tactical nuclear weapons on combat alert following NATO troop deployments to Poland and Baltic states."
+        },
+        "US-China full trade war": {
+            "region": "Global",
+            "category": "global_tariff_escalation",
+            "description": "US imposes 100%+ tariffs on all Chinese goods. China retaliates with rare earth export ban and Treasury bond selling."
+        },
+        "Major cyberattack on US grid": {
+            "region": "United States",
+            "category": "cyber_attack",
+            "description": "Nation-state cyberattack takes down major US power grid infrastructure across eastern seaboard. Attribution points to Russia."
+        },
+        "OPEC+ surprise production cut": {
+            "region": "Middle East",
+            "category": "opec_production_decision",
+            "description": "OPEC+ announces emergency 3M barrel/day production cut following geopolitical pressure from Saudi Arabia and Russia."
+        },
+        "North Korea ICBM test over Japan": {
+            "region": "North Korea",
+            "category": "nuclear_wmd_escalation",
+            "description": "North Korea fires intercontinental ballistic missile over Japanese territory. US-Japan alliance invokes Article 5 consultation."
+        },
+    }
+
+    col_preset, col_intensity = st.columns([2, 1])
+    with col_preset:
+        selected_preset = st.selectbox(
+            "Quick scenario presets:",
+            list(SCENARIO_PRESETS.keys()),
+            key="scenario_preset"
+        )
+    with col_intensity:
+        intensity = st.select_slider(
+            "Escalation intensity:",
+            options=["Contained", "Moderate", "Severe", "Extreme"],
+            value="Moderate",
+            key="scenario_intensity"
+        )
+
+    preset_data = SCENARIO_PRESETS[selected_preset]
+
+    col1, col2 = st.columns(2)
+    with col1:
+        scenario_region = st.text_input(
+            "Region / Country:",
+            value=preset_data["region"],
+            key="scenario_region"
+        )
+    with col2:
+        scenario_category = st.selectbox(
+            "Event category:",
+            ["china_taiwan_tension", "shipping_lane_disruption", "nuclear_wmd_escalation",
+             "global_tariff_escalation", "middle_east_military_escalation",
+             "russia_eastern_europe_conflict", "cyber_attack", "opec_production_decision",
+             "us_sanctions_announcement", "emerging_market_political_crisis",
+             "election_outcome_surprise", "disease_outbreak"],
+            index=["china_taiwan_tension", "shipping_lane_disruption", "nuclear_wmd_escalation",
+                   "global_tariff_escalation", "middle_east_military_escalation",
+                   "russia_eastern_europe_conflict", "cyber_attack", "opec_production_decision",
+                   "us_sanctions_announcement", "emerging_market_political_crisis",
+                   "election_outcome_surprise", "disease_outbreak"].index(preset_data["category"])
+                   if preset_data["category"] in ["china_taiwan_tension", "shipping_lane_disruption",
+                   "nuclear_wmd_escalation", "global_tariff_escalation",
+                   "middle_east_military_escalation", "russia_eastern_europe_conflict",
+                   "cyber_attack", "opec_production_decision", "us_sanctions_announcement",
+                   "emerging_market_political_crisis", "election_outcome_surprise",
+                   "disease_outbreak"] else 0,
+            key="scenario_category"
+        )
+
+    scenario_desc = st.text_area(
+        "Scenario description:",
+        value=preset_data["description"],
+        height=80,
+        key="scenario_desc"
+    )
+
+    run_scenario = st.button("⚡ RUN SCENARIO ANALYSIS", use_container_width=True, key="run_scenario")
+
+    if run_scenario and scenario_region and scenario_category:
+        st.markdown('<hr class="kiq-divider" style="margin:16px 0;">', unsafe_allow_html=True)
+
+        # Intensity multipliers
+        intensity_mult = {"Contained": 0.4, "Moderate": 0.8, "Severe": 1.3, "Extreme": 1.8}
+        mult = intensity_mult.get(intensity, 1.0)
+
+        # Pull asset mappings for this category
+        try:
+            conn_sc = get_db()
+            cur_sc  = conn_sc.cursor()
+            cur_sc.execute("""
+                SELECT asset_ticker, asset_name, asset_class,
+                       historical_direction, avg_move_24h, avg_move_72h,
+                       avg_move_168h, directional_accuracy, sample_size, confidence_rating
+                FROM asset_mappings
+                WHERE event_type = %s
+                AND (region = %s OR region = 'Global')
+                ORDER BY directional_accuracy DESC
+                LIMIT 12;
+            """, (scenario_category, scenario_region))
+            scenario_assets = cur_sc.fetchall()
+
+            # Pull similar historical events
+            cur_sc.execute("""
+                SELECT event_id, event_name, event_date, region,
+                       primary_asset_impact, secondary_asset_impact,
+                       notes, confidence_score
+                FROM historical_gpi_events
+                WHERE event_type = %s
+                OR region ILIKE %s
+                ORDER BY confidence_score DESC
+                LIMIT 3;
+            """, (scenario_category, f"%{scenario_region}%"))
+            historical_matches = cur_sc.fetchall()
+            cur_sc.close()
+            conn_sc.close()
+        except Exception as e:
+            scenario_assets = []
+            historical_matches = []
+
+        # Header
+        intensity_colors = {
+            "Contained": "var(--green)", "Moderate": "var(--amber)",
+            "Severe": "var(--red)", "Extreme": "#ff0000"
+        }
+        st.markdown(f"""
+        <div style="background:var(--bg-card);border:1px solid var(--border);
+             border-left:4px solid {intensity_colors.get(intensity,'var(--red)')};
+             border-radius:4px;padding:16px;margin-bottom:16px;">
+            <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                 letter-spacing:0.1em;font-family:JetBrains Mono,monospace;">SCENARIO ANALYSIS</div>
+            <div style="font-size:1.1em;font-weight:700;color:#f0f0f4;margin:6px 0;">
+                {scenario_region.upper()} · {scenario_category.replace('_',' ').upper()}
+            </div>
+            <div style="font-size:0.78em;color:var(--text-secondary);">{scenario_desc}</div>
+            <div style="margin-top:8px;">
+                <span style="color:{intensity_colors.get(intensity,'var(--red)')};
+                     font-family:JetBrains Mono,monospace;font-size:0.7em;font-weight:700;">
+                    {intensity.upper()} INTENSITY · {mult:.1f}x MULTIPLIER
+                </span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Three scenarios
+        st.markdown("""
+        <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+             letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">
+            PROBABILITY-WEIGHTED SCENARIOS
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_de, col_sq, col_esc = st.columns(3)
+        scenario_cols = [
+            (col_de, "DE-ESCALATION", "25%", "var(--green)", 0.3),
+            (col_sq, "STATUS QUO", "45%", "var(--amber)", 0.7),
+            (col_esc, "ESCALATION", "30%", "var(--red)", 1.2),
+        ]
+        for col, label, prob, color, s_mult in scenario_cols:
+            with col:
+                st.markdown(f"""
+                <div style="background:var(--bg-card);border:1px solid var(--border);
+                     border-top:3px solid {color};border-radius:4px;padding:14px;
+                     text-align:center;">
+                    <div style="color:{color};font-family:JetBrains Mono,monospace;
+                         font-size:0.65em;font-weight:700;">{label}</div>
+                    <div style="font-size:1.6em;font-weight:700;color:#f0f0f4;margin:4px 0;">{prob}</div>
+                    <div style="color:var(--text-muted);font-size:0.6em;">probability</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Asset impact table
+        if scenario_assets:
+            st.markdown("""
+            <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                 letter-spacing:0.1em;font-family:JetBrains Mono,monospace;
+                 margin:20px 0 12px;">PROJECTED ASSET IMPACTS — BASED ON HISTORICAL CORRELATIONS
+            </div>
+            """, unsafe_allow_html=True)
+
+            up_assets   = [a for a in scenario_assets if a[3] == "up"]
+            down_assets = [a for a in scenario_assets if a[3] == "down"]
+
+            col_up, col_dn = st.columns(2)
+            with col_up:
+                st.markdown('<div style="color:var(--green);font-size:0.65em;font-weight:700;font-family:JetBrains Mono,monospace;margin-bottom:8px;">▲ HISTORICALLY UP</div>', unsafe_allow_html=True)
+                for a in up_assets[:5]:
+                    move_72h = round(float(a[5] or 0) * mult, 1)
+                    acc      = int(float(a[7] or 0) * 100)
+                    st.markdown(
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'padding:8px 10px;background:rgba(42,154,74,0.06);'
+                        f'border:1px solid rgba(42,154,74,0.15);border-radius:3px;margin:3px 0;">'
+                        f'<span style="color:#e0e0e0;font-weight:700;font-family:JetBrains Mono,monospace;font-size:0.82em;">{a[0]}</span>'
+                        f'<span style="color:var(--text-muted);font-size:0.72em;">{a[1][:20]}</span>'
+                        f'<span style="color:var(--green);font-weight:700;font-size:0.82em;">▲ +{move_72h}% · {acc}% acc</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+            with col_dn:
+                st.markdown('<div style="color:var(--red);font-size:0.65em;font-weight:700;font-family:JetBrains Mono,monospace;margin-bottom:8px;">▼ HISTORICALLY DOWN</div>', unsafe_allow_html=True)
+                for a in down_assets[:5]:
+                    move_72h = round(abs(float(a[5] or 0)) * mult, 1)
+                    acc      = int(float(a[7] or 0) * 100)
+                    st.markdown(
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'padding:8px 10px;background:rgba(204,34,0,0.06);'
+                        f'border:1px solid rgba(204,34,0,0.15);border-radius:3px;margin:3px 0;">'
+                        f'<span style="color:#e0e0e0;font-weight:700;font-family:JetBrains Mono,monospace;font-size:0.82em;">{a[0]}</span>'
+                        f'<span style="color:var(--text-muted);font-size:0.72em;">{a[1][:20]}</span>'
+                        f'<span style="color:var(--red);font-weight:700;font-size:0.82em;">▼ -{move_72h}% · {acc}% acc</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+        # Historical precedents
+        if historical_matches:
+            st.markdown("""
+            <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                 letter-spacing:0.1em;font-family:JetBrains Mono,monospace;
+                 margin:20px 0 12px;">CLOSEST HISTORICAL PRECEDENTS
+            </div>
+            """, unsafe_allow_html=True)
+
+            for h in historical_matches:
+                evt_id, evt_name, evt_date, evt_region, primary_impact, secondary_impact, notes, conf = h
+                st.markdown(f"""
+                <div style="background:var(--bg-card);border:1px solid var(--border);
+                     border-radius:4px;padding:14px;margin:6px 0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:700;color:#f0f0f4;font-size:0.85em;">{evt_name}</span>
+                        <span style="color:var(--text-muted);font-family:JetBrains Mono,monospace;font-size:0.65em;">{evt_id} · {str(evt_date)[:10] if evt_date else '—'}</span>
+                    </div>
+                    <div style="color:var(--text-secondary);font-size:0.75em;margin-top:6px;">{(notes or '')[:200]}</div>
+                    <div style="color:var(--green);font-size:0.72em;margin-top:6px;font-family:JetBrains Mono,monospace;">
+                        PRIMARY: {(primary_impact or '')[:120]}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="disclaimer" style="margin-top:20px;">
+        Scenario analysis is based on historical asset correlations only.
+        Projected moves are scaled estimates, not forecasts.
+        This is not investment advice. Historical performance does not guarantee future results.
+        </div>
+        """, unsafe_allow_html=True)
+
+    elif run_scenario:
+        st.warning("Please enter a region and select a category.")
+
+# ============================================================
+# TAB 9 — COUNTRY RISK SCORE (CII)
+# ============================================================
+with tab9:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            COUNTRY <span style="color:#cc2200;">RISK SCORE</span>
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Composite Intelligence Index (CII) — 0 to 100 per country · Updated every cycle
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    # Build CII scores from active signals
+    try:
+        conn_cii = get_db()
+        cur_cii  = conn_cii.cursor()
+        cur_cii.execute("""
+            SELECT region, event_category, confidence_score,
+                   probability_shift, source_platform, signal_time
+            FROM signals
+            WHERE is_active = true
+            AND expires_at > NOW()
+            AND signal_time >= NOW() - INTERVAL '72 hours'
+            ORDER BY signal_time DESC;
+        """)
+        cii_signals = cur_cii.fetchall()
+        cur_cii.close()
+        conn_cii.close()
+
+        # Calculate CII per region
+        region_scores = {}
+        for sig in cii_signals:
+            region   = sig[0] or "Global"
+            conf     = sig[2] or "low"
+            shift    = float(sig[3] or 0)
+            platform = sig[4] or ""
+
+            # Normalize region
+            r_key = region.split(" - ")[0].strip()
+
+            if r_key not in region_scores:
+                region_scores[r_key] = {
+                    "signals": 0, "score": 0,
+                    "platforms": set(), "max_conf": "low"
+                }
+
+            # Score contribution
+            conf_weight = {"extreme": 30, "high": 20, "medium": 10, "low": 5}.get(conf, 5)
+            shift_contrib = min(shift * 0.5, 20)
+            platform_bonus = 5 if platform == "CONVERGENCE" else 0
+
+            region_scores[r_key]["score"]    += conf_weight + shift_contrib + platform_bonus
+            region_scores[r_key]["signals"]  += 1
+            region_scores[r_key]["platforms"].add(platform)
+            if conf in ["extreme", "high"] and region_scores[r_key]["max_conf"] not in ["extreme", "high"]:
+                region_scores[r_key]["max_conf"] = conf
+
+        # Normalize to 0-100
+        if region_scores:
+            max_raw = max(v["score"] for v in region_scores.values())
+            for r in region_scores:
+                raw = region_scores[r]["score"]
+                region_scores[r]["cii"] = min(100, int((raw / max(max_raw, 1)) * 100))
+
+        # Sort by CII descending
+        sorted_regions = sorted(
+            region_scores.items(),
+            key=lambda x: x[1]["cii"],
+            reverse=True
+        )
+
+        if sorted_regions:
+            # Summary stats
+            critical = [(r, v) for r, v in sorted_regions if v["cii"] >= 75]
+            elevated = [(r, v) for r, v in sorted_regions if 40 <= v["cii"] < 75]
+            normal   = [(r, v) for r, v in sorted_regions if v["cii"] < 40]
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.markdown(f"""
+                <div class="stat-box" style="text-align:center;border-left:3px solid var(--red);">
+                    <span class="stat-value" style="color:var(--red);">{len(critical)}</span>
+                    <span class="stat-label">Critical Risk (75+)</span>
+                </div>""", unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class="stat-box" style="text-align:center;border-left:3px solid var(--amber);">
+                    <span class="stat-value" style="color:var(--amber);">{len(elevated)}</span>
+                    <span class="stat-label">Elevated Risk (40-74)</span>
+                </div>""", unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""
+                <div class="stat-box" style="text-align:center;border-left:3px solid var(--green);">
+                    <span class="stat-value" style="color:var(--green);">{len(normal)}</span>
+                    <span class="stat-label">Normal Risk (&lt;40)</span>
+                </div>""", unsafe_allow_html=True)
+
+            st.markdown('<hr class="kiq-divider" style="margin:16px 0;">', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                 letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">
+                CII RANKINGS — ALL MONITORED COUNTRIES
+            </div>
+            """, unsafe_allow_html=True)
+
+            for region, data in sorted_regions:
+                cii    = data["cii"]
+                sigs   = data["signals"]
+                plats  = ", ".join(sorted(data["platforms"]))[:50]
+                max_c  = data["max_conf"]
+
+                if cii >= 75:
+                    bar_color = "#cc2200"
+                    risk_label = "CRITICAL"
+                elif cii >= 40:
+                    bar_color = "#e8b84b"
+                    risk_label = "ELEVATED"
+                else:
+                    bar_color = "#2a9a4a"
+                    risk_label = "NORMAL"
+
+                bar_width = max(4, cii)
+
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:12px;'
+                    f'padding:10px 14px;background:var(--bg-card);'
+                    f'border:1px solid var(--border);border-radius:4px;margin:4px 0;">'
+                    f'<span style="font-weight:700;color:#e0e0e0;font-family:JetBrains Mono,'
+                    f'monospace;min-width:130px;font-size:0.82em;">{region.upper()}</span>'
+                    f'<div style="flex:1;background:rgba(255,255,255,0.05);'
+                    f'border-radius:2px;height:8px;">'
+                    f'<div style="width:{bar_width}%;background:{bar_color};'
+                    f'height:8px;border-radius:2px;"></div></div>'
+                    f'<span style="color:{bar_color};font-weight:700;'
+                    f'font-family:JetBrains Mono,monospace;font-size:0.85em;'
+                    f'min-width:40px;text-align:right;">{cii}</span>'
+                    f'<span style="color:{bar_color};font-size:0.6em;font-weight:700;'
+                    f'min-width:70px;font-family:JetBrains Mono,monospace;">{risk_label}</span>'
+                    f'<span style="color:var(--text-muted);font-size:0.62em;min-width:40px;">'
+                    f'{sigs} sig{"s" if sigs != 1 else ""}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+        else:
+            st.markdown("""
+            <div style="color:var(--text-muted);font-size:0.8em;padding:40px;text-align:center;">
+                No active signals to calculate CII scores.
+                Scores update automatically as signals fire.
+            </div>
+            """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error(f"CII error: {e}")
+
+    st.markdown("""
+    <div class="disclaimer" style="margin-top:20px;">
+    Country Intelligence Index (CII) scores are derived from active signal data only.
+    Scores reflect current geopolitical signal activity, not absolute country risk.
+    This is not investment advice.
+    </div>
+    """, unsafe_allow_html=True)

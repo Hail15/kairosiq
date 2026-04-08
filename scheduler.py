@@ -20,6 +20,7 @@ from ingestion.acled import run_acled_ingestion
 from ingestion.ofac import run_ofac_ingestion
 from ingestion.cloudflare_radar import run_cloudflare_ingestion
 from ingestion.who_outbreak import run_who_ingestion
+from ingestion.baltic_dry import run_baltic_dry_ingestion
 from signals.signal_engine import run_signal_engine
 from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
@@ -185,6 +186,11 @@ def run_full_cycle():
         run_who_ingestion()
     except Exception as e:
         print(f"❌ WHO ingestion error: {e}")
+
+    try:
+        run_baltic_dry_ingestion()
+    except Exception as e:
+        print(f"❌ Baltic Dry ingestion error: {e}")
 
     # ── Signal Detection & Alerts ────────────────────────────
     try:
