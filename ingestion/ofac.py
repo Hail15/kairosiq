@@ -32,6 +32,31 @@ NEWS_FEEDS = [
         "name": "BBC Business",
         "credibility": 0.95
     },
+    {
+        "url": "https://www.aljazeera.com/xml/rss/all.xml",
+        "name": "Al Jazeera",
+        "credibility": 0.88
+    },
+    {
+        "url": "https://feeds.reuters.com/reuters/worldNews",
+        "name": "Reuters World",
+        "credibility": 0.97
+    },
+    {
+        "url": "https://feeds.reuters.com/reuters/businessNews",
+        "name": "Reuters Business",
+        "credibility": 0.97
+    },
+    {
+        "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362",
+        "name": "CNBC World",
+        "credibility": 0.90
+    },
+    {
+        "url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines",
+        "name": "MarketWatch",
+        "credibility": 0.88
+    },
 ]
 
 # High-impact keywords that move markets
@@ -70,6 +95,10 @@ NOISE_KEYWORDS = [
     "taylor swift", "beyonce", "celebrity", "grammy", "oscar", "academy award",
     "student loan", "plan 2", "postgraduate loan", "nhs", "school curriculum",
     "interest rate cap", "wage cap", "cost of living benefit",
+    "ice detention", "newlywed", "undocumented immigrant", "deportation",
+    "freed by ice", "immigration arrest", "visa overstay",
+    "trees are key", "spring offensive vegetation", "drone warfare concealment",
+    "war crimes definition", "civilian target definition",
 ]
 
 # Map keywords to signal categories

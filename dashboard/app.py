@@ -1190,10 +1190,16 @@ with st.sidebar:
     total_pnl = float(trade_summary[5] or 0) if trade_summary else 0
     pnl_color = "var(--green)" if total_pnl >= 0 else "var(--red)"
 
+    active_filter_sidebar = st.session_state.get("domain_filter", "ALL")
+    filtered_count = len(signals)
+    filter_label = "Active Signals"
+    if active_filter_sidebar != "ALL":
+        filter_label = f"{active_filter_sidebar[:10]} Signals"
+
     st.markdown(f"""
     <div class="kiq-stat-row">
-        <span class="kiq-stat-label">Active Signals</span>
-        <span class="kiq-stat-value">{len(signals)}</span>
+        <span class="kiq-stat-label">{filter_label}</span>
+        <span class="kiq-stat-value">{filtered_count}</span>
     </div>
     <div class="kiq-stat-row">
         <span class="kiq-stat-label">Markets Monitored</span>
@@ -1208,6 +1214,39 @@ with st.sidebar:
         <span class="kiq-stat-value" style="color:{pnl_color};">${total_pnl:+.4f}</span>
     </div>
     """, unsafe_allow_html=True)
+
+    # RTX take profit display
+    try:
+        import yfinance as _yf
+        _rtx = _yf.Ticker("RTX").history(period="1d")
+        if not _rtx.empty:
+            _rtx_price = float(_rtx["Close"].iloc[-1])
+            _rtx_entry = 197.86
+            _rtx_target = _rtx_entry * 1.05  # 5% take profit
+            _rtx_pct = (_rtx_price - _rtx_entry) / _rtx_entry * 100
+            _rtx_color = "var(--green)" if _rtx_pct >= 0 else "var(--red)"
+            _progress = min(100, max(0, (_rtx_pct / 5) * 100))
+            st.markdown(f"""
+            <div style="background:var(--bg-card);border:1px solid var(--border);
+                 border-left:3px solid var(--green);border-radius:4px;
+                 padding:10px 12px;margin-top:8px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="color:#e0e0e0;font-weight:700;font-family:JetBrains Mono,monospace;font-size:0.8em;">RTX</span>
+                    <span style="color:{_rtx_color};font-weight:700;font-family:JetBrains Mono,monospace;font-size:0.8em;">{_rtx_pct:+.1f}%</span>
+                </div>
+                <div style="font-size:0.62em;color:var(--text-muted);margin-bottom:4px;font-family:JetBrains Mono,monospace;">
+                    ${_rtx_price:.2f} · Target ${_rtx_target:.2f}
+                </div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:2px;height:4px;">
+                    <div style="width:{_progress}%;background:var(--green);height:4px;border-radius:2px;"></div>
+                </div>
+                <div style="font-size:0.58em;color:var(--text-muted);margin-top:3px;font-family:JetBrains Mono,monospace;">
+                    {_progress:.0f}% to take profit
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    except Exception:
+        pass
 
     # Signal distribution bars
     h = len([s for s in signals if s[7] == "high"])
@@ -1509,9 +1548,26 @@ with tab1:
                     f'<span class="signal-prob">{prob_a}%</span>'
                     f'<span class="{shift_class}" style="font-size:0.85em;">{direction} {prob_s}% SHIFT</span>'
                 )
+            # Time since signal fired
+            age_str = ""
+            if signal_time:
+                try:
+                    from datetime import timezone as _tz2
+                    now_utc2 = datetime.now(_tz2.utc)
+                    sig_utc2 = signal_time.replace(tzinfo=_tz2.utc) if not signal_time.tzinfo else signal_time
+                    age_secs = (now_utc2 - sig_utc2).total_seconds()
+                    if age_secs < 3600:
+                        age_str = f"&nbsp;&middot;&nbsp; {int(age_secs/60)}m ago"
+                    elif age_secs < 86400:
+                        age_str = f"&nbsp;&middot;&nbsp; {int(age_secs/3600)}h ago"
+                    else:
+                        age_str = f"&nbsp;&middot;&nbsp; {int(age_secs/86400)}d ago"
+                except Exception:
+                    pass
+
             st.markdown(
                 f'<div class="signal-card-{confidence if confidence != "extreme" else "extreme"}">'
-                f'<div class="signal-meta">{time_str} UTC &nbsp;&middot;&nbsp; {region.upper()} &nbsp;&middot;&nbsp; '
+                f'<div class="signal-meta">{time_str} UTC{age_str} &nbsp;&middot;&nbsp; {region.upper()} &nbsp;&middot;&nbsp; '
                 f'{platform.upper()} &nbsp;&middot;&nbsp; {conf_badge(confidence)} &nbsp;&middot;&nbsp; '
                 f'EXPIRES {time_remaining(expires_at)} &nbsp;&middot;&nbsp; '
                 f'<span style="color:{domain_color};font-weight:600;font-size:0.9em;">&#11044; {domain.upper()}</span>'
