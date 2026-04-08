@@ -1272,8 +1272,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "LIVE SIGNALS", "SIGNAL DETAIL", "BET TRACKER",
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "LIVE SIGNALS", "WORLD MAP", "SIGNAL DETAIL", "BET TRACKER",
     "TRACK RECORD", "PROBABILITY CHARTS", "TRADING"
 ])
 
@@ -1289,7 +1289,7 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
     else:
-        # Domain color mapping — Kyle's 7 domains
+        # Domain color mapping — Kyle's 12 domains
         DOMAIN_COLORS = {
             "Military & Conflict": "#cc2200",
             "Energy & Trade":      "#e8b84b",
@@ -1299,6 +1299,80 @@ with tab1:
             "Human & Social":      "#ff8800",
             "Financial":           "#44aacc",
         }
+
+        # ── Filter Bar ───────────────────────────────────────────
+        st.markdown("""
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+            <span style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                 letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;">
+                FILTER BY DOMAIN:
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Count signals per domain for filter badges
+        domain_counts = {}
+        for _s in signals:
+            _d = get_domain(_s[3] or "", _s[8] or "", _s[1] or "")
+            domain_counts[_d] = domain_counts.get(_d, 0) + 1
+
+        active_filter_now = st.session_state.get("domain_filter", "ALL")
+
+        col_all, col_mil, col_energy, col_cyber, col_pol, col_fin, col_env = st.columns(7)
+        with col_all:
+            _lbl = f"ALL ({len(signals)})" if active_filter_now == "ALL" else f"ALL"
+            filter_all = st.button(_lbl, key="filter_all", use_container_width=True)
+        with col_mil:
+            _c = domain_counts.get("Military & Conflict", 0)
+            _lbl = f"🔴 MIL ({_c})" if active_filter_now == "Military & Conflict" else f"⬤ MIL ({_c})"
+            filter_mil = st.button(_lbl, key="filter_mil", use_container_width=True)
+        with col_energy:
+            _c = domain_counts.get("Energy & Trade", 0)
+            _lbl = f"🟡 NRG ({_c})" if active_filter_now == "Energy & Trade" else f"⬤ NRG ({_c})"
+            filter_energy = st.button(_lbl, key="filter_energy", use_container_width=True)
+        with col_cyber:
+            _c = domain_counts.get("Cyber & Tech", 0)
+            _lbl = f"🔵 CYB ({_c})" if active_filter_now == "Cyber & Tech" else f"⬤ CYB ({_c})"
+            filter_cyber = st.button(_lbl, key="filter_cyber", use_container_width=True)
+        with col_pol:
+            _c = domain_counts.get("Political", 0)
+            _lbl = f"🟣 POL ({_c})" if active_filter_now == "Political" else f"⬤ POL ({_c})"
+            filter_pol = st.button(_lbl, key="filter_pol", use_container_width=True)
+        with col_fin:
+            _c = domain_counts.get("Financial", 0)
+            _lbl = f"🩵 FIN ({_c})" if active_filter_now == "Financial" else f"⬤ FIN ({_c})"
+            filter_fin = st.button(_lbl, key="filter_fin", use_container_width=True)
+        with col_env:
+            _c = domain_counts.get("Environment", 0)
+            _lbl = f"🟢 ENV ({_c})" if active_filter_now == "Environment" else f"⬤ ENV ({_c})"
+            filter_env = st.button(_lbl, key="filter_env", use_container_width=True)
+
+        # Track active filter in session state
+        if filter_all:
+            st.session_state["domain_filter"] = "ALL"
+        elif filter_mil:
+            st.session_state["domain_filter"] = "Military & Conflict"
+        elif filter_energy:
+            st.session_state["domain_filter"] = "Energy & Trade"
+        elif filter_cyber:
+            st.session_state["domain_filter"] = "Cyber & Tech"
+        elif filter_pol:
+            st.session_state["domain_filter"] = "Political"
+        elif filter_fin:
+            st.session_state["domain_filter"] = "Financial"
+        elif filter_env:
+            st.session_state["domain_filter"] = "Environment"
+
+        active_filter = st.session_state.get("domain_filter", "ALL")
+
+        # Show active filter indicator
+        if active_filter != "ALL":
+            filter_color = DOMAIN_COLORS.get(active_filter, "#555")
+            st.markdown(
+                f'<div style="font-size:0.65em;color:{filter_color};font-family:JetBrains Mono,monospace;'
+                f'margin-bottom:12px;letter-spacing:0.1em;">SHOWING: {active_filter.upper()} SIGNALS ONLY</div>',
+                unsafe_allow_html=True
+            )
 
         def get_domain(category, platform, description):
             text = (description or "").lower()
@@ -1376,6 +1450,10 @@ with tab1:
 
             domain = get_domain(event_category, platform, description)
             domain_color = DOMAIN_COLORS.get(domain, "#555")
+
+            # Apply domain filter
+            if active_filter != "ALL" and domain != active_filter:
+                continue
 
             desc_safe = (description[:280] + "...").replace('<','&lt;').replace('>','&gt;') if len(description) > 280 else description.replace('<','&lt;').replace('>','&gt;')
             prob_b = safe_float(prob_before)
@@ -1476,6 +1554,19 @@ with tab1:
                              letter-spacing:0.08em; margin-bottom:4px;">Est. Peak Move</div>
                         <div style="font-size:0.78em; font-weight:600; color:#888;">
                             {time_to_peak}
+                        </div>
+                    </div>
+                    <div style="background:#0c0c10; border:1px solid #1a1a24;
+                         padding:8px 14px; border-radius:2px; min-width:130px;">
+                        <div style="font-size:0.58em; color:#444; text-transform:uppercase;
+                             letter-spacing:0.08em; margin-bottom:4px;">Signal Decay</div>
+                        <div style="font-size:0.72em; font-weight:600; color:{'#2a9a4a' if (expires_at and (expires_at - datetime.now(expires_at.tzinfo)).total_seconds() > 43200) else '#e8b84b' if (expires_at and (expires_at - datetime.now(expires_at.tzinfo)).total_seconds() > 7200) else '#cc2200'};">
+                            {time_remaining(expires_at)} LEFT
+                        </div>
+                        <div style="background:#111; height:3px; border-radius:1px; margin-top:4px;">
+                            <div style="background:{'#2a9a4a' if (expires_at and (expires_at - datetime.now(expires_at.tzinfo)).total_seconds() > 43200) else '#e8b84b' if (expires_at and (expires_at - datetime.now(expires_at.tzinfo)).total_seconds() > 7200) else '#cc2200'};
+                                 height:3px; border-radius:1px;
+                                 width:{min(100, max(2, int(((expires_at - datetime.now(expires_at.tzinfo)).total_seconds() / (72*3600)) * 100))) if expires_at and expires_at.tzinfo else 50}%;"></div>
                         </div>
                     </div>
                 </div>
@@ -2052,9 +2143,231 @@ with tab1:
             st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
 # ============================================================
-# TAB 2 — SIGNAL DETAIL
+# TAB 2 — WORLD MAP
 # ============================================================
 with tab2:
+    st.markdown("""
+    <div style="margin-bottom:16px;">
+        <div style="font-size:0.65em;color:var(--text-muted);text-transform:uppercase;
+             letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:8px;">
+            LIVE GEOPOLITICAL SIGNAL MAP — ACTIVE EVENTS
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Build map data from active signals
+    REGION_COORDS = {
+        "Iran":         (32.4279, 53.6880),
+        "Israel":       (31.0461, 34.8516),
+        "Gaza":         (31.3547, 34.3088),
+        "Russia":       (61.5240, 105.3188),
+        "Russia - RT":  (55.7558, 37.6173),
+        "Russia - TASS":(55.7558, 37.6173),
+        "Ukraine":      (48.3794, 31.1656),
+        "China":        (35.8617, 104.1954),
+        "Taiwan":       (23.6978, 120.9605),
+        "North Korea":  (40.3399, 127.5101),
+        "Middle East":  (29.2985, 42.5510),
+        "Global":       (20.0000, 0.0000),
+        "Iraq":         (33.2232, 43.6793),
+        "Syria":        (34.8021, 38.9968),
+        "Lebanon":      (33.8547, 35.8623),
+        "Saudi Arabia": (23.8859, 45.0792),
+        "Yemen":        (15.5527, 48.5164),
+        "Pakistan":     (30.3753, 69.3451),
+        "India":        (20.5937, 78.9629),
+        "Europe":       (54.5260, 15.2551),
+        "Asia":         (34.0479, 100.6197),
+        "Africa":       (8.7832, 34.5085),
+        "Congo":        (-4.0383, 21.7587),
+        "Sudan":        (12.8628, 30.2176),
+        "Libya":        (26.3351, 17.2283),
+    }
+
+    DOMAIN_MAP_COLORS = {
+        "Military & Conflict": "#cc2200",
+        "Energy & Trade":      "#e8b84b",
+        "Cyber & Tech":        "#00aaff",
+        "Political":           "#aa44cc",
+        "Environment":         "#2a9a4a",
+        "Human & Social":      "#ff8800",
+        "Financial":           "#44aacc",
+    }
+
+    # Build HTML map using plotly
+    try:
+        import plotly.graph_objects as go
+
+        lats, lons, texts, colors, sizes = [], [], [], [], []
+
+        for signal in signals:
+            region = signal[2] or "Global"
+            description = signal[1] or ""
+            event_category = signal[3] or ""
+            confidence = signal[7] or "low"
+            platform = signal[8] or ""
+            prob_shift = signal[6] or 0
+
+            # Get coords
+            coords = REGION_COORDS.get(region)
+            if not coords:
+                # Try partial match
+                for k, v in REGION_COORDS.items():
+                    if k.lower() in region.lower() or region.lower() in k.lower():
+                        coords = v
+                        break
+            if not coords:
+                coords = (20.0, 0.0)
+
+            domain = get_domain(event_category, platform, description)
+            color = DOMAIN_MAP_COLORS.get(domain, "#888")
+            size = 20 if confidence == "high" else 14 if confidence == "medium" else 10
+
+            desc_short = description[:80] + "..." if len(description) > 80 else description
+            text = f"<b>{region}</b><br>{domain}<br>{platform}<br>{desc_short}"
+
+            lats.append(coords[0])
+            lons.append(coords[1])
+            texts.append(text)
+            colors.append(color)
+            sizes.append(size)
+
+        fig = go.Figure()
+
+        fig.add_trace(go.Scattergeo(
+            lat=lats,
+            lon=lons,
+            text=texts,
+            hoverinfo="text",
+            mode="markers",
+            marker=dict(
+                size=sizes,
+                color=colors,
+                opacity=0.85,
+                line=dict(width=1, color="rgba(255,255,255,0.3)"),
+            )
+        ))
+
+        fig.update_layout(
+            geo=dict(
+                projection_type="natural earth",
+                showland=True,
+                landcolor="#0d0d18",
+                showocean=True,
+                oceancolor="#07070d",
+                showcountries=True,
+                countrycolor="rgba(255,255,255,0.08)",
+                showcoastlines=True,
+                coastlinecolor="rgba(255,255,255,0.1)",
+                bgcolor="#030305",
+                framecolor="rgba(255,255,255,0.06)",
+            ),
+            paper_bgcolor="#030305",
+            plot_bgcolor="#030305",
+            margin=dict(l=0, r=0, t=0, b=0),
+            height=520,
+            hoverlabel=dict(
+                bgcolor="#0d0d18",
+                font=dict(color="#e0e0e0", size=12),
+                bordercolor="rgba(255,255,255,0.15)",
+            ),
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Legend
+        legend_items = ""
+        for domain, color in DOMAIN_MAP_COLORS.items():
+            count = sum(1 for s in signals if get_domain(s[3] or "", s[8] or "", s[1] or "") == domain)
+            if count > 0:
+                legend_items += (
+                    f'<span style="display:inline-flex;align-items:center;gap:6px;'
+                    f'margin-right:16px;font-size:0.65em;font-family:JetBrains Mono,monospace;">'
+                    f'<span style="width:10px;height:10px;border-radius:50%;'
+                    f'background:{color};display:inline-block;"></span>'
+                    f'<span style="color:{color};">{domain.upper()}</span>'
+                    f'<span style="color:var(--text-muted);">({count})</span>'
+                    f'</span>'
+                )
+
+        st.markdown(
+            f'<div style="padding:12px 0;border-top:1px solid var(--border);'
+            f'margin-top:8px;">{legend_items}</div>',
+            unsafe_allow_html=True
+        )
+
+        # Signal list below map
+        st.markdown("""
+        <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+             letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;
+             margin:20px 0 12px;">
+            ACTIVE SIGNAL LOCATIONS
+        </div>
+        """, unsafe_allow_html=True)
+
+        for signal in signals:
+            region      = signal[2] or "Global"
+            description = signal[1] or ""
+            event_cat   = signal[3] or ""
+            confidence  = signal[7] or "low"
+            platform    = signal[8] or ""
+            signal_time = signal[10]
+            expires_at  = signal[11]
+            domain      = get_domain(event_cat, platform, description)
+            domain_color= DOMAIN_MAP_COLORS.get(domain, "#888")
+
+            # Signal decay calculation
+            decay_pct = 100
+            decay_label = "FRESH"
+            decay_color = "var(--green)"
+            if signal_time and expires_at:
+                try:
+                    from datetime import timezone as _tz
+                    now_utc = datetime.now(_tz.utc)
+                    sig_utc = signal_time.replace(tzinfo=_tz.utc) if not signal_time.tzinfo else signal_time
+                    exp_utc = expires_at.replace(tzinfo=_tz.utc) if not expires_at.tzinfo else expires_at
+                    total_life = (exp_utc - sig_utc).total_seconds()
+                    elapsed    = (now_utc - sig_utc).total_seconds()
+                    if total_life > 0:
+                        decay_pct = max(0, int(100 - (elapsed / total_life * 100)))
+                    if decay_pct > 66:
+                        decay_label = "FRESH"
+                        decay_color = "var(--green)"
+                    elif decay_pct > 33:
+                        decay_label = "ACTIVE"
+                        decay_color = "var(--amber)"
+                    else:
+                        decay_label = "FADING"
+                        decay_color = "var(--red)"
+                except Exception:
+                    pass
+
+            conf_emoji = "🔴" if confidence == "high" else "🟡" if confidence == "medium" else "⚪"
+            desc_short = description[:90] + "..." if len(description) > 90 else description
+
+            st.markdown(
+                f'<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;'
+                f'background:var(--bg-card);border:1px solid var(--border);'
+                f'border-left:3px solid {domain_color};border-radius:4px;margin:4px 0;">'
+                f'<span style="font-size:1em;">{conf_emoji}</span>'
+                f'<span style="font-weight:700;color:#e0e0e0;font-family:JetBrains Mono,monospace;'
+                f'min-width:120px;font-size:0.78em;">{region.upper()}</span>'
+                f'<span style="color:{domain_color};font-size:0.65em;font-weight:600;'
+                f'font-family:JetBrains Mono,monospace;min-width:90px;">{domain.upper()[:12]}</span>'
+                f'<span style="color:var(--text-secondary);font-size:0.75em;flex:1;">{desc_short}</span>'
+                f'<span style="color:{decay_color};font-size:0.6em;font-weight:700;'
+                f'font-family:JetBrains Mono,monospace;min-width:60px;text-align:right;">'
+                f'{decay_label} {decay_pct}%</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    except Exception as e:
+        st.error(f"Map error: {e}")
+
+# TAB 2 — SIGNAL DETAIL
+# ============================================================
+with tab3:
     if not all_signals:
         st.info("No signals found.")
     else:
@@ -2156,7 +2469,7 @@ with tab2:
 # ============================================================
 # TAB 3 — BET TRACKER
 # ============================================================
-with tab3:
+with tab4:
     st.markdown("""
     <div style="font-size:0.7em; color:#555; margin-bottom:16px; line-height:1.6;">
         Proof of concept bets — $1 to $5 each. Purpose is blockchain-verified
@@ -2368,20 +2681,384 @@ with tab3:
 # ============================================================
 # TAB 4 — TRACK RECORD
 # ============================================================
-with tab4:
+with tab5:
+    st.markdown("""
+    <div style="text-align:center;padding:24px 0 16px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:2.4em;
+             font-weight:700;letter-spacing:0.15em;color:#f0f0f4;">
+            KAIROS<span style="color:#cc2200;">IQ</span>
+        </div>
+        <div style="font-size:0.65em;color:var(--text-muted);letter-spacing:0.15em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Signal Performance Track Record — The Worsley Intelligence Framework
+        </div>
+        <div style="font-size:0.58em;color:#333;margin-top:6px;font-family:'JetBrains Mono',monospace;">
+            All data independently verifiable · Historical pattern analysis only · Not investment advice
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    outcomes   = fetch_outcomes()
+    trade_summary = fetch_trade_summary()
+
+    total_signals = len(all_signals)
+    hc  = len([s for s in all_signals if s[7] == "high"])
+    mc  = len([s for s in all_signals if s[7] == "medium"])
+    wins   = len([b for b in bets if b[8] == "win"])
+    losses = len([b for b in bets if b[8] == "loss"])
+    total_bets = len(bets)
+    win_rate   = f"{wins/total_bets*100:.0f}%" if total_bets > 0 else "—"
+    total_pnl  = sum(float(b[9] or 0) for b in bets if b[9] is not None)
+    days_live  = (datetime.now() - datetime(2026, 3, 15)).days
+
+    # Trade stats
+    trade_winners = trade_summary[3] if trade_summary else 0
+    trade_losers  = trade_summary[4] if trade_summary else 0
+    trade_pnl     = float(trade_summary[5] or 0) if trade_summary else 0
+    trade_total   = trade_summary[0] if trade_summary else 0
+    trade_win_rate = f"{trade_winners/trade_total*100:.0f}%" if trade_total > 0 else "—"
+
+    # Top metrics
+    st.markdown('<div style="margin:16px 0 8px;font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;">PLATFORM METRICS</div>', unsafe_allow_html=True)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    metrics = [
+        (str(total_signals), "Total Signals", "#f0f0f4"),
+        (str(hc), "High Confidence", "#cc2200"),
+        (str(days_live), "Days Live", "#f0f0f4"),
+        (win_rate, "Signal Win Rate", "#2a9a4a"),
+        (f"${trade_pnl:+.2f}", "Trading P&L", "var(--green)" if trade_pnl >= 0 else "var(--red)"),
+        (trade_win_rate, "Trade Win Rate", "#f0f0f4"),
+    ]
+    for col, (val, label, color) in zip([col1,col2,col3,col4,col5,col6], metrics):
+        with col:
+            st.markdown(f"""
+            <div class="stat-box" style="text-align:center;">
+                <span class="stat-value" style="color:{color};font-size:1.4em;">{val}</span>
+                <span class="stat-label">{label}</span>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
+
+    # Signal accuracy by domain
+    st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">SIGNAL DISTRIBUTION BY DOMAIN</div>', unsafe_allow_html=True)
+
+    if all_signals:
+        col1, col2 = st.columns(2)
+        with col1:
+            conf_counts = {}
+            for s in all_signals:
+                c = (s[7] or "unknown").title()
+                conf_counts[c] = conf_counts.get(c, 0) + 1
+            fig = go.Figure(go.Pie(
+                labels=list(conf_counts.keys()),
+                values=list(conf_counts.values()),
+                hole=0.6,
+                marker_colors=["#cc2200", "#e8b84b", "#2a9a4a", "#444"],
+                textfont=dict(family="JetBrains Mono", size=10, color="#e0e0e0")
+            ))
+            fig.update_layout(
+                title=dict(text="BY CONFIDENCE TIER",
+                           font=dict(family="JetBrains Mono", size=10, color="#555")),
+                paper_bgcolor="#07070d", font_color="#888", height=280,
+                margin=dict(l=10,r=10,t=40,b=10),
+                legend=dict(font=dict(family="JetBrains Mono", size=9, color="#888"))
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            platform_counts = {}
+            for s in all_signals:
+                p = (s[8] or "unknown").upper()
+                platform_counts[p] = platform_counts.get(p, 0) + 1
+            fig2 = go.Figure(go.Bar(
+                x=list(platform_counts.keys()),
+                y=list(platform_counts.values()),
+                marker_color="#cc2200",
+                marker_opacity=0.8,
+            ))
+            fig2.update_layout(
+                title=dict(text="BY SOURCE PLATFORM",
+                           font=dict(family="JetBrains Mono", size=10, color="#555")),
+                paper_bgcolor="#07070d", plot_bgcolor="#07070d",
+                font_color="#888", height=280,
+                margin=dict(l=10,r=10,t=40,b=10),
+                xaxis=dict(tickfont=dict(family="JetBrains Mono", size=8, color="#555")),
+                yaxis=dict(tickfont=dict(family="JetBrains Mono", size=8, color="#555"),
+                           gridcolor="rgba(255,255,255,0.04)"),
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
+
+    # Signal timeline
+    st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">SIGNAL TIMELINE — SIGNALS FIRED OVER TIME</div>', unsafe_allow_html=True)
+
+    if all_signals:
+        from collections import defaultdict
+        daily_counts = defaultdict(int)
+        for s in all_signals:
+            if s[10]:
+                day = s[10].strftime("%Y-%m-%d")
+                daily_counts[day] += 1
+
+        if daily_counts:
+            days_sorted = sorted(daily_counts.keys())
+            fig3 = go.Figure()
+            fig3.add_trace(go.Scatter(
+                x=days_sorted,
+                y=[daily_counts[d] for d in days_sorted],
+                mode="lines+markers",
+                line=dict(color="#cc2200", width=2),
+                marker=dict(size=5, color="#cc2200"),
+                fill="tozeroy",
+                fillcolor="rgba(204,34,0,0.08)",
+            ))
+            fig3.update_layout(
+                paper_bgcolor="#07070d", plot_bgcolor="#07070d",
+                font_color="#888", height=200,
+                margin=dict(l=10,r=10,t=10,b=30),
+                xaxis=dict(tickfont=dict(family="JetBrains Mono", size=8, color="#555"),
+                           gridcolor="rgba(255,255,255,0.04)"),
+                yaxis=dict(tickfont=dict(family="JetBrains Mono", size=8, color="#555"),
+                           gridcolor="rgba(255,255,255,0.04)", title="Signals"),
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
+
+    # Trade history table
+    st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">TRADING TRACK RECORD — ALL CLOSED POSITIONS</div>', unsafe_allow_html=True)
+
+    try:
+        conn_tr = get_db()
+        cur_tr  = conn_tr.cursor()
+        cur_tr.execute("""
+            SELECT ticker, side, entry_price, exit_price, pnl_usd,
+                   exit_reason, is_live, created_at, closed_at, notional_usd
+            FROM alpaca_trades
+            WHERE closed_at IS NOT NULL
+            ORDER BY closed_at DESC;
+        """)
+        closed_trades = cur_tr.fetchall()
+        cur_tr.close()
+
+        if closed_trades:
+            for t in closed_trades:
+                ticker, side, entry, exit_p, pnl, reason, is_live, created, closed, notional = t
+                pnl_val   = float(pnl or 0)
+                pct_val   = ((float(exit_p or 0) - float(entry or 0)) / float(entry or 1)) * 100
+                pnl_color = "var(--green)" if pnl_val >= 0 else "var(--red)"
+                result    = "WIN ✅" if pnl_val >= 0 else "LOSS ❌"
+                mode      = "LIVE" if is_live else "PAPER"
+                closed_str = closed.strftime("%Y-%m-%d") if closed else "—"
+
+                st.markdown(
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                    f'padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);'
+                    f'border-radius:4px;margin:3px 0;font-family:JetBrains Mono,monospace;">'
+                    f'<span style="color:#e0e0e0;font-weight:700;min-width:60px;">{ticker}</span>'
+                    f'<span style="color:{"var(--green)" if side=="buy" else "var(--red)"};font-size:0.75em;min-width:50px;">{side.upper()}</span>'
+                    f'<span style="color:#555;font-size:0.72em;min-width:80px;">${float(entry or 0):.2f} → ${float(exit_p or 0):.2f}</span>'
+                    f'<span style="color:#555;font-size:0.68em;min-width:50px;">{mode}</span>'
+                    f'<span style="color:#555;font-size:0.68em;min-width:80px;">{reason or "manual"}</span>'
+                    f'<span style="color:#555;font-size:0.65em;min-width:80px;">{closed_str}</span>'
+                    f'<span style="color:{pnl_color};font-weight:700;min-width:80px;text-align:right;">'
+                    f'{result} {pct_val:+.1f}%</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown('<div style="color:var(--text-muted);font-size:0.75em;padding:20px 0;">No closed positions yet.</div>', unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Trade history error: {e}")
+
+    st.markdown("""
+    <div style="margin-top:24px;padding:16px;background:rgba(204,34,0,0.04);
+         border:1px solid rgba(204,34,0,0.15);border-radius:4px;
+         font-size:0.62em;color:var(--text-muted);font-family:JetBrains Mono,monospace;
+         line-height:1.8;">
+        ⚠️ DISCLAIMER: KairosIQ is a geopolitical intelligence data provider.
+        All signal data represents historical pattern analysis based on The Worsley Intelligence Framework.
+        This is not investment advice. Past signal performance does not guarantee future results.
+        All trades shown are for track record verification purposes only.
+        KairosIQ is not a registered investment advisor.
+    </div>
+    """, unsafe_allow_html=True)
+
     outcomes = fetch_outcomes()
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("SIGNALS GENERATED", len(all_signals))
+    # Key metrics row
+    total_signals = len(all_signals)
+    hc = len([s for s in all_signals if s[7] == "high"])
+    mc = len([s for s in all_signals if s[7] == "medium"])
+    wins = len([b for b in bets if b[8] == "win"])
+    losses = len([b for b in bets if b[8] == "loss"])
+    total_bets = len(bets)
+    win_rate = f"{wins/total_bets*100:.0f}%" if total_bets > 0 else "—"
+    total_pnl = sum(float(b[9] or 0) for b in bets if b[9] is not None)
+    days_live = (datetime.now() - datetime(2026, 3, 15)).days
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.markdown(f"""
+        <div class="stat-box" style="text-align:center;">
+            <span class="stat-value">{total_signals}</span>
+            <span class="stat-label">Total Signals</span>
+        </div>""", unsafe_allow_html=True)
     with col2:
-        hc = len([s for s in all_signals if s[7] == "high"])
-        st.metric("HIGH CONFIDENCE", hc)
-    with col3: st.metric("BETS PLACED", len(bets))
+        st.markdown(f"""
+        <div class="stat-box" style="text-align:center;">
+            <span class="stat-value" style="color:#cc2200;">{hc}</span>
+            <span class="stat-label">High Confidence</span>
+        </div>""", unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"""
+        <div class="stat-box" style="text-align:center;">
+            <span class="stat-value">{win_rate}</span>
+            <span class="stat-label">Bet Win Rate</span>
+        </div>""", unsafe_allow_html=True)
     with col4:
-        wins = len([b for b in bets if b[8] == "win"])
-        total = len(bets)
-        wr = f"{wins/total*100:.0f}%" if total > 0 else "—"
-        st.metric("BET WIN RATE", wr)
+        pnl_color = "var(--green)" if total_pnl >= 0 else "var(--red)"
+        st.markdown(f"""
+        <div class="stat-box" style="text-align:center;">
+            <span class="stat-value" style="color:{pnl_color};">${total_pnl:+.2f}</span>
+            <span class="stat-label">Total P&L</span>
+        </div>""", unsafe_allow_html=True)
+    with col5:
+        st.markdown(f"""
+        <div class="stat-box" style="text-align:center;">
+            <span class="stat-value">{days_live}</span>
+            <span class="stat-label">Days Live</span>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
+
+    # Signal performance charts
+    if all_signals:
+        col1, col2 = st.columns(2)
+        with col1:
+            conf_counts = {}
+            for s in all_signals:
+                c = s[7] or "unknown"
+                conf_counts[c] = conf_counts.get(c, 0) + 1
+            fig = go.Figure(go.Pie(
+                labels=list(conf_counts.keys()),
+                values=list(conf_counts.values()),
+                hole=0.6,
+                marker_colors=["#cc2200", "#e8b84b", "#2a9a4a", "#444"],
+                textfont=dict(family="JetBrains Mono", size=10, color="#888")
+            ))
+            fig.update_layout(
+                title=dict(text="SIGNAL CONFIDENCE DISTRIBUTION",
+                           font=dict(family="JetBrains Mono", size=10, color="#555")),
+                paper_bgcolor="#07070d", font_color="#888", height=280,
+                showlegend=True,
+                legend=dict(font=dict(family="JetBrains Mono", size=9, color="#666")),
+                margin=dict(t=40, b=20, l=20, r=20)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            plat_counts = {}
+            for s in all_signals:
+                p = s[8] or "unknown"
+                plat_counts[p] = plat_counts.get(p, 0) + 1
+            fig2 = go.Figure(go.Bar(
+                x=list(plat_counts.keys()),
+                y=list(plat_counts.values()),
+                marker_color="#cc2200",
+                marker_line_color="#1a0000",
+                marker_line_width=1
+            ))
+            fig2.update_layout(
+                title=dict(text="SIGNALS BY SOURCE",
+                           font=dict(family="JetBrains Mono", size=10, color="#555")),
+                paper_bgcolor="#07070d", plot_bgcolor="#07070d",
+                font_color="#888", height=280,
+                xaxis=dict(tickfont=dict(family="JetBrains Mono", size=9, color="#555"),
+                           gridcolor="#111"),
+                yaxis=dict(tickfont=dict(family="JetBrains Mono", size=9, color="#555"),
+                           gridcolor="#111"),
+                margin=dict(t=40, b=20, l=20, r=20)
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+
+        # Signal timeline
+        df_sig = pd.DataFrame(all_signals, columns=[
+            "id", "description", "region", "category",
+            "prob_before", "prob_after", "prob_shift", "confidence",
+            "platform", "assets", "signal_time", "expires_at", "is_active"
+        ])
+        df_sig["signal_time"] = pd.to_datetime(df_sig["signal_time"])
+        df_sig["short_desc"] = df_sig["description"].str[:60]
+        fig3 = go.Figure(go.Scatter(
+            x=df_sig["signal_time"],
+            y=df_sig["prob_shift"],
+            mode="markers",
+            marker=dict(
+                color=df_sig["confidence"].map(
+                    {"high": "#cc2200", "medium": "#e8b84b", "low": "#2a9a4a"}
+                ).fillna("#444"),
+                size=10, line=dict(width=1, color="#0d0d18")
+            ),
+            text=df_sig["short_desc"],
+            hovertemplate="<b>%{text}</b><br>Shift: %{y:.1f}pts<extra></extra>"
+        ))
+        fig3.update_layout(
+            title=dict(text="SIGNAL TIMELINE — ALL EVENTS",
+                       font=dict(family="JetBrains Mono", size=10, color="#555")),
+            paper_bgcolor="#07070d", plot_bgcolor="#07070d",
+            font_color="#888", height=300,
+            xaxis=dict(tickfont=dict(family="JetBrains Mono", size=9, color="#555"),
+                       gridcolor="rgba(255,255,255,0.05)"),
+            yaxis=dict(title="Signal Strength (pts)",
+                       tickfont=dict(family="JetBrains Mono", size=9, color="#555"),
+                       gridcolor="rgba(255,255,255,0.05)"),
+            margin=dict(t=40, b=20, l=60, r=20)
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+
+    # Notable signals table
+    st.markdown("""
+    <div style="font-size:0.65em;color:var(--text-muted);text-transform:uppercase;
+         letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;
+         margin:16px 0 8px;">Top Signals — By Strength</div>
+    """, unsafe_allow_html=True)
+
+    top_signals = sorted(all_signals, key=lambda x: abs(x[6] or 0), reverse=True)[:10]
+    for s in top_signals:
+        conf = s[7] or "low"
+        conf_color = "#cc2200" if conf == "high" else "#e8b84b" if conf == "medium" else "#2a9a4a"
+        sig_time = s[10].strftime("%Y-%m-%d") if s[10] else "—"
+        shift = s[6] or 0
+        st.markdown(
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border);'
+            f'border-left:3px solid {conf_color};border-radius:4px;margin:4px 0;'
+            f'font-family:JetBrains Mono,monospace;">'
+            f'<div style="flex:1;">'
+            f'<span style="font-size:0.7em;color:{conf_color};font-weight:700;">{conf.upper()}</span>'
+            f'<span style="font-size:0.65em;color:var(--text-muted);margin:0 8px;">·</span>'
+            f'<span style="font-size:0.7em;color:var(--text-secondary);">{s[2]} · {s[8]}</span>'
+            f'<div style="font-size:0.72em;color:var(--text-primary);margin-top:2px;">{(s[1] or "")[:70]}...</div>'
+            f'</div>'
+            f'<div style="text-align:right;min-width:80px;">'
+            f'<div style="font-size:0.8em;font-weight:700;color:var(--amber);">{shift:.0f}pts</div>'
+            f'<div style="font-size:0.6em;color:var(--text-muted);">{sig_time}</div>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown("""
+    <div style="text-align:center;padding:20px 0;font-size:0.6em;
+         color:var(--text-muted);font-family:'JetBrains Mono',monospace;
+         border-top:1px solid var(--border);margin-top:20px;">
+        KairosIQ · Geopolitical Intelligence Platform · The Worsley Intelligence Framework<br>
+        All signals are historical pattern analysis. Not investment advice.
+        Past performance does not guarantee future results.
+    </div>
+    """, unsafe_allow_html=True)
 
     if all_signals:
         col1, col2 = st.columns(2)
@@ -2484,7 +3161,7 @@ with tab4:
 # ============================================================
 # TAB 5 — PROBABILITY CHARTS
 # ============================================================
-with tab5:
+with tab6:
     if not questions:
         st.info("No questions found.")
     else:
@@ -2560,7 +3237,7 @@ with tab5:
 # ============================================================
 # TAB 6 — TRADING
 # ============================================================
-with tab6:
+with tab7:
 
     st.markdown("""
     <div style="font-size:0.65em; color:#555; text-transform:uppercase;
