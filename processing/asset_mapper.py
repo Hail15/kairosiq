@@ -78,15 +78,110 @@ def calculate_signal_strength(prob_shift, confidence_score,
     score += source_scores.get(source_platform or "", 5)
     return min(round(score), 100)
 
-def get_best_performer(assets):
+def detect_de_escalation(description):
+    """
+    Returns True if the signal is a de-escalation / ceasefire event.
+    These flip the expected asset directions vs escalation.
+    """
+    text = (description or "").lower()
+    return any(k in text for k in [
+        "ceasefire", "cease-fire", "peace deal", "peace agreement",
+        "de-escalat", "truce", "diplomatic solution", "negotiations succeed",
+        "reopens", "reopen", "lifted sanctions", "sanctions lifted",
+        "talks resume", "deal reached", "agreement reached",
+        "relief rally", "tension eases", "tensions ease",
+    ])
+
+
+def filter_assets_by_relevance(assets, description, event_category):
+    """
+    Filter out assets that have no relevance to the specific signal description.
+    Prevents Lebanon ceasefire from recommending Taiwan ETFs.
+    """
+    text = (description or "").lower()
+
+    # Asset-specific relevance rules
+    ASSET_RELEVANCE = {
+        "EWT":  ["taiwan", "strait", "cross-strait", "tsmc", "taiwanese"],
+        "TSM":  ["taiwan", "strait", "semiconductor", "chip", "tsmc"],
+        "SMH":  ["semiconductor", "chip", "taiwan", "korea", "memory"],
+        "SOXX": ["semiconductor", "chip", "taiwan", "korea"],
+        "KWEB": ["china", "chinese", "beijing", "alibaba", "tencent", "baidu"],
+        "FXI":  ["china", "chinese", "beijing"],
+        "ZIM":  ["shipping", "ship", "vessel", "port", "container", "freight", "maritime", "suez", "hormuz", "red sea"],
+        "BDRY": ["shipping", "dry bulk", "freight", "commodity transport", "maritime"],
+        "USO":  ["oil", "crude", "opec", "petroleum", "barrel", "hormuz", "iran", "energy"],
+        "BNO":  ["oil", "crude", "opec", "petroleum", "barrel", "hormuz", "iran", "brent", "energy"],
+        "XLE":  ["oil", "energy", "gas", "opec", "petroleum", "refinery", "drilling"],
+        "UNG":  ["natural gas", "lng", "gas supply", "pipeline", "russia", "nordstream"],
+        "REMX": ["rare earth", "minerals", "china mineral", "lithium", "critical mineral"],
+        "JETS": ["airline", "aviation", "travel", "flight", "airport"],
+        "CIBR": ["cyber", "hack", "ransomware", "internet disruption", "malware"],
+    }
+
+    filtered = []
+    for asset in assets:
+        ticker = asset.get("ticker", "")
+        if ticker in ASSET_RELEVANCE:
+            # Only include if description contains at least one relevant keyword
+            relevant_keywords = ASSET_RELEVANCE[ticker]
+            if not any(kw in text for kw in relevant_keywords):
+                continue  # Skip irrelevant asset
+        filtered.append(asset)
+
+    # If filtering removed everything, return top 3 by accuracy as fallback
+    if not filtered:
+        return sorted(assets, key=lambda a: a.get("accuracy", 0), reverse=True)[:3]
+
+    return filtered
+
+
+def get_best_performer(assets, description=None):
     if not assets:
         return None
+
+    # Filter by relevance if description provided
+    if description:
+        assets = filter_assets_by_relevance(assets, description, "")
+
+    # If de-escalation, prefer safe haven assets over conflict assets
+    is_de_escal = detect_de_escalation(description or "")
+
     def asset_score(a):
-        acc = a.get("accuracy", 0) or 0
-        move = abs(a.get("avg_move_72h", 0) or 0)
+        acc    = a.get("accuracy", 0) or 0
+        move   = abs(a.get("avg_move_72h", 0) or 0)
         samples = a.get("sample_size", 0) or 0
+        ticker = a.get("ticker", "")
+        # Penalize energy/shipping on de-escalation
+        if is_de_escal and ticker in ["USO", "BNO", "XLE", "ZIM", "BDRY"]:
+            return acc * move * (1 + samples / 100) * 0.3
         return acc * move * (1 + samples / 100)
+
     return max(assets, key=asset_score)
+
+
+def flip_directions_for_de_escalation(assets, description):
+    """
+    For ceasefire/de-escalation signals, flip expected directions.
+    Oil goes down, defense goes down, gold uncertain, TLT up.
+    """
+    if not detect_de_escalation(description):
+        return assets
+
+    FLIP_TICKERS = {
+        "USO": "down", "BNO": "down", "XLE": "down",
+        "LMT": "down", "NOC": "down", "RTX": "down", "ITA": "down",
+        "ZIM": "down", "BDRY": "down",
+    }
+    result = []
+    for a in assets:
+        ticker = a.get("ticker", "")
+        if ticker in FLIP_TICKERS:
+            a = dict(a)  # copy
+            a["direction"] = FLIP_TICKERS[ticker]
+            a["avg_move_72h"] = -abs(a.get("avg_move_72h", 0) or 0)
+        result.append(a)
+    return result
 
 def get_signal_metadata(assets, prob_shift, confidence_score, source_platform):
     if not assets:

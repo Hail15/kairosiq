@@ -3519,7 +3519,15 @@ with tab7:
                     continue
 
                 metadata = get_signal_metadata(assets, prob_shift, confidence, platform)
-                best     = get_best_performer(assets)
+                best     = get_best_performer(assets, description)
+
+                # Apply de-escalation direction flip
+                try:
+                    from processing.asset_mapper import flip_directions_for_de_escalation
+                    assets = flip_directions_for_de_escalation(assets, description)
+                    best   = get_best_performer(assets, description)
+                except Exception:
+                    pass
 
                 # Skip if best asset was recently closed
                 if best and best.get("ticker", "") in recently_closed:
