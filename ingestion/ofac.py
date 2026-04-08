@@ -97,8 +97,15 @@ NOISE_KEYWORDS = [
     "interest rate cap", "wage cap", "cost of living benefit",
     "ice detention", "newlywed", "undocumented immigrant", "deportation",
     "freed by ice", "immigration arrest", "visa overstay",
+    "soldier freed by ice", "military base detention", "ice after detention",
     "trees are key", "spring offensive vegetation", "drone warfare concealment",
     "war crimes definition", "civilian target definition",
+    "chipmaking step", "packaging capacity", "round trip to taiwan",
+    "next bottleneck for ai", "reserved capacity", "advanced packaging",
+    "rehab center", "mourning the", "rift over", "hezbollah embroil",
+    "general caine", "joint chiefs of staff threat",
+    "drives a tank", "succession talk", "kim ju-ae tank",
+    "postgraduate loan", "interest rate cap",
 ]
 
 # Map keywords to signal categories

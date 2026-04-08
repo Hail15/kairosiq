@@ -1017,12 +1017,23 @@ def fetch_active_signals():
         AND event_description NOT LIKE '%mourning%'
         AND event_description NOT LIKE '%rift over%'
         AND event_description NOT LIKE '%hezbollah embroil%'
-        ORDER BY event_category, region,
+        AND event_description NOT LIKE '%Newlywed%'
+        AND event_description NOT LIKE '%newlywed%'
+        AND event_description NOT LIKE '%soldier freed%'
+        AND event_description NOT LIKE '%ICE after detention%'
+        AND event_description NOT LIKE '%military base%'
+        AND event_description NOT LIKE '%immigration%'
+        AND event_description NOT LIKE '%immigrant%'
+        AND event_description NOT LIKE '%deportation%'
+        AND event_description NOT LIKE '%AI chip%'
+        AND event_description NOT LIKE '%round trip to Taiwan%'
+        AND event_description NOT LIKE '%chipmaking step%'
+        AND event_description NOT LIKE '%packaging capacity%'
+        ORDER BY
+            CASE confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
             signal_time DESC,
-            CASE confidence_score WHEN 'high' THEN 1
-            WHEN 'medium' THEN 2 ELSE 3 END,
             probability_shift DESC
-        LIMIT 15;
+        LIMIT 20;
     """)
     rows = cur.fetchall()
     cur.close()

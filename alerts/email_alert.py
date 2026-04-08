@@ -184,7 +184,7 @@ def get_unalerted_signals():
         FROM signals s
         WHERE s.is_active = true
         AND s.expires_at > NOW()
-        AND s.confidence_score IN ('high', 'medium')
+        AND s.confidence_score IN ('high', 'medium', 'extreme')
         AND s.signal_time >= NOW() - INTERVAL '48 hours'
         AND NOT EXISTS (
             SELECT 1 FROM signal_alerts_sent sas
@@ -194,14 +194,33 @@ def get_unalerted_signals():
             AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
         )
         ORDER BY s.event_category, s.region, s.source_platform,
-            CASE s.confidence_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 END,
+            CASE s.confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 END,
             s.probability_shift DESC
         LIMIT 6;
     """)
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    return rows
+
+    # Secondary dedup — filter signals that share key phrases with already-seen headlines
+    # This prevents "Russia and China Veto Hormuz" and "Iran Calls Off Hormuz Talks"
+    # both firing when they're about the same event
+    KEY_PHRASES = [
+        "strait of hormuz", "hormuz", "suez canal",
+        "taiwan strait", "north korea", "ukraine",
+    ]
+    seen_phrases = set()
+    deduped = []
+    for row in rows:
+        desc_lower = (row[1] or "").lower()
+        phrase_hit = next((p for p in KEY_PHRASES if p in desc_lower), None)
+        if phrase_hit:
+            if phrase_hit in seen_phrases:
+                continue  # Same key event — skip duplicate
+            seen_phrases.add(phrase_hit)
+        deduped.append(row)
+
+    return deduped
 
 
 def mark_signal_alerted(signal_id, event_category=None, region=None, source_platform=None):
