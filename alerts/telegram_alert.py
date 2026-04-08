@@ -108,6 +108,29 @@ def notify_signal(signal):
     assets_json  = signal[9]
     expires_at   = signal[11] if len(signal) > 11 else None
 
+    # Hard noise filter — never send these regardless of DB state
+    TELEGRAM_NOISE = [
+        "newlywed", "freed by ice", "ice after detention", "undocumented immigrant",
+        "military base detention", "deportation", "immigration arrest",
+        "chipmaking step", "packaging capacity", "round trip to taiwan",
+        "next bottleneck", "reserved capacity",
+        "drives a tank", "succession", "kim ju-ae",
+        "spring offensive", "drone warfare concealment",
+        "war crimes", "illegal conduct in war",
+        "rehab center", "mourning", "rift over", "hezbollah embroil",
+        "general caine", "joint chiefs",
+        "trees are key", "vegetation",
+        "student loan", "nhs", "postgraduate",
+        "oscar", "grammy", "kanye", "taylor swift", "beyonce",
+        "salmonella", "listeria", "food recall",
+        "minimum wage", "wage cap",
+    ]
+    desc_lower = description.lower()
+    for noise in TELEGRAM_NOISE:
+        if noise in desc_lower:
+            print(f"   🚫 Telegram noise filter blocked: {description[:60]}")
+            return False
+
     direction_arrow = "▲" if prob_after > prob_before else "▼"
 
     # Domain

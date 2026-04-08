@@ -90,6 +90,9 @@ def detect_de_escalation(description):
         "reopens", "reopen", "lifted sanctions", "sanctions lifted",
         "talks resume", "deal reached", "agreement reached",
         "relief rally", "tension eases", "tensions ease",
+        "bridge for peace", "opposition leader visits", "opposition leader makes first",
+        "first visit since", "peace visit", "diplomatic visit",
+        "gladly accepted", "hopes to be a bridge",
     ])
 
 
