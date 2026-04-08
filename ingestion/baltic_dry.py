@@ -21,7 +21,7 @@ BDI_TICKERS = {
     "BDRY": "Breakwave Dry Bulk Shipping ETF",  # Direct BDI exposure
     "ZIM":  "ZIM Integrated Shipping",           # Container shipping proxy
     "SBLK": "Star Bulk Carriers",                # Dry bulk shipping
-    "GOGL": "Golden Ocean Group",                # Dry bulk shipping
+    "DSX":  "Diana Shipping",                    # Dry bulk shipping
 }
 
 # Anomaly threshold — % change that triggers a signal
