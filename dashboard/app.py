@@ -2633,35 +2633,34 @@ with tab3:
                         mag      = step["magnitude"]
                         desc     = step["description"]
 
-                        acc_color = "#cc2200" if acc >= 75 else "#e8b84b" if acc >= 60 else "#555"
+                        acc_color   = "#cc2200" if acc >= 75 else "#e8b84b" if acc >= 60 else "#555"
                         order_color = "#cc2200" if order == 1 else "#e8b84b" if order == 2 else "#555"
 
-                        st.markdown(f"""
-                        <div style="display:flex;gap:12px;padding:12px 14px;
-                             background:var(--bg-card);border:1px solid var(--border);
-                             border-left:3px solid {order_color};
-                             border-radius:4px;margin:4px 0;">
-                            <div style="min-width:24px;text-align:center;">
-                                <span style="color:{order_color};font-weight:700;
-                                     font-family:JetBrains Mono,monospace;font-size:0.85em;">
-                                     {order}
-                                </span>
-                            </div>
-                            <div style="flex:1;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;">
-                                    <span style="color:#e0e0e0;font-weight:700;font-size:0.82em;">{effect}</span>
-                                    <span style="color:var(--text-muted);font-family:JetBrains Mono,monospace;
-                                         font-size:0.62em;">⏱ {timing}</span>
-                                </div>
-                                <div style="color:var(--text-muted);font-size:0.68em;margin-top:3px;">{desc}</div>
-                                <div style="display:flex;gap:16px;margin-top:6px;font-size:0.65em;font-family:JetBrains Mono,monospace;">
-                                    {f'<span style="color:var(--green);">▲ {up_tickers}</span>' if up_tickers else ''}
-                                    {f'<span style="color:var(--red);">▼ {dn_tickers}</span>' if dn_tickers else ''}
-                                    <span style="color:{acc_color};">{acc}% acc · {mag}</span>
-                                </div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        up_span  = f'<span style="color:#2a9a4a;">▲ {up_tickers}</span>' if up_tickers else ''
+                        dn_span  = f'<span style="color:#cc2200;">▼ {dn_tickers}</span>' if dn_tickers else ''
+                        acc_span = f'<span style="color:{acc_color};">{acc}% acc · {mag}</span>'
+
+                        html = (
+                            f'<div style="display:flex;gap:12px;padding:12px 14px;'
+                            f'background:#0d0d18;border:1px solid #1a1a2e;'
+                            f'border-left:3px solid {order_color};border-radius:4px;margin:4px 0;">'
+                            f'<div style="min-width:24px;text-align:center;">'
+                            f'<span style="color:{order_color};font-weight:700;'
+                            f'font-family:JetBrains Mono,monospace;font-size:0.85em;">{order}</span>'
+                            f'</div>'
+                            f'<div style="flex:1;">'
+                            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                            f'<span style="color:#e0e0e0;font-weight:700;font-size:0.82em;">{effect}</span>'
+                            f'<span style="color:#555;font-family:JetBrains Mono,monospace;'
+                            f'font-size:0.62em;">&#9201; {timing}</span>'
+                            f'</div>'
+                            f'<div style="color:#888;font-size:0.68em;margin-top:3px;">{desc}</div>'
+                            f'<div style="display:flex;gap:16px;margin-top:6px;font-size:0.65em;'
+                            f'font-family:JetBrains Mono,monospace;">'
+                            f'{up_span}&nbsp;{dn_span}&nbsp;{acc_span}'
+                            f'</div></div></div>'
+                        )
+                        st.markdown(html, unsafe_allow_html=True)
 
                     st.markdown("""
                     <div style="font-size:0.6em;color:#333;margin-top:8px;font-family:JetBrains Mono,monospace;">
