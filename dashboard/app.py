@@ -1345,11 +1345,11 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13, tab14 = st.tabs([
     "LIVE SIGNALS", "WORLD MAP", "SIGNAL DETAIL", "BET TRACKER",
     "TRACK RECORD", "PROBABILITY CHARTS", "TRADING",
     "SCENARIO BUILDER", "COUNTRY RISK",
-    "PORTFOLIO", "BACKTESTER", "GPI INDEX", "SIGNAL Q&A"
+    "PORTFOLIO", "BACKTESTER", "GPI INDEX", "SIGNAL Q&A", "FORWARD CALENDAR"
 ])
 
 # ============================================================
@@ -5277,5 +5277,162 @@ Answer based on the above data. Be specific about historical patterns and curren
     Signal Q&A uses AI analysis of historical geopolitical data and current platform signals.
     All responses are for informational purposes only. Not investment advice.
     Historical patterns do not guarantee future results.
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# TAB 14 — FORWARD CALENDAR
+# ============================================================
+with tab14:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            FORWARD <span style="color:#cc2200;">CALENDAR</span>
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            Known upcoming geopolitical events — historical market impact projections
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    try:
+        from ingestion.forward_calendar import get_all_events
+
+        all_cal_events = get_all_events()
+        upcoming_90 = [e for e in all_cal_events if e.get("days_away") is not None and 0 <= e["days_away"] <= 90]
+
+        if not upcoming_90:
+            st.info("No events in the next 90 days.")
+        else:
+            # Summary metrics
+            imminent = [e for e in upcoming_90 if e["days_away"] <= 7]
+            high_impact = [e for e in upcoming_90 if e["sensitivity"] >= 9]
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.markdown(f"""
+                <div class="stat-box" style="text-align:center;border-left:3px solid var(--red);">
+                    <span class="stat-value" style="color:var(--red);">{len(imminent)}</span>
+                    <span class="stat-label">Imminent (7 days)</span>
+                </div>""", unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class="stat-box" style="text-align:center;border-left:3px solid var(--amber);">
+                    <span class="stat-value" style="color:var(--amber);">{len(high_impact)}</span>
+                    <span class="stat-label">High Impact (9-10)</span>
+                </div>""", unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""
+                <div class="stat-box" style="text-align:center;">
+                    <span class="stat-value">{len(upcoming_90)}</span>
+                    <span class="stat-label">Total (90 days)</span>
+                </div>""", unsafe_allow_html=True)
+
+            st.markdown('<hr class="kiq-divider" style="margin:16px 0 12px;">', unsafe_allow_html=True)
+
+            # Time horizon filter
+            horizon = st.select_slider(
+                "Show events within:",
+                options=[7, 14, 30, 60, 90],
+                value=30,
+                key="cal_horizon"
+            )
+
+            filtered_events = [e for e in upcoming_90 if e["days_away"] <= horizon]
+
+            st.markdown(f'<div style="font-size:0.62em;color:#555;font-family:JetBrains Mono,monospace;margin-bottom:12px;">{len(filtered_events)} EVENTS IN NEXT {horizon} DAYS</div>', unsafe_allow_html=True)
+
+            for event in filtered_events:
+                days_away    = event["days_away"]
+                sensitivity  = event["sensitivity"]
+                event_name   = event["event"]
+                event_date   = event["date"]
+                region       = event["region"]
+                avg_move     = event["avg_move"]
+                accuracy     = int(event["accuracy"] * 100)
+                hist_note    = event["historical_note"]
+                assets_up    = event.get("assets_up", [])
+                assets_down  = event.get("assets_down", [])
+
+                # Urgency color
+                if days_away <= 3:
+                    urgency_color = "#cc2200"
+                    urgency_label = "🚨 IMMINENT"
+                elif days_away <= 7:
+                    urgency_color = "#e8b84b"
+                    urgency_label = "⚠️ THIS WEEK"
+                elif days_away <= 14:
+                    urgency_color = "#e8b84b"
+                    urgency_label = "📅 2 WEEKS"
+                else:
+                    urgency_color = "#555"
+                    urgency_label = f"📅 {days_away}d"
+
+                # Sensitivity bar
+                sens_bar = "█" * sensitivity + "░" * (10 - sensitivity)
+
+                up_str   = " · ".join(assets_up[:4])
+                down_str = " · ".join(assets_down[:3])
+
+                st.markdown(f"""
+                <div style="background:#0d0d18;border:1px solid #1a1a2e;
+                     border-left:4px solid {urgency_color};
+                     border-radius:4px;padding:16px;margin:6px 0;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <div style="flex:1;">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+                                <span style="color:{urgency_color};font-family:JetBrains Mono,monospace;
+                                     font-size:0.7em;font-weight:700;">{urgency_label}</span>
+                                <span style="color:#e0e0e0;font-weight:700;font-size:0.92em;">{event_name}</span>
+                            </div>
+                            <div style="display:flex;gap:16px;font-size:0.65em;
+                                 font-family:JetBrains Mono,monospace;color:#555;margin-bottom:8px;">
+                                <span>📅 {event_date}</span>
+                                <span>📍 {region}</span>
+                                <span>🎯 {accuracy}% historical accuracy</span>
+                            </div>
+                            <div style="font-size:0.68em;color:#888;margin-bottom:8px;line-height:1.5;">
+                                {hist_note}
+                            </div>
+                            <div style="display:flex;gap:16px;font-size:0.65em;">
+                                <span style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-weight:700;">
+                                    Expected: {avg_move}
+                                </span>
+                                {f'<span style="color:#2a9a4a;">▲ {up_str}</span>' if up_str else ''}
+                                {f'<span style="color:#cc2200;">▼ {down_str}</span>' if down_str else ''}
+                            </div>
+                        </div>
+                        <div style="text-align:center;min-width:80px;padding-left:16px;">
+                            <div style="font-size:2em;font-weight:700;color:{urgency_color};
+                                 font-family:'Barlow Condensed',sans-serif;line-height:1;">
+                                {days_away}
+                            </div>
+                            <div style="font-size:0.58em;color:#555;font-family:JetBrains Mono,monospace;">
+                                DAYS
+                            </div>
+                            <div style="font-size:0.55em;color:{urgency_color};
+                                 font-family:JetBrains Mono,monospace;margin-top:4px;">
+                                {sens_bar}
+                            </div>
+                            <div style="font-size:0.55em;color:#555;font-family:JetBrains Mono,monospace;">
+                                IMPACT {sensitivity}/10
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error(f"Forward calendar error: {e}")
+
+    st.markdown("""
+    <div class="disclaimer" style="margin-top:20px;">
+    Forward calendar events and projected market impacts are based on historical pattern analysis only.
+    Future events may differ significantly from historical precedents.
+    This is not investment advice. Not all events listed may occur as scheduled.
     </div>
     """, unsafe_allow_html=True)

@@ -26,6 +26,7 @@ from ingestion.cftc_cot import run_cftc_ingestion
 from ingestion.fred_economic import run_fred_ingestion
 from ingestion.options_flow import run_options_flow_ingestion
 from signals.correlation_monitor import run_correlation_monitor
+from ingestion.forward_calendar import run_forward_calendar
 from signals.signal_engine import run_signal_engine
 from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
@@ -223,6 +224,11 @@ def run_full_cycle():
         run_correlation_monitor()
     except Exception as e:
         print(f"❌ Correlation monitor error: {e}")
+
+    try:
+        run_forward_calendar()
+    except Exception as e:
+        print(f"❌ Forward calendar error: {e}")
 
     # ── Signal Detection & Alerts ────────────────────────────
     try:
