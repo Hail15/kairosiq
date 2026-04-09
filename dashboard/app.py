@@ -3637,7 +3637,6 @@ with tab7:
                                          border:1px solid #222; padding:1px 6px;">
                                 {tier_label}
                             </span>
-                            {dip_badge}
                         </div>
                         <div style="font-size:0.72em; color:#e8b84b;
                                     font-weight:600;">
@@ -3657,9 +3656,14 @@ with tab7:
                             {'✓ ' + note if tradeable else '✗ ' + note}
                         </span>
                     </div>
-                    {dip_context}
                 </div>
                 """, unsafe_allow_html=True)
+
+                # Render dip badge separately to avoid f-string HTML conflicts
+                if dip_badge:
+                    st.markdown(dip_badge, unsafe_allow_html=True)
+                if dip_context:
+                    st.markdown(dip_context, unsafe_allow_html=True)
 
                 # Manual log form — only show for tradeable assets
                 if tradeable:
