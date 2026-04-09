@@ -3590,41 +3590,33 @@ with tab7:
                     if len(_hist) >= 2:
                         _today_chg = (_hist["Close"].iloc[-1] - _hist["Close"].iloc[-2]) / _hist["Close"].iloc[-2] * 100
                         if side == "BUY" and _today_chg <= -3.0:
-                            # Signal says UP but stock is down today — discounted entry
-                            dip_badge = f"""
-                            <span style="background:rgba(42,154,74,0.15);border:1px solid #2a9a4a;
-                                 color:#2a9a4a;padding:2px 8px;border-radius:3px;
-                                 font-family:JetBrains Mono,monospace;font-size:0.65em;
-                                 font-weight:700;margin-left:8px;">
-                                 📉 DIP ENTRY {_today_chg:+.1f}%
-                            </span>"""
-                            dip_context = f"""
-                            <div style="background:rgba(42,154,74,0.06);border:1px solid rgba(42,154,74,0.2);
-                                 border-radius:3px;padding:8px 12px;margin-top:8px;
-                                 font-size:0.7em;color:#2a9a4a;">
-                                ⚡ <b>DISCOUNTED ENTRY OPPORTUNITY</b> — {ticker} is down {_today_chg:.1f}% today
-                                while the signal historically predicts +{avg72:.1f}% over 72h.
-                                Buying at current levels means entering below the expected signal-driven price.
-                                Historical accuracy: {acc:.0f}%. Not investment advice.
-                            </div>"""
+                            dip_badge = (
+                                '<span style="background:rgba(42,154,74,0.15);border:1px solid #2a9a4a;'
+                                'color:#2a9a4a;padding:2px 8px;border-radius:3px;'
+                                'font-family:JetBrains Mono,monospace;font-size:0.65em;'
+                                f'font-weight:700;margin-left:8px;">📉 DIP ENTRY {_today_chg:+.1f}%</span>'
+                            )
+                            dip_context = (
+                                '<div style="background:rgba(42,154,74,0.06);border:1px solid rgba(42,154,74,0.2);'
+                                'border-radius:3px;padding:8px 12px;margin-top:8px;font-size:0.7em;color:#2a9a4a;">'
+                                f'⚡ <b>DISCOUNTED ENTRY</b> — {ticker} down {_today_chg:.1f}% today '
+                                f'while signal predicts +{avg72:.1f}% over 72h. '
+                                f'Historical accuracy: {acc:.0f}%. Not investment advice.</div>'
+                            )
                         elif side == "SELL SHORT" and _today_chg >= 3.0:
-                            # Signal says DOWN but stock is up today — elevated short entry
-                            dip_badge = f"""
-                            <span style="background:rgba(204,34,0,0.15);border:1px solid #cc2200;
-                                 color:#cc2200;padding:2px 8px;border-radius:3px;
-                                 font-family:JetBrains Mono,monospace;font-size:0.65em;
-                                 font-weight:700;margin-left:8px;">
-                                 📈 ELEVATED SHORT {_today_chg:+.1f}%
-                            </span>"""
-                            dip_context = f"""
-                            <div style="background:rgba(204,34,0,0.06);border:1px solid rgba(204,34,0,0.2);
-                                 border-radius:3px;padding:8px 12px;margin-top:8px;
-                                 font-size:0.7em;color:#cc2200;">
-                                ⚡ <b>ELEVATED SHORT ENTRY</b> — {ticker} is up {_today_chg:.1f}% today
-                                while the signal historically predicts -{avg72:.1f}% over 72h.
-                                Shorting at elevated levels increases potential return if signal plays out.
-                                Historical accuracy: {acc:.0f}%. Not investment advice.
-                            </div>"""
+                            dip_badge = (
+                                '<span style="background:rgba(204,34,0,0.15);border:1px solid #cc2200;'
+                                'color:#cc2200;padding:2px 8px;border-radius:3px;'
+                                'font-family:JetBrains Mono,monospace;font-size:0.65em;'
+                                f'font-weight:700;margin-left:8px;">📈 ELEVATED SHORT {_today_chg:+.1f}%</span>'
+                            )
+                            dip_context = (
+                                '<div style="background:rgba(204,34,0,0.06);border:1px solid rgba(204,34,0,0.2);'
+                                'border-radius:3px;padding:8px 12px;margin-top:8px;font-size:0.7em;color:#cc2200;">'
+                                f'⚡ <b>ELEVATED SHORT ENTRY</b> — {ticker} up {_today_chg:.1f}% today '
+                                f'while signal predicts -{avg72:.1f}% over 72h. '
+                                f'Historical accuracy: {acc:.0f}%. Not investment advice.</div>'
+                            )
                 except Exception:
                     pass
 
