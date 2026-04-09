@@ -571,24 +571,19 @@ st.markdown(f"""
     The KairosIQ Geopolitical Pressure Index (GPI) is a proprietary composite intelligence score 
     produced by KairosIQ using The Worsley Intelligence Framework. The GPI reflects current 
     geopolitical signal activity and is updated every 15 minutes using live data feeds.<br><br>
-    
-    The GPI is provided for <b>informational and research purposes only</b>. It does not constitute 
+    The GPI is provided for informational and research purposes only. It does not constitute 
     investment advice, a recommendation to buy or sell any financial instrument, or a solicitation 
     of any investment. Past signal performance does not guarantee future results. Geopolitical 
     events are inherently unpredictable and historical correlations may not hold in future 
     market conditions.<br><br>
-    
     KairosIQ is not a registered investment adviser, broker-dealer, or financial institution. 
     The GPI methodology is based on The Worsley Intelligence Framework — a proprietary taxonomy 
     of 124 geopolitical indicators across 12 domains, weighted by documented historical market 
     sensitivity across 65 verified geopolitical events (2018-2026).<br><br>
-    
-    <span style="color:#444;">
     © {datetime.now().year} KairosIQ. All rights reserved. 
     The KairosIQ GPI Index and Worsley Intelligence Framework are proprietary methodologies. 
     Unauthorized reproduction or distribution is prohibited.
     Powered by KairosIQ Intelligence Platform · kairosiq.streamlit.app
-    </span>
 </div>
 """, unsafe_allow_html=True)
 
