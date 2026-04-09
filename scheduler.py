@@ -31,6 +31,8 @@ from signals.signal_validator import run_signal_validator
 from alerts.exit_alert import run_exit_alerts
 from processing.asset_mapper import backfill_missing_assets
 from signals.convergence_engine import run_convergence_engine
+from signals.cascade_engine import run_cascade_engine
+from signals.regime_detector import run_regime_detector
 
 def run_morning_digest():
     """
@@ -228,6 +230,18 @@ def run_full_cycle():
         run_convergence_engine()
     except Exception as e:
         print(f"❌ Convergence engine error: {e}")
+
+    # Run cascade chain engine — maps second/third order effects
+    try:
+        run_cascade_engine()
+    except Exception as e:
+        print(f"❌ Cascade engine error: {e}")
+
+    # Run regime detector — detects macro overrides of geopolitical signals
+    try:
+        run_regime_detector()
+    except Exception as e:
+        print(f"❌ Regime detector error: {e}")
 
     # Always run email alerts every cycle — catches news/GDELT/Cloudflare signals too
     try:

@@ -1356,6 +1356,57 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13
 # TAB 1 — LIVE SIGNALS
 # ============================================================
 with tab1:
+
+    # Regime Detection Banner
+    try:
+        from signals.regime_detector import get_current_regime
+        regime_row = get_current_regime()
+        if regime_row:
+            regime_name, regime_conf, regime_desc, regime_warnings_json, regime_time = regime_row
+            try:
+                regime_warnings = json.loads(regime_warnings_json) if isinstance(regime_warnings_json, str) else regime_warnings_json
+            except Exception:
+                regime_warnings = []
+
+            regime_colors = {
+                "NORMAL":           ("var(--green)",  "✅"),
+                "TARIFF_SHOCK":     ("var(--red)",    "🚨"),
+                "EXTREME_RISK_OFF": ("#ff0000",       "🚨"),
+                "INFLATION_SHOCK":  ("var(--amber)",  "⚠️"),
+                "RECESSION_FEAR":   ("var(--amber)",  "⚠️"),
+                "DOLLAR_CRISIS":    ("var(--amber)",  "⚠️"),
+            }
+            r_color, r_emoji = regime_colors.get(regime_name, ("var(--amber)", "⚠️"))
+
+            if regime_name != "NORMAL":
+                warn_html = "".join([
+                    f'<div style="font-size:0.68em;color:var(--text-secondary);'
+                    f'font-family:JetBrains Mono,monospace;margin-top:3px;">{w}</div>'
+                    for w in (regime_warnings or [])[:3]
+                ])
+                st.markdown(f"""
+                <div style="background:rgba(204,34,0,0.06);border:1px solid {r_color};
+                     border-left:4px solid {r_color};border-radius:4px;
+                     padding:12px 16px;margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="color:{r_color};font-weight:700;font-family:JetBrains Mono,monospace;
+                             font-size:0.78em;letter-spacing:0.08em;">
+                            {r_emoji} MACRO REGIME: {regime_name.replace('_',' ')}
+                        </span>
+                        <span style="color:var(--text-muted);font-size:0.62em;
+                             font-family:JetBrains Mono,monospace;">
+                            {regime_conf:.0%} confidence
+                        </span>
+                    </div>
+                    <div style="color:var(--text-secondary);font-size:0.72em;margin-top:6px;">
+                        {regime_desc[:200]}
+                    </div>
+                    {warn_html}
+                </div>
+                """, unsafe_allow_html=True)
+    except Exception:
+        pass
+
     if not signals:
         st.markdown("""
         <div style="padding:40px; text-align:center; color:#333; font-size:0.8em;
@@ -2553,6 +2604,73 @@ with tab3:
             Past performance does not guarantee future results.
             </div>""", unsafe_allow_html=True)
 
+            # Cascade Chain Display
+            try:
+                from signals.cascade_engine import get_cascade_for_signal
+                cascade = get_cascade_for_signal(
+                    selected[3] or "",
+                    selected[1] or ""
+                )
+                if cascade:
+                    st.markdown('<hr class="kiq-divider" style="margin:20px 0 12px;">', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;
+                         letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:4px;">
+                         🔗 CASCADE CHAIN — SECOND & THIRD ORDER EFFECTS
+                    </div>
+                    <div style="font-size:0.72em;color:var(--text-secondary);margin-bottom:16px;">
+                        {cascade['trigger']}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    for step in cascade["chain"]:
+                        order    = step["order"]
+                        effect   = step["effect"]
+                        timing   = step["timing"]
+                        up_tickers = " · ".join(step.get("assets_up", [])[:4])
+                        dn_tickers = " · ".join(step.get("assets_down", [])[:3])
+                        acc      = int(step["accuracy"] * 100)
+                        mag      = step["magnitude"]
+                        desc     = step["description"]
+
+                        acc_color = "#cc2200" if acc >= 75 else "#e8b84b" if acc >= 60 else "#555"
+                        order_color = "#cc2200" if order == 1 else "#e8b84b" if order == 2 else "#555"
+
+                        st.markdown(f"""
+                        <div style="display:flex;gap:12px;padding:12px 14px;
+                             background:var(--bg-card);border:1px solid var(--border);
+                             border-left:3px solid {order_color};
+                             border-radius:4px;margin:4px 0;">
+                            <div style="min-width:24px;text-align:center;">
+                                <span style="color:{order_color};font-weight:700;
+                                     font-family:JetBrains Mono,monospace;font-size:0.85em;">
+                                     {order}
+                                </span>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <span style="color:#e0e0e0;font-weight:700;font-size:0.82em;">{effect}</span>
+                                    <span style="color:var(--text-muted);font-family:JetBrains Mono,monospace;
+                                         font-size:0.62em;">⏱ {timing}</span>
+                                </div>
+                                <div style="color:var(--text-muted);font-size:0.68em;margin-top:3px;">{desc}</div>
+                                <div style="display:flex;gap:16px;margin-top:6px;font-size:0.65em;font-family:JetBrains Mono,monospace;">
+                                    {f'<span style="color:var(--green);">▲ {up_tickers}</span>' if up_tickers else ''}
+                                    {f'<span style="color:var(--red);">▼ {dn_tickers}</span>' if dn_tickers else ''}
+                                    <span style="color:{acc_color};">{acc}% acc · {mag}</span>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    st.markdown("""
+                    <div style="font-size:0.6em;color:#333;margin-top:8px;font-family:JetBrains Mono,monospace;">
+                    Cascade chain is based on historical precedent analysis.
+                    Timing and magnitude are estimates only. Not investment advice.
+                    </div>""", unsafe_allow_html=True)
+            except Exception as e:
+                pass
+
 # ============================================================
 # TAB 3 — BET TRACKER
 # ============================================================
@@ -2914,6 +3032,70 @@ with tab5:
     st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
 
     # Trade history table
+    st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">SIGNAL ACCURACY LEADERBOARD — VERIFIED OUTCOMES</div>', unsafe_allow_html=True)
+
+    try:
+        conn_acc = get_db()
+        cur_acc  = conn_acc.cursor()
+        cur_acc.execute("""
+            SELECT
+                s.event_category,
+                COUNT(DISTINCT so.signal_id) as signal_count,
+                ROUND(AVG(CASE WHEN so.direction_correct_72h THEN 1.0 ELSE 0.0 END) * 100, 1) as acc_72h,
+                ROUND(AVG(CASE WHEN so.direction_correct_24h THEN 1.0 ELSE 0.0 END) * 100, 1) as acc_24h,
+                ROUND(AVG(CASE WHEN so.direction_correct_168h THEN 1.0 ELSE 0.0 END) * 100, 1) as acc_168h,
+                COUNT(DISTINCT so.asset_ticker) as assets_tracked
+            FROM signal_outcomes so
+            JOIN signals s ON s.id = so.signal_id
+            WHERE so.direction_correct_72h IS NOT NULL
+            GROUP BY s.event_category
+            ORDER BY acc_72h DESC
+            LIMIT 10;
+        """)
+        acc_rows = cur_acc.fetchall()
+        cur_acc.close()
+        conn_acc.close()
+
+        if acc_rows:
+            for row in acc_rows:
+                cat, sig_count, acc_72, acc_24, acc_168, assets = row
+                acc_72  = float(acc_72 or 0)
+                acc_24  = float(acc_24 or 0)
+                acc_168 = float(acc_168 or 0)
+                bar_color = "#cc2200" if acc_72 >= 70 else "#e8b84b" if acc_72 >= 55 else "#555"
+                cat_clean = (cat or "unknown").replace("_", " ").upper()
+                bar_width = max(4, int(acc_72))
+
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;'
+                    f'background:var(--bg-card);border:1px solid var(--border);'
+                    f'border-radius:4px;margin:4px 0;">'
+                    f'<span style="color:#e0e0e0;font-size:0.75em;min-width:220px;'
+                    f'font-family:JetBrains Mono,monospace;font-weight:600;">{cat_clean[:28]}</span>'
+                    f'<div style="flex:1;background:rgba(255,255,255,0.05);border-radius:2px;height:8px;">'
+                    f'<div style="width:{bar_width}%;background:{bar_color};height:8px;border-radius:2px;"></div>'
+                    f'</div>'
+                    f'<span style="color:{bar_color};font-weight:700;font-family:JetBrains Mono,monospace;'
+                    f'font-size:0.82em;min-width:50px;text-align:right;">{acc_72:.0f}%</span>'
+                    f'<span style="color:var(--text-muted);font-size:0.65em;min-width:80px;">'
+                    f'72h accuracy</span>'
+                    f'<span style="color:var(--text-muted);font-size:0.65em;min-width:60px;">'
+                    f'{sig_count} signals</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown("""
+            <div style="color:var(--text-muted);font-size:0.75em;padding:16px;
+                 background:var(--bg-card);border:1px solid var(--border);border-radius:4px;">
+                Accuracy data accumulates automatically as signals complete their 24/72/168h windows.
+                Check back as more signals complete their lifecycle.
+            </div>
+            """, unsafe_allow_html=True)
+    except Exception as e:
+        st.markdown(f'<div style="color:var(--text-muted);font-size:0.7em;">Accuracy data loading... ({e})</div>', unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
     st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">TRADING TRACK RECORD — ALL CLOSED POSITIONS</div>', unsafe_allow_html=True)
 
     try:
