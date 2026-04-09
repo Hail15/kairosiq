@@ -214,18 +214,29 @@ def save_news_signal(cur, entry):
     category = detect_category(title, summary)
     region   = detect_region(title, summary)
 
-    # Check if same category+region already has an active signal from last 6 hours
-    # This prevents BBC and NYT both creating signals for the same event
+    # Check if same category+region already has an active signal from last 12 hours
+    # Use ILIKE for case-insensitive match on source_platform
     cur.execute("""
         SELECT id FROM signals
         WHERE event_category = %s
         AND region = %s
-        AND source_platform = 'news_intelligence'
-        AND signal_time >= NOW() - INTERVAL '6 hours'
+        AND LOWER(source_platform) = 'news_intelligence'
+        AND signal_time >= NOW() - INTERVAL '12 hours'
         AND is_active = true;
     """, (category, region))
     if cur.fetchone():
         return False  # Same event already signalled recently
+
+    # Also dedup on headline similarity — prevent same story from different sources
+    title_words = " ".join(title.lower().split()[:6])  # First 6 words of headline
+    cur.execute("""
+        SELECT id FROM signals
+        WHERE LOWER(event_description) LIKE %s
+        AND signal_time >= NOW() - INTERVAL '12 hours'
+        AND is_active = true;
+    """, (f"%{title_words}%",))
+    if cur.fetchone():
+        return False  # Same headline already signalled
 
     description = f"NEWS ALERT [{source}]: {title}. {summary}"
 

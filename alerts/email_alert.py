@@ -190,8 +190,7 @@ def get_unalerted_signals():
             SELECT 1 FROM signal_alerts_sent sas
             WHERE sas.event_category = s.event_category
             AND sas.region = s.region
-            AND COALESCE(sas.source_platform, '') = COALESCE(s.source_platform, '')
-            AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
+            AND sas.alerted_at >= NOW() - INTERVAL '6 hours'
         )
         ORDER BY s.event_category, s.region, s.source_platform,
             CASE s.confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 END,
