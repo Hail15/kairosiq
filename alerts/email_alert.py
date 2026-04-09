@@ -202,22 +202,35 @@ def get_unalerted_signals():
     cur.close()
     conn.close()
 
-    # Secondary dedup — filter signals that share key phrases with already-seen headlines
-    # This prevents "Russia and China Veto Hormuz" and "Iran Calls Off Hormuz Talks"
-    # both firing when they're about the same event
+    # Headline keyword dedup — prevent same story from different sources/regions firing
+    # Extract key headline phrases (first 60 chars of description after source tag)
     KEY_PHRASES = [
-        "strait of hormuz", "hormuz", "suez canal",
-        "taiwan strait", "north korea", "ukraine",
+        "strait of hormuz", "hormuz reopens", "gas prices",
+        "taiwan opposition", "bridge for peace", "taiwan strait",
+        "north korea", "ukraine", "cease-fire", "ceasefire",
     ]
     seen_phrases = set()
     deduped = []
     for row in rows:
         desc_lower = (row[1] or "").lower()
+
+        # Check for key phrase overlap
         phrase_hit = next((p for p in KEY_PHRASES if p in desc_lower), None)
         if phrase_hit:
             if phrase_hit in seen_phrases:
-                continue  # Same key event — skip duplicate
+                continue  # Same story — skip
             seen_phrases.add(phrase_hit)
+
+        # Also dedup by first 80 chars of headline (catches exact same title from different sources)
+        # Extract headline after the [Source]: prefix
+        import re
+        headline_match = re.search(r'\]: (.{20,80})', desc_lower)
+        if headline_match:
+            headline_key = headline_match.group(1)[:50]
+            if headline_key in seen_phrases:
+                continue
+            seen_phrases.add(headline_key)
+
         deduped.append(row)
 
     return deduped

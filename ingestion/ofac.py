@@ -206,13 +206,26 @@ def save_news_signal(cur, entry):
         f"news_{title}".encode()
     ).hexdigest()[:32]
 
-    # Check if already logged
+    # Check if already logged by checksum
     cur.execute("SELECT id FROM signals WHERE checksum = %s;", (checksum,))
     if cur.fetchone():
         return False
 
     category = detect_category(title, summary)
-    region = detect_region(title, summary)
+    region   = detect_region(title, summary)
+
+    # Check if same category+region already has an active signal from last 6 hours
+    # This prevents BBC and NYT both creating signals for the same event
+    cur.execute("""
+        SELECT id FROM signals
+        WHERE event_category = %s
+        AND region = %s
+        AND source_platform = 'news_intelligence'
+        AND signal_time >= NOW() - INTERVAL '6 hours'
+        AND is_active = true;
+    """, (category, region))
+    if cur.fetchone():
+        return False  # Same event already signalled recently
 
     description = f"NEWS ALERT [{source}]: {title}. {summary}"
 
