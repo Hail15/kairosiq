@@ -5078,6 +5078,77 @@ with tab12:
     </div>
     """, unsafe_allow_html=True)
 
+    # Correlation Breakdown Monitor
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0 12px;">', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">CROSS-ASSET CORRELATION MONITOR — LIVE</div>', unsafe_allow_html=True)
+
+    try:
+        import yfinance as _yf_corr
+        import numpy as _np_corr
+
+        CORR_PAIRS = [
+            ("GLD", "USO",  "Gold-Oil",          0.6,  "Both inflation hedges — breakdown = regime shift"),
+            ("TLT", "SPY",  "Treasury-Equity",   -0.5, "Classic inverse — breakdown = 2022-style crisis"),
+            ("GLD", "TLT",  "Gold-Treasury",      0.5,  "Both safe havens — divergence = different fear type"),
+            ("LMT", "USO",  "Defense-Oil",        0.4,  "Both rise on conflict — divergence = tariff override"),
+            ("EWT", "SMH",  "Taiwan-Semis",       0.8,  "TSMC dominates both — divergence = Taiwan-specific risk"),
+            ("VIXY","GLD",  "VIX-Gold",           0.6,  "Both fear assets — divergence = different risk type"),
+            ("UUP", "GLD",  "Dollar-Gold",       -0.6,  "Classic inverse — convergence = extreme fear"),
+        ]
+
+        # Fetch all needed data
+        _tickers_needed = list(set(t for pair in CORR_PAIRS for t in [pair[0], pair[1]]))
+        _price_data = {}
+        for _t in _tickers_needed:
+            try:
+                _h = _yf_corr.Ticker(_t).history(period="20d")
+                if len(_h) >= 10:
+                    _price_data[_t] = _h["Close"].pct_change().dropna()
+            except Exception:
+                pass
+
+        if _price_data:
+            for _a, _b, _name, _expected, _meaning in CORR_PAIRS:
+                if _a not in _price_data or _b not in _price_data:
+                    continue
+
+                _ra, _rb = _price_data[_a].align(_price_data[_b], join="inner")
+                if len(_ra) < 10:
+                    continue
+
+                _corr = float(_np_corr.corrcoef(_ra.iloc[-10:], _rb.iloc[-10:])[0, 1])
+
+                # Determine status
+                if _expected > 0:
+                    _broken = _corr < 0.1
+                    _status_color = "#cc2200" if _broken else "#2a9a4a"
+                    _status = "⚠️ BREAKDOWN" if _broken else "✅ NORMAL"
+                else:
+                    _broken = _corr > 0.1
+                    _status_color = "#cc2200" if _broken else "#2a9a4a"
+                    _status = "⚠️ INVERTED" if _broken else "✅ NORMAL"
+
+                _bar_val = int((_corr + 1) / 2 * 100)
+
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;'
+                    f'background:#0d0d18;border:1px solid #1a1a2e;border-radius:4px;margin:3px 0;">'
+                    f'<span style="color:#e0e0e0;font-family:JetBrains Mono,monospace;'
+                    f'font-size:0.72em;font-weight:700;min-width:140px;">{_name}</span>'
+                    f'<div style="flex:1;background:#1a1a2e;border-radius:2px;height:6px;">'
+                    f'<div style="width:{_bar_val}%;background:#e8b84b;height:6px;border-radius:2px;"></div>'
+                    f'</div>'
+                    f'<span style="color:#e8b84b;font-family:JetBrains Mono,monospace;'
+                    f'font-size:0.72em;min-width:40px;text-align:center;">{_corr:+.2f}</span>'
+                    f'<span style="color:{_status_color};font-family:JetBrains Mono,monospace;'
+                    f'font-size:0.65em;font-weight:700;min-width:100px;">{_status}</span>'
+                    f'<span style="color:#444;font-size:0.6em;flex:1;">{_meaning[:50]}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+    except Exception as _ce:
+        st.markdown(f'<div style="color:#333;font-size:0.7em;">Correlation data loading...</div>', unsafe_allow_html=True)
+
 # ============================================================
 # TAB 13 — SIGNAL Q&A
 # ============================================================

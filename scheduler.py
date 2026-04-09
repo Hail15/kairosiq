@@ -24,6 +24,8 @@ from ingestion.baltic_dry import run_baltic_dry_ingestion
 from ingestion.marine_traffic import run_marine_traffic_ingestion
 from ingestion.cftc_cot import run_cftc_ingestion
 from ingestion.fred_economic import run_fred_ingestion
+from ingestion.options_flow import run_options_flow_ingestion
+from signals.correlation_monitor import run_correlation_monitor
 from signals.signal_engine import run_signal_engine
 from signals.signal_logger import expire_old_signals
 from alerts.email_alert import run_email_alerts
@@ -211,6 +213,16 @@ def run_full_cycle():
         run_fred_ingestion()
     except Exception as e:
         print(f"❌ FRED ingestion error: {e}")
+
+    try:
+        run_options_flow_ingestion()
+    except Exception as e:
+        print(f"❌ Options flow error: {e}")
+
+    try:
+        run_correlation_monitor()
+    except Exception as e:
+        print(f"❌ Correlation monitor error: {e}")
 
     # ── Signal Detection & Alerts ────────────────────────────
     try:
