@@ -3581,6 +3581,53 @@ with tab7:
                 tier_label  = ["", "SINGLE SOURCE", "DUAL CONFIRM", "FULL CONVERGENCE"][min(tier, 3)]
                 price_str   = f"${price:.2f}" if price else "—"
 
+                # Dip detection — check if asset is down today vs signal direction
+                dip_badge = ""
+                dip_context = ""
+                try:
+                    import yfinance as _yf2
+                    _hist = _yf2.Ticker(ticker).history(period="2d")
+                    if len(_hist) >= 2:
+                        _today_chg = (_hist["Close"].iloc[-1] - _hist["Close"].iloc[-2]) / _hist["Close"].iloc[-2] * 100
+                        if side == "BUY" and _today_chg <= -3.0:
+                            # Signal says UP but stock is down today — discounted entry
+                            dip_badge = f"""
+                            <span style="background:rgba(42,154,74,0.15);border:1px solid #2a9a4a;
+                                 color:#2a9a4a;padding:2px 8px;border-radius:3px;
+                                 font-family:JetBrains Mono,monospace;font-size:0.65em;
+                                 font-weight:700;margin-left:8px;">
+                                 📉 DIP ENTRY {_today_chg:+.1f}%
+                            </span>"""
+                            dip_context = f"""
+                            <div style="background:rgba(42,154,74,0.06);border:1px solid rgba(42,154,74,0.2);
+                                 border-radius:3px;padding:8px 12px;margin-top:8px;
+                                 font-size:0.7em;color:#2a9a4a;">
+                                ⚡ <b>DISCOUNTED ENTRY OPPORTUNITY</b> — {ticker} is down {_today_chg:.1f}% today
+                                while the signal historically predicts +{avg72:.1f}% over 72h.
+                                Buying at current levels means entering below the expected signal-driven price.
+                                Historical accuracy: {acc:.0f}%. Not investment advice.
+                            </div>"""
+                        elif side == "SELL SHORT" and _today_chg >= 3.0:
+                            # Signal says DOWN but stock is up today — elevated short entry
+                            dip_badge = f"""
+                            <span style="background:rgba(204,34,0,0.15);border:1px solid #cc2200;
+                                 color:#cc2200;padding:2px 8px;border-radius:3px;
+                                 font-family:JetBrains Mono,monospace;font-size:0.65em;
+                                 font-weight:700;margin-left:8px;">
+                                 📈 ELEVATED SHORT {_today_chg:+.1f}%
+                            </span>"""
+                            dip_context = f"""
+                            <div style="background:rgba(204,34,0,0.06);border:1px solid rgba(204,34,0,0.2);
+                                 border-radius:3px;padding:8px 12px;margin-top:8px;
+                                 font-size:0.7em;color:#cc2200;">
+                                ⚡ <b>ELEVATED SHORT ENTRY</b> — {ticker} is up {_today_chg:.1f}% today
+                                while the signal historically predicts -{avg72:.1f}% over 72h.
+                                Shorting at elevated levels increases potential return if signal plays out.
+                                Historical accuracy: {acc:.0f}%. Not investment advice.
+                            </div>"""
+                except Exception:
+                    pass
+
                 st.markdown(f"""
                 <div style="background:#08080c; border:1px solid #1a1a24;
                             border-left:3px solid {side_color};
@@ -3598,6 +3645,7 @@ with tab7:
                                          border:1px solid #222; padding:1px 6px;">
                                 {tier_label}
                             </span>
+                            {dip_badge}
                         </div>
                         <div style="font-size:0.72em; color:#e8b84b;
                                     font-weight:600;">
@@ -3617,6 +3665,7 @@ with tab7:
                             {'✓ ' + note if tradeable else '✗ ' + note}
                         </span>
                     </div>
+                    {dip_context}
                 </div>
                 """, unsafe_allow_html=True)
 

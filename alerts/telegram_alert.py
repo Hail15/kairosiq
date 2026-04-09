@@ -249,6 +249,29 @@ def notify_signal(signal):
 
     desc_short = description[:200] + "..." if len(description) > 200 else description
 
+    # Dip detection — check top UP assets for discounted entries
+    dip_lines = []
+    try:
+        import yfinance as _yf3
+        for a in up_assets[:3]:
+            t = a.get("ticker", "")
+            if not t:
+                continue
+            try:
+                _h = _yf3.Ticker(t).history(period="2d")
+                if len(_h) >= 2:
+                    _chg = (_h["Close"].iloc[-1] - _h["Close"].iloc[-2]) / _h["Close"].iloc[-2] * 100
+                    if _chg <= -3.0:
+                        dip_lines.append(f"📉 <b>{t}</b> down {_chg:.1f}% today — discounted entry vs +{abs(a.get('avg_move_72h',0)):.1f}% signal")
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    dip_section = ""
+    if dip_lines:
+        dip_section = f"\n\n⚡ <b>DIP ENTRY OPPORTUNITIES:</b>\n" + "\n".join(dip_lines)
+
     message = (
         f"{conf_emoji} <b>KairosIQ {confidence} SIGNAL — {domain.upper()}</b>\n\n"
         f"📍 <b>{region.upper()}</b> · {platform} · {tier_label}\n"
@@ -259,7 +282,8 @@ def notify_signal(signal):
         f"⚡ Est. Peak Move: {peak_time}\n"
         f"📈 Accuracy Range: {acc_min:.0f}% — {acc_max:.0f}%\n\n"
         f"🟢 <b>HISTORICALLY UP:</b>\n{up_section}\n\n"
-        f"🔴 <b>HISTORICALLY DOWN:</b>\n{down_section}\n\n"
+        f"🔴 <b>HISTORICALLY DOWN:</b>\n{down_section}"
+        f"{dip_section}\n\n"
         f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
     )
 
