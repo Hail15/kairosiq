@@ -5157,103 +5157,185 @@ with tab13:
     <div style="padding:20px 0 8px;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
              font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
-            SIGNAL <span style="color:#cc2200;">Q&A</span>
+            INTELLIGENCE <span style="color:#cc2200;">INTERROGATOR</span>
         </div>
         <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
              text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
-            Ask natural language questions about active signals and historical patterns
+            Multi-condition historical query engine — ask anything about signals, patterns, and correlations
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 16px;">', unsafe_allow_html=True)
 
-    # Example questions
-    st.markdown("""
-    <div style="font-size:0.65em;color:var(--text-muted);margin-bottom:12px;
-         font-family:JetBrains Mono,monospace;">
-    EXAMPLE QUESTIONS:
-    </div>
-    """, unsafe_allow_html=True)
-
-    example_questions = [
-        "What happened to oil the last 3 times Iran threatened Hormuz?",
-        "Which assets are most exposed to the current Iran signal?",
-        "What is the GPI Index telling us right now?",
-        "Which signals have the highest convergence confidence today?",
-        "How does the current situation compare to 2022 Russia-Ukraine?",
-    ]
-
-    cols = st.columns(len(example_questions))
-    selected_question = ""
-    for i, (col, q) in enumerate(zip(cols, example_questions)):
-        with col:
-            if st.button(q[:30] + "...", key=f"eq_{i}", use_container_width=True):
-                selected_question = q
-
-    user_question = st.text_input(
-        "Ask a question:",
-        value=selected_question,
-        placeholder="e.g. What happened to gold the last 3 times Iran escalated?",
-        key="signal_qa_input"
+    # Query type selector
+    query_type = st.radio(
+        "Query type:",
+        ["Natural Language", "Multi-Condition Analysis", "Asset Deep Dive", "Pattern Comparison"],
+        horizontal=True,
+        key="qa_query_type"
     )
 
-    ask_button = st.button("⚡ ASK", use_container_width=True, key="ask_signal_qa")
+    # Example questions by type
+    EXAMPLES = {
+        "Natural Language": [
+            "What happened to oil the last 3 times Iran threatened Hormuz?",
+            "Which signals have the highest convergence confidence today?",
+            "How does the current Iran situation compare to 2022 Russia-Ukraine?",
+            "What assets should I watch given the current regime?",
+            "When has gold failed as a safe haven and why?",
+        ],
+        "Multi-Condition Analysis": [
+            "Iran escalation + yield curve inverted + gold above 200MA — what happened to oil?",
+            "Russia conflict + high VIX + EM selloff — what was the best hedge?",
+            "OPEC cut + tariff regime + dollar strength — historical playbook?",
+            "Taiwan tension + semiconductor selloff + defense rally — full cascade?",
+            "Ceasefire + oil spike + high inflation — what reversed fastest?",
+        ],
+        "Asset Deep Dive": [
+            "Full history of GLD during geopolitical events — when did it fail?",
+            "LMT performance across all 65 historical conflict events",
+            "When does VIXY underperform despite conflict signals?",
+            "USO historical accuracy by event category — which signals work best?",
+            "TLT in every regime — when does bond safe haven break down?",
+        ],
+        "Pattern Comparison": [
+            "Compare 2026 Iran vs 2018 JCPOA collapse — similarities and differences",
+            "Current tariff shock vs 2018 US-China trade war — what happened next?",
+            "Today's oil selloff vs 2020 COVID crash — recovery timeline?",
+            "Current GPI vs pre-Ukraine 2022 — are we at the same risk level?",
+            "Hormuz 2026 vs Suez 2021 vs Red Sea 2023 — which playbook applies?",
+        ],
+    }
+
+    # Show example buttons
+    st.markdown(f'<div style="font-size:0.6em;color:#555;font-family:JetBrains Mono,monospace;margin-bottom:8px;">EXAMPLE {query_type.upper()} QUERIES:</div>', unsafe_allow_html=True)
+
+    selected_q = ""
+    ex_cols = st.columns(len(EXAMPLES[query_type]))
+    for i, (col, q) in enumerate(zip(ex_cols, EXAMPLES[query_type])):
+        with col:
+            if st.button(q[:28] + "...", key=f"qa_ex_{query_type}_{i}", use_container_width=True):
+                selected_q = q
+
+    user_question = st.text_area(
+        "Your query:",
+        value=selected_q,
+        height=80,
+        placeholder="Ask anything — the more specific the better...",
+        key="signal_qa_input_v2"
+    )
+
+    col_ask, col_depth = st.columns([3, 1])
+    with col_ask:
+        ask_button = st.button("⚡ INTERROGATE", use_container_width=True, key="ask_signal_qa_v2")
+    with col_depth:
+        depth = st.selectbox("Depth:", ["Standard", "Deep", "Comprehensive"], key="qa_depth")
 
     if ask_button and user_question:
-        with st.spinner("Analyzing signals and historical data..."):
+        with st.spinner("Interrogating historical database and active signals..."):
             try:
                 import anthropic
 
-                # Build context from active signals and historical events
+                # Pull comprehensive context
                 signal_context = "\n".join([
-                    f"- {s[2]} | {s[3]} | {s[7]} confidence | {s[1][:100]}"
-                    for s in signals[:10]
+                    f"- {s[2]} | {s[3]} | {s[7]} confidence | shift:{s[6]}% | {s[1][:120]}"
+                    for s in signals[:15]
                 ])
 
-                # Pull relevant historical events
+                # Pull ALL historical events
                 conn_qa = get_db()
                 cur_qa  = conn_qa.cursor()
                 cur_qa.execute("""
                     SELECT event_name, event_date, region, event_type,
-                           primary_asset_impact, secondary_asset_impact, notes
+                           primary_asset_impact, secondary_asset_impact,
+                           notes, confidence_score
                     FROM historical_gpi_events
-                    ORDER BY confidence_score DESC
-                    LIMIT 20;
+                    ORDER BY event_date DESC
+                    LIMIT 65;
                 """)
                 hist_events = cur_qa.fetchall()
+
+                # Pull signal outcomes if available
+                cur_qa.execute("""
+                    SELECT s.event_category, s.region,
+                           so.asset_ticker,
+                           AVG(CASE WHEN so.direction_correct_72h THEN 1.0 ELSE 0.0 END) as acc,
+                           COUNT(*) as instances
+                    FROM signal_outcomes so
+                    JOIN signals s ON s.id = so.signal_id
+                    WHERE so.direction_correct_72h IS NOT NULL
+                    GROUP BY s.event_category, s.region, so.asset_ticker
+                    ORDER BY acc DESC
+                    LIMIT 30;
+                """)
+                outcome_data = cur_qa.fetchall()
                 cur_qa.close()
                 conn_qa.close()
 
                 hist_context = "\n".join([
-                    f"- {h[0]} ({str(h[1])[:10]}) | {h[2]} | {h[3]} | "
-                    f"Primary impact: {(h[4] or '')[:80]} | Notes: {(h[6] or '')[:80]}"
+                    f"- {h[0]} ({str(h[1])[:10]}) | {h[2]} | Type:{h[3]} | "
+                    f"Primary: {(h[4] or '')[:100]} | Secondary: {(h[5] or '')[:80]} | "
+                    f"Notes: {(h[6] or '')[:100]} | Confidence: {h[7]}"
                     for h in hist_events
                 ])
 
-                system_prompt = """You are KairosIQ's intelligence analyst — an expert in 
-geopolitical risk and financial markets. You have access to the platform's active signals 
-and 65 verified historical geopolitical events with documented asset impacts.
+                outcome_context = ""
+                if outcome_data:
+                    outcome_context = "\n\nVERIFIED SIGNAL ACCURACY DATA:\n" + "\n".join([
+                        f"- {o[0]} | {o[1]} | {o[2]}: {o[3]*100:.0f}% acc | {o[4]} instances"
+                        for o in outcome_data
+                    ])
 
-Answer questions concisely and specifically. Always cite specific historical events when 
-relevant. Format your response with clear sections. Keep it under 400 words.
-Never give specific investment advice — always frame as historical pattern analysis.
-End with a brief disclaimer."""
+                # Regime context
+                from signals.regime_detector import get_current_regime
+                regime_row = get_current_regime()
+                regime_context = ""
+                if regime_row:
+                    regime_context = f"\nCURRENT MACRO REGIME: {regime_row[0]} (confidence: {regime_row[1]:.0%})\n{regime_row[2]}"
 
-                user_prompt = f"""ACTIVE SIGNALS (right now):
+                max_tokens = {"Standard": 600, "Deep": 1000, "Comprehensive": 1500}[depth]
+
+                system_prompt = f"""You are KairosIQ's senior intelligence analyst — the world's leading expert 
+in geopolitical risk and financial market correlations. You have access to:
+- 15 active geopolitical signals with real-time market data
+- 65 verified historical geopolitical events (2018-2026) with documented asset impacts
+- Verified signal accuracy data from the KairosIQ database
+- Current macro regime detection
+- The Worsley Intelligence Framework (6 layers, 12 domains, 124 indicators)
+
+Query type: {query_type}
+Analysis depth: {depth}
+
+INSTRUCTIONS:
+- Be extremely specific — cite exact events, exact percentages, exact timeframes
+- For multi-condition queries: analyze each condition separately then combined
+- For asset deep dives: give full historical breakdown by event type
+- For pattern comparisons: side-by-side analysis with similarities and key differences
+- Always note when current conditions DIFFER from historical precedent
+- Flag when historical correlations may be unreliable in current regime
+- Never give investment advice — frame everything as historical pattern analysis
+- Use headers and structure for complex answers
+- End with a one-line "BOTTOM LINE:" summary"""
+
+                user_prompt = f"""ACTIVE SIGNALS RIGHT NOW:
 {signal_context}
+
+{regime_context}
 
 HISTORICAL EVENT DATABASE (65 verified events):
 {hist_context}
+{outcome_context}
 
-USER QUESTION: {user_question}
+QUERY ({query_type} — {depth} analysis):
+{user_question}
 
-Answer based on the above data. Be specific about historical patterns and current signal context."""
+Provide a thorough, specific, data-driven response."""
 
                 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
                 response = client.messages.create(
                     model="claude-sonnet-4-20250514",
-                    max_tokens=600,
+                    max_tokens=max_tokens,
                     messages=[{"role": "user", "content": user_prompt}],
                     system=system_prompt
                 )
@@ -5261,22 +5343,29 @@ Answer based on the above data. Be specific about historical patterns and curren
                 answer = response.content[0].text
 
                 st.markdown(f"""
-                <div style="background:var(--bg-card);border:1px solid var(--border);
-                     border-left:3px solid var(--red);border-radius:4px;
+                <div style="background:#0d0d18;border:1px solid #1a1a2e;
+                     border-left:3px solid #cc2200;border-radius:4px;
                      padding:20px;margin-top:12px;line-height:1.8;
-                     color:var(--text-secondary);font-size:0.82em;">
-                     {answer.replace(chr(10), '<br>')}
+                     color:#c0c0c0;font-size:0.82em;">
+                     {answer.replace(chr(10), '<br>').replace('**', '<b>').replace('**', '</b>')}
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.markdown(f"""
+                <div style="font-size:0.58em;color:#333;margin-top:6px;
+                     font-family:JetBrains Mono,monospace;">
+                    Query: {query_type} · Depth: {depth} · Sources: 65 historical events + {len(signals)} active signals
+                    · KairosIQ Intelligence Engine · Historical pattern analysis only · Not investment advice
                 </div>
                 """, unsafe_allow_html=True)
 
             except Exception as e:
-                st.error(f"Q&A error: {e}")
+                st.error(f"Query error: {e}")
 
     st.markdown("""
     <div class="disclaimer" style="margin-top:20px;">
-    Signal Q&A uses AI analysis of historical geopolitical data and current platform signals.
-    All responses are for informational purposes only. Not investment advice.
-    Historical patterns do not guarantee future results.
+    Intelligence Interrogator uses AI analysis of KairosIQ's verified historical database and active signals.
+    All responses are historical pattern analysis only. Not investment advice.
     </div>
     """, unsafe_allow_html=True)
 
