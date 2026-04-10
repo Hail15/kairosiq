@@ -3613,8 +3613,93 @@ with tab7:
 
         st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
-        # ── Manual Trade Logger (any trade, signal or not) ────
-        with st.expander("📝 Log Any Trade Manually"):
+        # ── Intelligence Header — KIQ + Black Swan + Regime ──────────────
+        try:
+            from signals.prediction_engine import get_latest_forecasts
+            from signals.someone_knows import get_richter_score
+
+            _, kiq_scores, _, _ = get_latest_forecasts()
+
+            # Black Swan status
+            conn_bs2 = get_db()
+            cur_bs2  = conn_bs2.cursor()
+            cur_bs2.execute("""
+                SELECT condition_count, historical_context, gpi_score
+                FROM black_swan_status
+                ORDER BY detected_at DESC LIMIT 1;
+            """)
+            bs2 = cur_bs2.fetchone()
+            cur_bs2.close()
+            conn_bs2.close()
+
+            # Regime
+            regime_row2 = get_current_regime()
+
+            # Show intelligence summary bar
+            bs_count2 = bs2[0] if bs2 else 0
+            bs_color2 = "#cc2200" if bs_count2 >= 3 else "#e8b84b" if bs_count2 >= 2 else "#2a9a4a"
+            regime_name2 = regime_row2[0] if regime_row2 else "NORMAL"
+            regime_color2 = "#cc2200" if regime_name2 not in ["NORMAL"] else "#2a9a4a"
+
+            st.markdown(
+                f'<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'
+                f'<div style="background:#0d0d18;border:1px solid {bs_color2};border-radius:4px;padding:10px 16px;flex:1;">'
+                f'<div style="font-family:JetBrains Mono,monospace;font-size:0.6em;color:#555;margin-bottom:2px;">BLACK SWAN</div>'
+                f'<div style="color:{bs_color2};font-weight:700;font-family:JetBrains Mono,monospace;font-size:0.82em;">{bs_count2}/7 CONDITIONS</div>'
+                f'</div>'
+                f'<div style="background:#0d0d18;border:1px solid {regime_color2};border-radius:4px;padding:10px 16px;flex:1;">'
+                f'<div style="font-family:JetBrains Mono,monospace;font-size:0.6em;color:#555;margin-bottom:2px;">MACRO REGIME</div>'
+                f'<div style="color:{regime_color2};font-weight:700;font-family:JetBrains Mono,monospace;font-size:0.82em;">{regime_name2.replace("_"," ")}</div>'
+                f'</div>'
+                f'<div style="background:#0d0d18;border:1px solid #1a1a2e;border-radius:4px;padding:10px 16px;flex:1;">'
+                f'<div style="font-family:JetBrains Mono,monospace;font-size:0.6em;color:#555;margin-bottom:2px;">ACTIVE SIGNALS</div>'
+                f'<div style="color:#e0e0e0;font-weight:700;font-family:JetBrains Mono,monospace;font-size:0.82em;">{len(signals)} LIVE</div>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # KIQ Score bar — sorted strong buy first
+            if kiq_scores:
+                st.markdown('<div style="font-size:0.6em;color:#555;font-family:JetBrains Mono,monospace;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.1em;">KIQ Asset Scores — All Tracked Assets</div>', unsafe_allow_html=True)
+
+                sorted_kiq = sorted(kiq_scores.items(), key=lambda x: x[1]["score"], reverse=True)
+                cols_kiq = st.columns(len(sorted_kiq))
+                for col, (ticker, data) in zip(cols_kiq, sorted_kiq):
+                    score = data["score"]
+                    label = data["label"]
+                    color = data["color"]
+                    with col:
+                        st.markdown(
+                            f'<div style="background:#0d0d18;border:1px solid #1a1a2e;'
+                            f'border-top:3px solid {color};border-radius:4px;'
+                            f'padding:8px 6px;text-align:center;">'
+                            f'<div style="color:#e0e0e0;font-family:JetBrains Mono,monospace;'
+                            f'font-weight:700;font-size:0.72em;">{ticker}</div>'
+                            f'<div style="color:{color};font-family:JetBrains Mono,monospace;'
+                            f'font-weight:700;font-size:1.1em;">{score}</div>'
+                            f'<div style="color:{color};font-size:0.55em;font-family:JetBrains Mono,monospace;">{label}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+        except Exception as _ie:
+            pass
+
+        # ── Warning if Black Swan active ──────────────────────────────────
+        if bs_count2 >= 3:
+            st.markdown(
+                f'<div style="background:rgba(204,34,0,0.06);border:1px solid #cc2200;'
+                f'border-radius:4px;padding:10px 14px;margin-bottom:12px;">'
+                f'<span style="color:#cc2200;font-family:JetBrains Mono,monospace;'
+                f'font-size:0.7em;font-weight:700;">⚠️ BLACK SWAN CONDITIONS ACTIVE — '
+                f'Markets may be underpricing current geopolitical risk. '
+                f'Consider defensive positioning (GLD, TLT) alongside signal recommendations.</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
             st.markdown("""
             <div style="font-size:0.68em; color:#555; margin-bottom:12px;">
                 Log any trade you placed on Alpaca — whether signal-driven or your own call.

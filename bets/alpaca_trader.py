@@ -25,13 +25,46 @@ PAPER_BASE_URL = "https://paper-api.alpaca.markets/v2"
 LIVE_BASE_URL  = "https://api.alpaca.markets/v2"
 
 TICKER_MAP = {
-    "USO":  "USO",   "XLE":  "XLE",   "XOM":  "XOM",   "CVX":  "CVX",
+    # Energy
+    "USO":  "USO",   "BNO":  "BNO",   "XLE":  "XLE",
+    "XOM":  "XOM",   "CVX":  "CVX",   "COP":  "COP",
+    "UNG":  "UNG",   "BOIL": "BOIL",  "DRIP": "DRIP",
+    # Precious Metals / Safe Havens
     "GLD":  "GLD",   "IAU":  "IAU",   "SLV":  "SLV",
+    "GDX":  "GDX",   "GDXJ": "GDXJ",
+    # Defense
     "LMT":  "LMT",   "RTX":  "RTX",   "NOC":  "NOC",
-    "BA":   "BA",    "ITA":  "ITA",
-    "SPY":  "SPY",   "QQQ":  "QQQ",   "VIXY": "VIXY",
-    "EEM":  "EEM",   "EWZ":  "EWZ",   "EWT":  "EWT",
-    "ZIM":  "ZIM",   "PANL": "PANL",
+    "BA":   "BA",    "ITA":  "ITA",   "CACI": "CACI",
+    "LDOS": "LDOS",  "HII":  "HII",   "GD":   "GD",
+    # Volatility / Fear
+    "VIXY": "VIXY",  "UVXY": "UVXY",  "SQQQ": "SQQQ",
+    # Broad Market
+    "SPY":  "SPY",   "QQQ":  "QQQ",   "IWM":  "IWM",
+    "TLT":  "TLT",   "IEF":  "IEF",   "HYG":  "HYG",
+    # Emerging Markets
+    "EEM":  "EEM",   "VWO":  "VWO",   "EWZ":  "EWZ",
+    "EWT":  "EWT",   "FXI":  "FXI",   "MCHI": "MCHI",
+    "EWG":  "EWG",   "EWQ":  "EWQ",   "EWJ":  "EWJ",
+    "EWY":  "EWY",   "INDA": "INDA",
+    # Semiconductors / Tech
+    "SMH":  "SMH",   "SOXX": "SOXX",  "TSM":  "TSM",
+    "NVDA": "NVDA",  "AMD":  "AMD",   "INTC": "INTC",
+    # Shipping
+    "ZIM":  "ZIM",   "SBLK": "SBLK",  "GOGL": "GOGL",
+    "DSX":  "DSX",   "BDRY": "BDRY",
+    # Agriculture / Food Security
+    "WEAT": "WEAT",  "CORN": "CORN",  "SOYB": "SOYB",
+    "MOS":  "MOS",   "NTR":  "NTR",
+    # Rare Earth / Strategic Materials
+    "MP":   "MP",    "REMX": "REMX",
+    # Dollar / Currency
+    "UUP":  "UUP",   "FXE":  "FXE",   "FXY":  "FXY",
+    # Nuclear / Energy Transition
+    "CCJ":  "CCJ",   "URA":  "URA",   "NLR":  "NLR",
+    # Commodities Broad
+    "DJP":  "DJP",   "GSG":  "GSG",   "PDBC": "PDBC",
+    # Inflation Protection
+    "TIPS": "TIPS",
 }
 
 UNTRADEABLE = {"XAUUSD", "XAGUSD", "CL=F", "BZ=F", "DXY",
