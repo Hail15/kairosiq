@@ -1345,11 +1345,12 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13, tab14 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13, tab14, tab15 = st.tabs([
     "LIVE SIGNALS", "WORLD MAP", "SIGNAL DETAIL", "BET TRACKER",
     "TRACK RECORD", "PROBABILITY CHARTS", "TRADING",
     "SCENARIO BUILDER", "COUNTRY RISK",
-    "PORTFOLIO", "BACKTESTER", "GPI INDEX", "SIGNAL Q&A", "FORWARD CALENDAR"
+    "PORTFOLIO", "BACKTESTER", "GPI INDEX", "SIGNAL Q&A",
+    "FORWARD CALENDAR", "⚡ INTELLIGENCE"
 ])
 
 # ============================================================
@@ -1357,7 +1358,40 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13
 # ============================================================
 with tab1:
 
-    # Regime Detection Banner
+    # Someone Knows Something Banner
+    try:
+        conn_sk = get_db()
+        cur_sk  = conn_sk.cursor()
+        cur_sk.execute("""
+            SELECT event_description, region, signal_time
+            FROM signals
+            WHERE source_platform = 'SOMEONE_KNOWS'
+            AND is_active = true
+            AND signal_time >= NOW() - INTERVAL '6 hours'
+            ORDER BY signal_time DESC
+            LIMIT 1;
+        """)
+        sk_row = cur_sk.fetchone()
+        cur_sk.close()
+        conn_sk.close()
+
+        if sk_row:
+            sk_desc, sk_region, sk_time = sk_row
+            st.markdown(f"""
+            <div style="background:rgba(204,34,0,0.08);border:2px solid #cc2200;
+                 border-radius:4px;padding:16px;margin-bottom:16px;
+                 animation: pulse 2s infinite;">
+                <div style="font-family:JetBrains Mono,monospace;font-size:0.8em;
+                     font-weight:700;color:#cc2200;letter-spacing:0.1em;margin-bottom:6px;">
+                    🚨 SOMEONE KNOWS SOMETHING — {sk_region.upper()}
+                </div>
+                <div style="font-size:0.72em;color:#c0c0c0;line-height:1.5;">
+                    {(sk_desc or '')[:200]}...
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    except Exception:
+        pass
     try:
         from signals.regime_detector import get_current_regime
         regime_row = get_current_regime()
@@ -5523,5 +5557,174 @@ with tab14:
     Forward calendar events and projected market impacts are based on historical pattern analysis only.
     Future events may differ significantly from historical precedents.
     This is not investment advice. Not all events listed may occur as scheduled.
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# TAB 15 — INTELLIGENCE COMMAND CENTER
+# ============================================================
+with tab15:
+    st.markdown("""
+    <div style="padding:20px 0 8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+            ⚡ INTELLIGENCE <span style="color:#cc2200;">COMMAND CENTER</span>
+        </div>
+        <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+             text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+            48-Hour Forecasts · KIQ Asset Scores · Black Swan Monitor · $1B Impact Calculator
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:12px 0 20px;">', unsafe_allow_html=True)
+
+    try:
+        from signals.prediction_engine import get_latest_forecasts, ASSET_UNIVERSE
+        from signals.someone_knows import check_black_swan, get_richter_score, calculate_billion_dollar_impact
+
+        forecasts, kiq_scores, forecast_regime, forecast_time = get_latest_forecasts()
+
+        # ── Black Swan Status ─────────────────────────────────────────────
+        try:
+            conn_bs = get_db()
+            cur_bs  = conn_bs.cursor()
+            cur_bs.execute("""
+                SELECT condition_count, conditions_met, historical_context, gpi_score
+                FROM black_swan_status
+                ORDER BY detected_at DESC LIMIT 1;
+            """)
+            bs_row = cur_bs.fetchone()
+            cur_bs.close()
+            conn_bs.close()
+
+            if bs_row:
+                bs_count, bs_conditions, bs_context, bs_gpi = bs_row
+                bs_conditions = bs_conditions if isinstance(bs_conditions, list) else json.loads(bs_conditions or "[]")
+                bs_color = "#cc2200" if bs_count >= 3 else "#e8b84b" if bs_count >= 2 else "#2a9a4a"
+
+                st.markdown(f"""
+                <div style="background:rgba(204,34,0,0.04);border:1px solid {bs_color};
+                     border-left:4px solid {bs_color};border-radius:4px;padding:16px;margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="color:{bs_color};font-family:JetBrains Mono,monospace;
+                             font-size:0.78em;font-weight:700;letter-spacing:0.1em;">
+                            🦢 BLACK SWAN MONITOR — {bs_count}/7 CONDITIONS ACTIVE
+                        </span>
+                        <span style="color:#555;font-family:JetBrains Mono,monospace;font-size:0.62em;">
+                            GPI: {bs_gpi}
+                        </span>
+                    </div>
+                    <div style="font-size:0.72em;color:#888;margin-top:8px;">{bs_context or 'Monitoring...'}</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                        {''.join([f"""<span style="background:rgba(204,34,0,0.1);border:1px solid #cc2200;color:#cc2200;padding:2px 8px;border-radius:2px;font-family:JetBrains Mono,monospace;font-size:0.6em;">{c.get('name','')}</span>""" for c in (bs_conditions or [])])}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        except Exception:
+            pass
+
+        st.markdown('<hr class="kiq-divider" style="margin:16px 0;">', unsafe_allow_html=True)
+
+        col_left, col_right = st.columns(2)
+
+        # ── 48-Hour Forecasts ─────────────────────────────────────────────
+        with col_left:
+            st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">48-HOUR GEOPOLITICAL FORECAST</div>', unsafe_allow_html=True)
+
+            if forecasts:
+                for f in sorted(forecasts, key=lambda x: x["probability"], reverse=True):
+                    prob    = float(f["probability"])
+                    base    = float(f["base"])
+                    adj     = f.get("signal_adjusted", False)
+                    bar_w   = int(prob * 100)
+                    bar_color = "#cc2200" if prob >= 0.75 else "#e8b84b" if prob >= 0.50 else "#2a9a4a" if prob <= 0.25 else "#555"
+                    delta_str = ""
+                    if adj:
+                        delta = prob - base
+                        delta_str = f'<span style="color:{"#cc2200" if delta > 0 else "#2a9a4a"};font-size:0.7em;"> {"▲" if delta > 0 else "▼"}{abs(delta):.0%} signal adjusted</span>'
+
+                    st.markdown(
+                        f'<div style="background:#0d0d18;border:1px solid #1a1a2e;border-radius:4px;padding:12px;margin:4px 0;">'
+                        f'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+                        f'<span style="color:#c0c0c0;font-size:0.75em;">{f["question"]}</span>'
+                        f'<span style="color:{bar_color};font-family:JetBrains Mono,monospace;font-weight:700;font-size:0.85em;">{prob:.0%}</span>'
+                        f'</div>'
+                        f'<div style="background:#1a1a2e;border-radius:2px;height:6px;">'
+                        f'<div style="width:{bar_w}%;background:{bar_color};height:6px;border-radius:2px;"></div>'
+                        f'</div>'
+                        f'{delta_str}'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div style="color:#333;font-size:0.75em;">Forecasts generating next cycle...</div>', unsafe_allow_html=True)
+
+        # ── KIQ Asset Scores ──────────────────────────────────────────────
+        with col_right:
+            st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">KAIROSIQ ASSET SCORES (KIQ)</div>', unsafe_allow_html=True)
+
+            if kiq_scores:
+                for ticker, data in sorted(kiq_scores.items(), key=lambda x: x[1]["score"], reverse=True):
+                    score = data["score"]
+                    label = data["label"]
+                    color = data["color"]
+                    name  = data["name"]
+                    bar_w = score
+
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;'
+                        f'background:#0d0d18;border:1px solid #1a1a2e;border-radius:4px;margin:3px 0;">'
+                        f'<span style="color:#e0e0e0;font-family:JetBrains Mono,monospace;font-weight:700;font-size:0.78em;min-width:50px;">{ticker}</span>'
+                        f'<div style="flex:1;background:#1a1a2e;border-radius:2px;height:6px;">'
+                        f'<div style="width:{bar_w}%;background:{color};height:6px;border-radius:2px;"></div>'
+                        f'</div>'
+                        f'<span style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-size:0.72em;min-width:35px;text-align:right;">{score}</span>'
+                        f'<span style="color:{color};font-family:JetBrains Mono,monospace;font-size:0.65em;font-weight:700;min-width:90px;">{label}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.markdown('<div style="color:#333;font-size:0.75em;">KIQ scores generating next cycle...</div>', unsafe_allow_html=True)
+
+        st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
+
+        # ── Geopolitical Richter Scale ────────────────────────────────────
+        st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">GEOPOLITICAL RICHTER SCALE — ACTIVE SIGNALS</div>', unsafe_allow_html=True)
+
+        richter_signals = [(s[1], s[3], s[7], s[6], s[4]) for s in signals[:8]]
+        for desc, cat, conf, region, shift in richter_signals:
+            magnitude, label, color = get_richter_score(cat, conf, float(shift or 0))
+            total_impact, breakdown = calculate_billion_dollar_impact(cat, magnitude)
+            desc_short = (desc or "")[:80]
+            bar_w = int(magnitude * 10)
+
+            st.markdown(
+                f'<div style="display:flex;gap:12px;align-items:center;padding:10px 14px;'
+                f'background:#0d0d18;border:1px solid #1a1a2e;'
+                f'border-left:3px solid {color};border-radius:4px;margin:3px 0;">'
+                f'<div style="min-width:40px;text-align:center;">'
+                f'<div style="font-family:Barlow Condensed,sans-serif;font-size:1.8em;font-weight:800;color:{color};line-height:1;">{magnitude}</div>'
+                f'<div style="font-size:0.5em;color:#555;font-family:JetBrains Mono,monospace;">RICHTER</div>'
+                f'</div>'
+                f'<div style="flex:1;">'
+                f'<div style="display:flex;justify-content:space-between;margin-bottom:3px;">'
+                f'<span style="color:#e0e0e0;font-size:0.75em;font-weight:600;">{label}</span>'
+                f'<span style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-size:0.65em;">💰 ${total_impact/1e9:.0f}B est. impact</span>'
+                f'</div>'
+                f'<div style="color:#555;font-size:0.65em;">{desc_short}...</div>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    except Exception as e:
+        st.error(f"Intelligence Command Center error: {e}")
+
+    st.markdown("""
+    <div class="disclaimer" style="margin-top:20px;">
+    All forecasts and scores are based on historical pattern analysis and active signal data.
+    Not investment advice. KIQ scores are directional indicators only.
+    Black Swan conditions are historical pattern matches — not predictions of specific events.
     </div>
     """, unsafe_allow_html=True)

@@ -36,6 +36,8 @@ from processing.asset_mapper import backfill_missing_assets
 from signals.convergence_engine import run_convergence_engine
 from signals.cascade_engine import run_cascade_engine
 from signals.regime_detector import run_regime_detector
+from signals.someone_knows import run_someone_knows_detector
+from signals.prediction_engine import run_prediction_engine
 
 def run_morning_digest():
     """
@@ -260,6 +262,16 @@ def run_full_cycle():
         run_regime_detector()
     except Exception as e:
         print(f"❌ Regime detector error: {e}")
+
+    try:
+        run_someone_knows_detector()
+    except Exception as e:
+        print(f"❌ Someone knows detector error: {e}")
+
+    try:
+        run_prediction_engine()
+    except Exception as e:
+        print(f"❌ Prediction engine error: {e}")
 
     # Always run email alerts every cycle — catches news/GDELT/Cloudflare signals too
     try:
