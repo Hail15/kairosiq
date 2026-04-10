@@ -5496,58 +5496,49 @@ with tab14:
                     urgency_label = f"📅 {days_away}d"
 
                 # Sensitivity bar
-                sens_bar = "█" * sensitivity + "░" * (10 - sensitivity)
-
                 up_str   = " · ".join(assets_up[:4])
                 down_str = " · ".join(assets_down[:3])
+                up_span  = f'<span style="color:#2a9a4a;">▲ {up_str}</span>' if up_str else ''
+                dn_span  = f'<span style="color:#cc2200;">▼ {down_str}</span>' if down_str else ''
 
-                st.markdown(f"""
-                <div style="background:#0d0d18;border:1px solid #1a1a2e;
-                     border-left:4px solid {urgency_color};
-                     border-radius:4px;padding:16px;margin:6px 0;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                        <div style="flex:1;">
-                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
-                                <span style="color:{urgency_color};font-family:JetBrains Mono,monospace;
-                                     font-size:0.7em;font-weight:700;">{urgency_label}</span>
-                                <span style="color:#e0e0e0;font-weight:700;font-size:0.92em;">{event_name}</span>
-                            </div>
-                            <div style="display:flex;gap:16px;font-size:0.65em;
-                                 font-family:JetBrains Mono,monospace;color:#555;margin-bottom:8px;">
-                                <span>📅 {event_date}</span>
-                                <span>📍 {region}</span>
-                                <span>🎯 {accuracy}% historical accuracy</span>
-                            </div>
-                            <div style="font-size:0.68em;color:#888;margin-bottom:8px;line-height:1.5;">
-                                {hist_note}
-                            </div>
-                            <div style="display:flex;gap:16px;font-size:0.65em;">
-                                <span style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-weight:700;">
-                                    Expected: {avg_move}
-                                </span>
-                                {f'<span style="color:#2a9a4a;">▲ {up_str}</span>' if up_str else ''}
-                                {f'<span style="color:#cc2200;">▼ {down_str}</span>' if down_str else ''}
-                            </div>
-                        </div>
-                        <div style="text-align:center;min-width:80px;padding-left:16px;">
-                            <div style="font-size:2em;font-weight:700;color:{urgency_color};
-                                 font-family:'Barlow Condensed',sans-serif;line-height:1;">
-                                {days_away}
-                            </div>
-                            <div style="font-size:0.58em;color:#555;font-family:JetBrains Mono,monospace;">
-                                DAYS
-                            </div>
-                            <div style="font-size:0.55em;color:{urgency_color};
-                                 font-family:JetBrains Mono,monospace;margin-top:4px;">
-                                {sens_bar}
-                            </div>
-                            <div style="font-size:0.55em;color:#555;font-family:JetBrains Mono,monospace;">
-                                IMPACT {sensitivity}/10
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                # Build card using string concatenation to avoid f-string CSS conflicts
+                card = (
+                    f'<div style="background:#0d0d18;border:1px solid #1a1a2e;'
+                    f'border-left:4px solid {urgency_color};'
+                    f'border-radius:4px;padding:16px;margin:6px 0;">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+                    f'<div style="flex:1;">'
+                    f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">'
+                    f'<span style="color:{urgency_color};font-family:JetBrains Mono,monospace;'
+                    f'font-size:0.7em;font-weight:700;">{urgency_label}</span>'
+                    f'<span style="color:#e0e0e0;font-weight:700;font-size:0.92em;">{event_name}</span>'
+                    f'</div>'
+                    f'<div style="display:flex;gap:16px;font-size:0.65em;'
+                    f'font-family:JetBrains Mono,monospace;color:#555;margin-bottom:8px;">'
+                    f'<span>&#128197; {event_date}</span>'
+                    f'<span>&#128205; {region}</span>'
+                    f'<span>&#127919; {accuracy}% historical accuracy</span>'
+                    f'</div>'
+                    f'<div style="font-size:0.68em;color:#888;margin-bottom:8px;line-height:1.5;">{hist_note}</div>'
+                    f'<div style="display:flex;gap:16px;font-size:0.65em;">'
+                    f'<span style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-weight:700;">'
+                    f'Expected: {avg_move}</span>'
+                    f'{up_span}&nbsp;{dn_span}'
+                    f'</div>'
+                    f'</div>'
+                    f'<div style="text-align:center;min-width:80px;padding-left:16px;">'
+                    f'<div style="font-size:2em;font-weight:700;color:{urgency_color};'
+                    f'font-family:Barlow Condensed,sans-serif;line-height:1;">{days_away}</div>'
+                    f'<div style="font-size:0.58em;color:#555;font-family:JetBrains Mono,monospace;">DAYS</div>'
+                    f'<div style="background:#1a1a2e;border-radius:2px;height:6px;margin:6px 0;">'
+                    f'<div style="width:{sensitivity*10}%;background:{urgency_color};height:6px;border-radius:2px;"></div>'
+                    f'</div>'
+                    f'<div style="font-size:0.55em;color:#555;font-family:JetBrains Mono,monospace;">IMPACT {sensitivity}/10</div>'
+                    f'</div>'
+                    f'</div>'
+                    f'</div>'
+                )
+                st.markdown(card, unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"Forward calendar error: {e}")
