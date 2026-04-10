@@ -197,25 +197,61 @@ def fetch_news():
     print(f"   Found {len(relevant)} market-moving news items")
     return relevant
 
-def save_news_signal(cur, entry):
-    title = entry.get("title", "")
-    summary = entry.get("summary", "")[:300]
-    source = entry.get("_source", "News")
+def ensure_seen_headlines_table(cur):
+    """Create permanent seen headlines table if not exists."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS seen_headlines (
+            id SERIAL PRIMARY KEY,
+            headline_key TEXT UNIQUE NOT NULL,
+            full_title TEXT,
+            source TEXT,
+            category TEXT,
+            region TEXT,
+            first_seen TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
 
-    checksum = hashlib.sha256(
-        f"news_{title}".encode()
-    ).hexdigest()[:32]
 
-    # Check if already logged by checksum
-    cur.execute("SELECT id FROM signals WHERE checksum = %s;", (checksum,))
+def make_headline_key(title):
+    """
+    Create a normalized key from headline.
+    Strips source tags, lowercases, takes first 8 words.
+    This catches same story from different sources.
+    """
+    import re
+    # Remove source prefix like [BBC World]: 
+    clean = re.sub(r'\[.*?\]:\s*', '', title)
+    # Lowercase and split
+    words = clean.lower().split()
+    # Take first 8 meaningful words
+    key_words = " ".join(words[:8])
+    # Also create a checksum of the full title for exact match
+    exact = hashlib.sha256(f"news_{title}".encode()).hexdigest()[:32]
+    return key_words, exact
+
+
+def is_seen_headline(cur, title, category, region):
+    """
+    Check if this headline or a very similar one has been seen before.
+    Uses both exact checksum AND keyword similarity AND category+region window.
+    """
+    key_words, exact_checksum = make_headline_key(title)
+
+    # 1. Exact checksum match — always block
+    cur.execute("SELECT id FROM signals WHERE checksum = %s;", (exact_checksum,))
     if cur.fetchone():
-        return False
+        return True
 
-    category = detect_category(title, summary)
-    region   = detect_region(title, summary)
+    # 2. Seen headlines table — permanent record
+    cur.execute("""
+        SELECT id FROM seen_headlines
+        WHERE headline_key = %s
+        AND first_seen >= NOW() - INTERVAL '48 hours';
+    """, (key_words,))
+    if cur.fetchone():
+        return True
 
-    # Check if same category+region already has an active signal from last 12 hours
-    # Use ILIKE for case-insensitive match on source_platform
+    # 3. Category + region window — one signal per category/region per 12h
     cur.execute("""
         SELECT id FROM signals
         WHERE event_category = %s
@@ -225,19 +261,43 @@ def save_news_signal(cur, entry):
         AND is_active = true;
     """, (category, region))
     if cur.fetchone():
-        return False  # Same event already signalled recently
+        return True
 
-    # Also dedup on headline similarity — prevent same story from different sources
-    title_words = " ".join(title.lower().split()[:6])  # First 6 words of headline
-    cur.execute("""
-        SELECT id FROM signals
-        WHERE LOWER(event_description) LIKE %s
-        AND signal_time >= NOW() - INTERVAL '12 hours'
-        AND is_active = true;
-    """, (f"%{title_words}%",))
-    if cur.fetchone():
-        return False  # Same headline already signalled
+    return False
 
+
+def mark_headline_seen(cur, title, source, category, region):
+    """Permanently record this headline so it never fires again."""
+    key_words, _ = make_headline_key(title)
+    try:
+        cur.execute("""
+            INSERT INTO seen_headlines (headline_key, full_title, source, category, region)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (headline_key) DO NOTHING;
+        """, (key_words, title[:200], source, category, region))
+    except Exception:
+        pass
+
+
+def save_news_signal(cur, entry):
+    title   = entry.get("title", "")
+    summary = entry.get("summary", "")[:300]
+    source  = entry.get("_source", "News")
+
+    # Ensure seen_headlines table exists
+    ensure_seen_headlines_table(cur)
+
+    category = detect_category(title, summary)
+    region   = detect_region(title, summary)
+
+    # Hard dedup check — three layers
+    if is_seen_headline(cur, title, category, region):
+        return False
+
+    # Mark as seen BEFORE inserting signal
+    mark_headline_seen(cur, title, source, category, region)
+
+    _, exact_checksum = make_headline_key(title)
     description = f"NEWS ALERT [{source}]: {title}. {summary}"
 
     cur.execute("""
@@ -253,7 +313,7 @@ def save_news_signal(cur, entry):
         "medium", "news_intelligence",
         datetime.now(timezone.utc),
         datetime.now(timezone.utc) + timedelta(hours=48),
-        True, checksum
+        True, exact_checksum
     ))
     return True
 
