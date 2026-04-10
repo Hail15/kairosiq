@@ -5594,24 +5594,30 @@ with tab15:
                 bs_conditions = bs_conditions if isinstance(bs_conditions, list) else json.loads(bs_conditions or "[]")
                 bs_color = "#cc2200" if bs_count >= 3 else "#e8b84b" if bs_count >= 2 else "#2a9a4a"
 
-                st.markdown(f"""
-                <div style="background:rgba(204,34,0,0.04);border:1px solid {bs_color};
-                     border-left:4px solid {bs_color};border-radius:4px;padding:16px;margin-bottom:20px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span style="color:{bs_color};font-family:JetBrains Mono,monospace;
-                             font-size:0.78em;font-weight:700;letter-spacing:0.1em;">
-                            🦢 BLACK SWAN MONITOR — {bs_count}/7 CONDITIONS ACTIVE
-                        </span>
-                        <span style="color:#555;font-family:JetBrains Mono,monospace;font-size:0.62em;">
-                            GPI: {bs_gpi}
-                        </span>
-                    </div>
-                    <div style="font-size:0.72em;color:#888;margin-top:8px;">{bs_context or 'Monitoring...'}</div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                        {''.join([f"""<span style="background:rgba(204,34,0,0.1);border:1px solid #cc2200;color:#cc2200;padding:2px 8px;border-radius:2px;font-family:JetBrains Mono,monospace;font-size:0.6em;">{c.get('name','')}</span>""" for c in (bs_conditions or [])])}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                # Build condition tags separately to avoid nested f-string
+                condition_tags = "".join([
+                    f'<span style="background:rgba(204,34,0,0.1);border:1px solid #cc2200;'
+                    f'color:#cc2200;padding:2px 8px;border-radius:2px;'
+                    f'font-family:JetBrains Mono,monospace;font-size:0.6em;">'
+                    f'{c.get("name","")}</span>'
+                    for c in (bs_conditions or [])
+                ])
+
+                bs_html = (
+                    f'<div style="background:rgba(204,34,0,0.04);border:1px solid {bs_color};'
+                    f'border-left:4px solid {bs_color};border-radius:4px;padding:16px;margin-bottom:20px;">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                    f'<span style="color:{bs_color};font-family:JetBrains Mono,monospace;'
+                    f'font-size:0.78em;font-weight:700;letter-spacing:0.1em;">'
+                    f'BLACK SWAN MONITOR — {bs_count}/7 CONDITIONS ACTIVE</span>'
+                    f'<span style="color:#555;font-family:JetBrains Mono,monospace;font-size:0.62em;">'
+                    f'GPI: {bs_gpi}</span>'
+                    f'</div>'
+                    f'<div style="font-size:0.72em;color:#888;margin-top:8px;">{bs_context or "Monitoring..."}</div>'
+                    f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">{condition_tags}</div>'
+                    f'</div>'
+                )
+                st.markdown(bs_html, unsafe_allow_html=True)
         except Exception:
             pass
 
