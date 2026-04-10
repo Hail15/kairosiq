@@ -3666,9 +3666,17 @@ with tab7:
                 sorted_kiq = sorted(kiq_scores.items(), key=lambda x: x[1]["score"], reverse=True)
                 cols_kiq = st.columns(len(sorted_kiq))
                 for col, (ticker, data) in zip(cols_kiq, sorted_kiq):
-                    score = data["score"]
-                    label = data["label"]
-                    color = data["color"]
+                    score    = data["score"]
+                    label    = data["label"]
+                    color    = data["color"]
+                    conflict = data.get("conflict", "NEUTRAL")
+                    adj_acc  = data.get("adj_accuracy", 0)
+                    conflict_icon = {
+                        "CONFIRMED":       "✅",
+                        "CONFLICTED":      "⚡",
+                        "REGIME_OVERRIDE": "⚠️",
+                        "NEUTRAL":         "➖",
+                    }.get(conflict, "➖")
                     with col:
                         st.markdown(
                             f'<div style="background:#0d0d18;border:1px solid #1a1a2e;'
@@ -3679,6 +3687,7 @@ with tab7:
                             f'<div style="color:{color};font-family:JetBrains Mono,monospace;'
                             f'font-weight:700;font-size:1.1em;">{score}</div>'
                             f'<div style="color:{color};font-size:0.55em;font-family:JetBrains Mono,monospace;">{label}</div>'
+                            f'<div style="color:#555;font-size:0.5em;margin-top:2px;">{conflict_icon} {adj_acc:.0f}%</div>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
@@ -5748,21 +5757,43 @@ with tab15:
 
             if kiq_scores:
                 for ticker, data in sorted(kiq_scores.items(), key=lambda x: x[1]["score"], reverse=True):
-                    score = data["score"]
-                    label = data["label"]
-                    color = data["color"]
-                    name  = data["name"]
-                    bar_w = score
+                    score    = data["score"]
+                    label    = data["label"]
+                    color    = data["color"]
+                    name     = data["name"]
+                    conflict = data.get("conflict", "NEUTRAL")
+                    adj_acc  = data.get("adj_accuracy", 0)
+                    detail   = data.get("conflict_detail", "")[:60]
+                    bar_w    = score
+
+                    conflict_color = {
+                        "CONFIRMED":       "#2a9a4a",
+                        "CONFLICTED":      "#e8b84b",
+                        "REGIME_OVERRIDE": "#cc2200",
+                        "NEUTRAL":         "#555",
+                    }.get(conflict, "#555")
+
+                    conflict_icon = {
+                        "CONFIRMED":       "✅",
+                        "CONFLICTED":      "⚡",
+                        "REGIME_OVERRIDE": "⚠️",
+                        "NEUTRAL":         "➖",
+                    }.get(conflict, "➖")
 
                     st.markdown(
-                        f'<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;'
-                        f'background:#0d0d18;border:1px solid #1a1a2e;border-radius:4px;margin:3px 0;">'
+                        f'<div style="padding:8px 12px;background:#0d0d18;border:1px solid #1a1a2e;'
+                        f'border-left:3px solid {conflict_color};border-radius:4px;margin:3px 0;">'
+                        f'<div style="display:flex;align-items:center;gap:10px;">'
                         f'<span style="color:#e0e0e0;font-family:JetBrains Mono,monospace;font-weight:700;font-size:0.78em;min-width:50px;">{ticker}</span>'
                         f'<div style="flex:1;background:#1a1a2e;border-radius:2px;height:6px;">'
                         f'<div style="width:{bar_w}%;background:{color};height:6px;border-radius:2px;"></div>'
                         f'</div>'
                         f'<span style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-size:0.72em;min-width:35px;text-align:right;">{score}</span>'
-                        f'<span style="color:{color};font-family:JetBrains Mono,monospace;font-size:0.65em;font-weight:700;min-width:90px;">{label}</span>'
+                        f'<span style="color:{color};font-family:JetBrains Mono,monospace;font-size:0.65em;font-weight:700;min-width:110px;">{label}</span>'
+                        f'<span style="color:{conflict_color};font-family:JetBrains Mono,monospace;font-size:0.6em;min-width:20px;">{conflict_icon}</span>'
+                        f'</div>'
+                        f'<div style="font-size:0.58em;color:#444;font-family:JetBrains Mono,monospace;margin-top:3px;padding-left:60px;">'
+                        f'{detail} · adj accuracy: {adj_acc:.0f}%</div>'
                         f'</div>',
                         unsafe_allow_html=True
                     )

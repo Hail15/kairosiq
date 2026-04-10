@@ -85,18 +85,27 @@ def get_day_change(ticker):
 
 def calculate_kiq_score(ticker, signals, regime, options_signals):
     """
-    Calculate KairosIQ Asset Score (0-100) for a given ticker.
-    Higher = stronger buy signal. Lower = avoid or short.
-    50 = neutral.
+    Calculate KairosIQ Asset Score (0-100) with conflict detection.
+    Returns: (score, label, color, conflict_status, conflict_detail, adjusted_accuracy)
+
+    Conflict statuses:
+    - CONFIRMED    — signal and regime fully aligned
+    - CONFLICTED   — signal and regime fighting each other
+    - REGIME_OVERRIDE — regime is winning over signal
+    - NEUTRAL      — no strong signal either way
     """
-    asset_info = ASSET_UNIVERSE.get(ticker, {})
-    geo_sensitivity = asset_info.get("geopolitical_sensitivity", 0.5)
+    asset_info      = ASSET_UNIVERSE.get(ticker, {})
     is_safe_haven   = asset_info.get("regime_safe_haven", False)
+    regime_name     = regime.get("regime", "NORMAL") if regime else "NORMAL"
 
-    score = 50.0  # Start neutral
+    score = 50.0
 
-    # Factor 1: Signal Alignment (30 points max)
-    signal_score = 0
+    # ── Factor 1: Signal Alignment (30 points) ───────────────────────────
+    signal_score     = 0
+    signal_direction = None  # net direction from signals
+    signal_accuracy  = 0.0
+    signal_count     = 0
+
     for sig in signals:
         assets_json = sig.get("affected_assets", [])
         if isinstance(assets_json, str):
@@ -117,78 +126,184 @@ def calculate_kiq_score(ticker, signals, regime, options_signals):
                 else:
                     signal_score -= accuracy * conf_mult * 10
 
+                signal_accuracy = max(signal_accuracy, accuracy)
+                signal_count += 1
+
     signal_score = max(-30, min(30, signal_score))
+    signal_direction = "up" if signal_score > 5 else "down" if signal_score < -5 else "neutral"
     score += signal_score
 
-    # Factor 2: Regime Compatibility (20 points max)
-    regime_score = 0
-    if regime:
-        regime_name = regime.get("regime", "NORMAL")
-        if regime_name == "TARIFF_SHOCK":
-            if is_safe_haven:
-                regime_score = 10  # Safe havens work in tariff shock
-            elif ticker in ["USO", "BNO", "XLE"]:
-                regime_score = -15  # Oil broken in tariff shock
-            elif ticker in ["LMT", "RTX", "NOC", "ITA"]:
-                regime_score = -5   # Defense mixed in tariff shock
-        elif regime_name == "INFLATION_SHOCK":
-            if ticker in ["GLD", "SLV", "USO", "BNO", "WEAT"]:
-                regime_score = 15  # Commodities win in inflation shock
-            elif is_safe_haven and ticker == "TLT":
-                regime_score = -10  # Bonds lose in inflation
-        elif regime_name == "EXTREME_RISK_OFF":
-            if is_safe_haven:
-                regime_score = 20  # Only safe havens work
-            else:
-                regime_score = -15
-        elif regime_name == "NORMAL":
-            regime_score = 5   # Everything works normally
+    # ── Factor 2: Regime Compatibility (20 points) + Conflict Detection ──
+    regime_score    = 0
+    regime_supports = None  # True/False/None
+
+    REGIME_RULES = {
+        "TARIFF_SHOCK": {
+            "safe_haven":       (+10, True,  "Safe havens reliable in tariff shock"),
+            "oil":              (-20, False, "Tariff recession fear overriding oil supply signals"),
+            "defense":          (-8,  False, "Growth fears partially offsetting defense thesis"),
+            "em":               (-15, False, "EM assets hit by dollar strength + growth fears"),
+            "semis":            (-15, False, "Tech supply chain under tariff pressure"),
+            "shipping":         (+5,  True,  "Shipping benefits from rerouting regardless of tariffs"),
+        },
+        "INFLATION_SHOCK": {
+            "safe_haven_gold":  (+15, True,  "Gold is inflation hedge — signal amplified"),
+            "oil":              (+15, True,  "Oil supply shock + inflation = amplified signal"),
+            "bonds":            (-10, False, "Bonds lose in inflation shock"),
+            "defense":          (+5,  True,  "Defense performs in inflation shock"),
+        },
+        "EXTREME_RISK_OFF": {
+            "safe_haven":       (+20, True,  "Only safe havens work in extreme risk-off"),
+            "everything_else":  (-15, False, "All risk assets sell in extreme risk-off"),
+        },
+        "RECESSION_FEAR": {
+            "safe_haven":       (+15, True,  "Safe havens bid in recession fear"),
+            "oil":              (-15, False, "Demand destruction overriding supply signals"),
+            "defense":          (-5,  False, "Budget concerns offsetting defense thesis"),
+        },
+        "NORMAL": {
+            "everything":       (+5,  True,  "Normal regime — signals at full reliability"),
+        },
+    }
+
+    rules = REGIME_RULES.get(regime_name, REGIME_RULES["NORMAL"])
+
+    if regime_name == "TARIFF_SHOCK":
+        if is_safe_haven and ticker not in ["USO", "BNO", "XLE"]:
+            regime_score, regime_supports, regime_note = rules["safe_haven"]
+        elif ticker in ["USO", "BNO", "XLE", "COP", "CVX", "XOM"]:
+            regime_score, regime_supports, regime_note = rules["oil"]
+        elif ticker in ["LMT", "RTX", "NOC", "ITA", "BA", "GD", "HII"]:
+            regime_score, regime_supports, regime_note = rules["defense"]
+        elif ticker in ["EEM", "EWT", "FXI", "VWO", "MCHI", "EWZ"]:
+            regime_score, regime_supports, regime_note = rules["em"]
+        elif ticker in ["SMH", "SOXX", "TSM", "NVDA", "AMD"]:
+            regime_score, regime_supports, regime_note = rules["semis"]
+        elif ticker in ["ZIM", "SBLK", "GOGL", "BDRY"]:
+            regime_score, regime_supports, regime_note = rules["shipping"]
+        else:
+            regime_score, regime_supports, regime_note = 0, None, "No specific regime impact"
+
+    elif regime_name == "INFLATION_SHOCK":
+        if ticker in ["GLD", "SLV", "GDX", "GDXJ"]:
+            regime_score, regime_supports, regime_note = rules["safe_haven_gold"]
+        elif ticker in ["USO", "BNO", "XLE", "WEAT", "CORN"]:
+            regime_score, regime_supports, regime_note = rules["oil"]
+        elif ticker in ["TLT", "IEF", "TIPS"]:
+            regime_score, regime_supports, regime_note = rules["bonds"]
+        else:
+            regime_score, regime_supports, regime_note = rules.get("defense", (0, None, ""))
+
+    elif regime_name == "EXTREME_RISK_OFF":
+        if is_safe_haven:
+            regime_score, regime_supports, regime_note = rules["safe_haven"]
+        else:
+            regime_score, regime_supports, regime_note = rules["everything_else"]
+
+    elif regime_name == "RECESSION_FEAR":
+        if is_safe_haven:
+            regime_score, regime_supports, regime_note = rules["safe_haven"]
+        elif ticker in ["USO", "BNO", "XLE"]:
+            regime_score, regime_supports, regime_note = rules["oil"]
+        elif ticker in ["LMT", "RTX", "NOC", "ITA"]:
+            regime_score, regime_supports, regime_note = rules["defense"]
+        else:
+            regime_score, regime_supports, regime_note = 0, None, "No specific regime impact"
+
+    else:  # NORMAL
+        regime_score    = 5
+        regime_supports = True
+        regime_note     = "Normal regime — signals at full reliability"
 
     score += regime_score
 
-    # Factor 3: Options Flow (15 points max)
+    # ── Conflict Detection ────────────────────────────────────────────────
+    conflict_status = "NEUTRAL"
+    conflict_detail = ""
+    adjusted_accuracy = signal_accuracy
+
+    if signal_direction == "neutral" or signal_count == 0:
+        conflict_status = "NEUTRAL"
+        conflict_detail = "No active signals for this asset"
+
+    elif regime_supports is True and signal_direction == "up":
+        conflict_status = "CONFIRMED"
+        conflict_detail = f"Signal ({signal_direction}) and regime ({regime_name}) fully aligned"
+        adjusted_accuracy = min(0.95, signal_accuracy * 1.15)  # Boost accuracy when confirmed
+
+    elif regime_supports is True and signal_direction == "down":
+        conflict_status = "CONFIRMED"
+        conflict_detail = f"Short signal confirmed by regime"
+        adjusted_accuracy = min(0.95, signal_accuracy * 1.10)
+
+    elif regime_supports is False and signal_direction == "up":
+        # Signal says buy but regime says caution
+        if abs(regime_score) >= 15:
+            conflict_status = "REGIME_OVERRIDE"
+            conflict_detail = f"⚠️ {regime_note}"
+            adjusted_accuracy = signal_accuracy * 0.60  # Significantly reduce reliability
+            score = max(35, min(score, 60))  # Cap score — can't be STRONG BUY in override
+        else:
+            conflict_status = "CONFLICTED"
+            conflict_detail = f"Signal bullish but {regime_note}"
+            adjusted_accuracy = signal_accuracy * 0.80  # Reduce reliability
+
+    elif regime_supports is False and signal_direction == "down":
+        conflict_status = "CONFIRMED"
+        conflict_detail = f"Short signal reinforced by regime headwinds"
+        adjusted_accuracy = min(0.95, signal_accuracy * 1.10)
+
+    # ── Factor 3: Options Flow (15 points) ───────────────────────────────
     options_score = 0
     for opt in options_signals:
-        if ticker in (opt.get("description", "")):
-            flow = opt.get("flow_signal", "")
-            if "BULLISH" in flow or "CALL" in flow:
+        desc = opt.get("description", "") or opt.get("event_description", "")
+        if ticker in desc:
+            flow = opt.get("flow_signal", "") or desc
+            if "BULLISH" in flow.upper() or "CALL" in flow.upper():
                 options_score = 15
-            elif "BEARISH" in flow or "PUT" in flow:
+                if conflict_status == "CONFLICTED":
+                    conflict_status = "CONFLICTED"  # Options don't resolve regime conflict
+                    conflict_detail += " | Smart money bullish via options"
+            elif "BEARISH" in flow.upper() or "PUT" in flow.upper():
                 options_score = -15
             break
 
     score += options_score
 
-    # Factor 4: Technical Momentum (10 points max)
+    # ── Factor 4: Technical Momentum (10 points) ─────────────────────────
     try:
-        rsi = get_rsi(ticker)
+        rsi     = get_rsi(ticker)
         day_chg = get_day_change(ticker)
 
         tech_score = 0
         if rsi < 30:
-            tech_score = 8   # Oversold = buy opportunity
+            tech_score = 8
         elif rsi > 70:
-            tech_score = -8  # Overbought = caution
+            tech_score = -8
         elif rsi > 55:
-            tech_score = 4   # Bullish momentum
+            tech_score = 4
         elif rsi < 45:
-            tech_score = -4  # Bearish momentum
+            tech_score = -4
 
-        # Day change alignment
         if day_chg < -5:
-            tech_score += 5  # Big dip = opportunity if signal bullish
+            tech_score += 5
         elif day_chg > 5:
-            tech_score -= 3  # Extended = less upside
+            tech_score -= 3
 
         score += max(-10, min(10, tech_score))
     except Exception:
         pass
 
-    # Clamp to 0-100
+    # ── Final score and label ─────────────────────────────────────────────
     score = max(0, min(100, score))
 
-    # Generate label
-    if score >= 80:
+    if conflict_status == "REGIME_OVERRIDE":
+        label = "REGIME OVERRIDE"
+        color = "#e8b84b"
+    elif conflict_status == "CONFLICTED":
+        label = "CONFLICTED"
+        color = "#e8b84b"
+    elif score >= 80:
         label = "STRONG BUY"
         color = "#2a9a4a"
     elif score >= 65:
@@ -210,7 +325,7 @@ def calculate_kiq_score(ticker, signals, regime, options_signals):
         label = "STRONG AVOID"
         color = "#cc2200"
 
-    return round(score), label, color
+    return round(score), label, color, conflict_status, conflict_detail, round(adjusted_accuracy * 100, 1)
 
 
 # ── 48-Hour Prediction Engine ─────────────────────────────────────────────────
@@ -386,14 +501,18 @@ def run_prediction_engine():
     # Generate KIQ Scores
     kiq_scores = {}
     for ticker in list(ASSET_UNIVERSE.keys())[:12]:  # Top 12 assets
-        score, label, color = calculate_kiq_score(ticker, signals, regime, options_signals)
+        result = calculate_kiq_score(ticker, signals, regime, options_signals)
+        score, label, color, conflict, conflict_detail, adj_acc = result
         kiq_scores[ticker] = {
-            "score": score,
-            "label": label,
-            "color": color,
-            "name":  ASSET_UNIVERSE[ticker]["name"],
+            "score":           score,
+            "label":           label,
+            "color":           color,
+            "conflict":        conflict,
+            "conflict_detail": conflict_detail,
+            "adj_accuracy":    adj_acc,
+            "name":            ASSET_UNIVERSE[ticker]["name"],
         }
-        print(f"   📊 KIQ {ticker}: {score}/100 {label}")
+        print(f"   📊 KIQ {ticker}: {score}/100 {label} [{conflict}]")
 
     # Save to database
     cur.execute("""
