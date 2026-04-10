@@ -5834,10 +5834,183 @@ with tab15:
     except Exception as e:
         st.error(f"Intelligence Command Center error: {e}")
 
+    # ── Market Hasn't Priced This Yet ─────────────────────────────────────
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0 12px;">', unsafe_allow_html=True)
+    try:
+        from signals.unpriced_risk import get_latest_gap, get_historical_gpi_vix_relationship
+        gap_row = get_latest_gap()
+        if gap_row:
+            gpi_s, vix_s, exp_vix_s, gap_s, dir_s, sev_s, det_s = gap_row
+            gap_color = "#cc2200" if dir_s == "UNDERPRICED" and sev_s in ["HIGH","CRITICAL"] else "#e8b84b" if dir_s == "UNDERPRICED" else "#2a9a4a"
+            gap_icon  = "🚨" if sev_s in ["HIGH","CRITICAL"] else "⚠️" if sev_s == "MEDIUM" else "📊"
+
+            st.markdown(
+                f'<div style="background:rgba(204,34,0,0.04);border:1px solid {gap_color};'
+                f'border-left:4px solid {gap_color};border-radius:4px;padding:16px;margin-bottom:16px;">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+                f'<span style="color:{gap_color};font-family:JetBrains Mono,monospace;font-size:0.78em;font-weight:700;">'
+                f'{gap_icon} MARKET PRICING GAP — {sev_s} ({dir_s})</span>'
+                f'<span style="color:#555;font-family:JetBrains Mono,monospace;font-size:0.62em;">{det_s.strftime("%H:%M UTC") if det_s else ""}</span>'
+                f'</div>'
+                f'<div style="display:flex;gap:24px;font-family:JetBrains Mono,monospace;font-size:0.72em;margin-bottom:10px;">'
+                f'<div><span style="color:#555;">GPI</span><br><span style="color:#e0e0e0;font-size:1.4em;font-weight:700;">{gpi_s}</span></div>'
+                f'<div><span style="color:#555;">VIX</span><br><span style="color:#e0e0e0;font-size:1.4em;font-weight:700;">{vix_s:.1f}</span></div>'
+                f'<div><span style="color:#555;">Expected VIX</span><br><span style="color:{gap_color};font-size:1.4em;font-weight:700;">{exp_vix_s:.0f}</span></div>'
+                f'<div><span style="color:#555;">Gap</span><br><span style="color:{gap_color};font-size:1.4em;font-weight:700;">{gap_s:+.1f}</span></div>'
+                f'</div>'
+                f'<div style="font-size:0.7em;color:#888;">'
+                f'{"Markets are underpricing geopolitical risk. VIX should be higher given current GPI level." if dir_s == "UNDERPRICED" else "Markets may be overpricing risk. VIX elevated above GPI-implied level."}'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+    except Exception:
+        pass
+
+    # ── Smart Money vs Dumb Money ─────────────────────────────────────────
+    try:
+        from signals.smart_money import get_current_divergences
+        divergences = get_current_divergences()
+        if divergences:
+            st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:8px;">SMART MONEY vs DUMB MONEY DIVERGENCES</div>', unsafe_allow_html=True)
+            for div_desc, div_time, div_shift in divergences:
+                st.markdown(
+                    f'<div style="background:#0d0d18;border:1px solid #1a1a2e;'
+                    f'border-left:3px solid #e8b84b;border-radius:4px;padding:10px 14px;margin:3px 0;">'
+                    f'<div style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-size:0.65em;font-weight:700;">💰 DIVERGENCE DETECTED</div>'
+                    f'<div style="color:#888;font-size:0.68em;margin-top:3px;">{(div_desc or "")[:150]}...</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+    except Exception:
+        pass
+
+    # ── Pre-Signal Silence ────────────────────────────────────────────────
+    try:
+        conn_sil = get_db()
+        cur_sil  = conn_sil.cursor()
+        cur_sil.execute("""
+            SELECT event_description, region, signal_time
+            FROM signals
+            WHERE source_platform = 'SILENCE_DETECTOR'
+            AND is_active = true
+            AND signal_time >= NOW() - INTERVAL '24 hours'
+            ORDER BY signal_time DESC LIMIT 3;
+        """)
+        silence_rows = cur_sil.fetchall()
+        cur_sil.close()
+        conn_sil.close()
+
+        if silence_rows:
+            st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:8px;margin-top:12px;">PRE-SIGNAL SILENCE DETECTED</div>', unsafe_allow_html=True)
+            for sil_desc, sil_region, sil_time in silence_rows:
+                st.markdown(
+                    f'<div style="background:#0d0d18;border:1px solid #1a1a2e;'
+                    f'border-left:3px solid #555;border-radius:4px;padding:10px 14px;margin:3px 0;">'
+                    f'<div style="color:#888;font-family:JetBrains Mono,monospace;font-size:0.65em;font-weight:700;">🔇 ANOMALOUS QUIET — {(sil_region or "").upper()}</div>'
+                    f'<div style="color:#555;font-size:0.65em;margin-top:3px;">{(sil_desc or "")[:150]}...</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+    except Exception:
+        pass
+
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0 12px;">', unsafe_allow_html=True)
+
+    # ── Geopolitical Stress Test ──────────────────────────────────────────
+    st.markdown("""
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2em;
+         font-weight:700;letter-spacing:0.1em;color:#f0f0f4;margin-bottom:4px;">
+         GEOPOLITICAL <span style="color:#cc2200;">STRESS TEST</span>
+    </div>
+    <div style="font-size:0.65em;color:#555;font-family:JetBrains Mono,monospace;margin-bottom:16px;">
+    Enter your portfolio — stress test against 5 geopolitical scenarios
+    </div>
+    """, unsafe_allow_html=True)
+
+    try:
+        from signals.stress_test import run_stress_test, STRESS_SCENARIOS
+
+        with st.expander("📊 Configure Portfolio for Stress Test", expanded=True):
+            st.markdown('<div style="font-size:0.65em;color:#555;margin-bottom:8px;">Enter positions (ticker + value in $)</div>', unsafe_allow_html=True)
+
+            col_a, col_b, col_c = st.columns(3)
+            portfolio_input = []
+
+            common_tickers = ["GLD", "RTX", "LMT", "USO", "BNO", "ZIM", "FXI", "EWT",
+                              "SPY", "QQQ", "TLT", "VIXY", "SMH", "TSM", "NOC", "ITA",
+                              "XLE", "EEM", "UNG", "WEAT"]
+
+            for i in range(6):
+                col = [col_a, col_b, col_c][i % 3]
+                with col:
+                    ticker_val = st.selectbox(
+                        f"Position {i+1}",
+                        [""] + common_tickers,
+                        key=f"st_ticker_{i}"
+                    )
+                    if ticker_val:
+                        amount = st.number_input(
+                            f"Value ($)",
+                            min_value=0,
+                            value=10000,
+                            step=1000,
+                            key=f"st_amount_{i}"
+                        )
+                        direction = st.radio(
+                            "Direction",
+                            ["long", "short"],
+                            key=f"st_dir_{i}",
+                            horizontal=True
+                        )
+                        portfolio_input.append({
+                            "ticker":    ticker_val,
+                            "value":     amount,
+                            "direction": direction
+                        })
+
+        if portfolio_input and st.button("⚡ RUN STRESS TEST", use_container_width=True, key="run_stress"):
+            results = run_stress_test(portfolio_input)
+            total_val = sum(p["value"] for p in portfolio_input)
+
+            st.markdown(f'<div style="font-size:0.65em;color:#555;font-family:JetBrains Mono,monospace;margin:12px 0 8px;">Portfolio value: ${total_val:,.0f} · {len(portfolio_input)} positions</div>', unsafe_allow_html=True)
+
+            for scenario_id, result in sorted(results.items(), key=lambda x: x[1]["total_impact_pct"]):
+                impact     = result["total_impact_pct"]
+                impact_usd = result["total_impact_usd"]
+                risk       = result["risk_level"]
+                risk_color = result["risk_color"]
+                prob       = result["probability"]
+                name       = result["scenario_name"]
+                historical = result["historical"]
+                hedges     = result["suggested_hedges"]
+
+                st.markdown(
+                    f'<div style="background:#0d0d18;border:1px solid #1a1a2e;'
+                    f'border-left:4px solid {risk_color};border-radius:4px;padding:14px;margin:6px 0;">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+                    f'<span style="color:#e0e0e0;font-weight:700;font-size:0.85em;">{name}</span>'
+                    f'<span style="color:{risk_color};font-family:JetBrains Mono,monospace;font-weight:700;font-size:1em;">{impact:+.1f}%</span>'
+                    f'</div>'
+                    f'<div style="display:flex;gap:16px;font-family:JetBrains Mono,monospace;font-size:0.65em;margin-bottom:8px;">'
+                    f'<span style="color:{risk_color};">⚠️ {risk}</span>'
+                    f'<span style="color:#555;">Probability: {prob:.0%}</span>'
+                    f'<span style="color:#555;">Impact: ${impact_usd:+,.0f}</span>'
+                    f'</div>'
+                    f'<div style="font-size:0.65em;color:#555;margin-bottom:6px;">📚 {historical}</div>'
+                    f'{"".join([f"""<div style="font-size:0.62em;color:#2a9a4a;font-family:JetBrains Mono,monospace;">💡 Hedge: {h}</div>""" for h in hedges[:2]])}'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+    except Exception as e:
+        st.error(f"Stress test error: {e}")
+
     st.markdown("""
     <div class="disclaimer" style="margin-top:20px;">
-    All forecasts and scores are based on historical pattern analysis and active signal data.
+    All forecasts, scores, and stress test results are based on historical pattern analysis.
     Not investment advice. KIQ scores are directional indicators only.
-    Black Swan conditions are historical pattern matches — not predictions of specific events.
+    Stress test scenarios are hypothetical — actual market impacts may differ significantly.
+    Smart Money signals based on public options market data only.
     </div>
     """, unsafe_allow_html=True)

@@ -38,6 +38,9 @@ from signals.cascade_engine import run_cascade_engine
 from signals.regime_detector import run_regime_detector
 from signals.someone_knows import run_someone_knows_detector
 from signals.prediction_engine import run_prediction_engine
+from signals.unpriced_risk import run_unpriced_risk_detector
+from signals.smart_money import run_smart_money_detector
+from signals.silence_detector import run_silence_detector
 
 def run_morning_digest():
     """
@@ -272,6 +275,21 @@ def run_full_cycle():
         run_prediction_engine()
     except Exception as e:
         print(f"❌ Prediction engine error: {e}")
+
+    try:
+        run_unpriced_risk_detector()
+    except Exception as e:
+        print(f"❌ Unpriced risk error: {e}")
+
+    try:
+        run_smart_money_detector()
+    except Exception as e:
+        print(f"❌ Smart money error: {e}")
+
+    try:
+        run_silence_detector()
+    except Exception as e:
+        print(f"❌ Silence detector error: {e}")
 
     # Always run email alerts every cycle — catches news/GDELT/Cloudflare signals too
     try:
