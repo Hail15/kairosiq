@@ -105,21 +105,79 @@ def filter_assets_by_relevance(assets, description, event_category):
 
     # Asset-specific relevance rules
     ASSET_RELEVANCE = {
+        # Taiwan / Semis
         "EWT":  ["taiwan", "strait", "cross-strait", "tsmc", "taiwanese"],
         "TSM":  ["taiwan", "strait", "semiconductor", "chip", "tsmc"],
         "SMH":  ["semiconductor", "chip", "taiwan", "korea", "memory"],
         "SOXX": ["semiconductor", "chip", "taiwan", "korea"],
+        # China
         "KWEB": ["china", "chinese", "beijing", "alibaba", "tencent", "baidu"],
-        "FXI":  ["china", "chinese", "beijing"],
+        "FXI":  ["china", "chinese", "beijing", "xi", "ccp"],
+        "MCHI": ["china", "chinese", "beijing"],
+        "BABA": ["china", "chinese", "alibaba"],
+        # Shipping
         "ZIM":  ["shipping", "ship", "vessel", "port", "container", "freight", "maritime", "suez", "hormuz", "red sea"],
+        "SBLK": ["shipping", "dry bulk", "freight", "maritime", "coal", "grain"],
+        "GOGL": ["shipping", "dry bulk", "freight", "maritime"],
         "BDRY": ["shipping", "dry bulk", "freight", "commodity transport", "maritime"],
+        "MATX": ["shipping", "container", "pacific", "freight"],
+        # Energy / Oil
         "USO":  ["oil", "crude", "opec", "petroleum", "barrel", "hormuz", "iran", "energy"],
         "BNO":  ["oil", "crude", "opec", "petroleum", "barrel", "hormuz", "iran", "brent", "energy"],
         "XLE":  ["oil", "energy", "gas", "opec", "petroleum", "refinery", "drilling"],
-        "UNG":  ["natural gas", "lng", "gas supply", "pipeline", "russia", "nordstream"],
+        "XOM":  ["oil", "energy", "opec", "exxon", "petroleum"],
+        "CVX":  ["oil", "energy", "opec", "chevron", "petroleum"],
+        "COP":  ["oil", "energy", "conocophillips", "petroleum"],
+        # Natural Gas
+        "UNG":  ["natural gas", "lng", "gas supply", "pipeline", "russia", "nordstream", "europe energy"],
+        "BOIL": ["natural gas", "lng", "gas supply", "pipeline", "russia"],
+        "LNG":  ["lng", "liquefied natural gas", "export terminal", "europe gas"],
+        # Defense
+        "LMT":  ["military", "defense", "missile", "weapon", "war", "conflict", "nato", "iran", "israel", "ukraine"],
+        "RTX":  ["military", "defense", "missile", "raytheon", "weapon", "war", "nato"],
+        "NOC":  ["military", "defense", "northrop", "bomber", "drone", "space defense"],
+        "GD":   ["military", "defense", "general dynamics", "submarine", "tank"],
+        "HII":  ["military", "naval", "ship", "submarine", "navy", "huntington"],
+        "BA":   ["military", "defense", "boeing", "aircraft", "fighter"],
+        "ITA":  ["military", "defense", "weapon", "war", "conflict", "nato"],
+        "CACI": ["cyber", "intelligence", "defense contract", "government"],
+        "LDOS": ["defense", "government", "intelligence", "leidos"],
+        # Safe Havens
+        "GLD":  ["conflict", "war", "crisis", "uncertainty", "inflation", "iran", "russia", "nuclear"],
+        "IAU":  ["conflict", "war", "crisis", "uncertainty", "inflation"],
+        "SLV":  ["conflict", "crisis", "inflation", "industrial", "solar"],
+        "GDX":  ["gold", "mining", "conflict", "inflation"],
+        # Volatility
+        "VIXY": ["conflict", "war", "crisis", "fear", "uncertainty", "volatility", "vix"],
+        "UVXY": ["conflict", "crisis", "volatility", "fear"],
+        # Rare Earth / Strategic
         "REMX": ["rare earth", "minerals", "china mineral", "lithium", "critical mineral"],
-        "JETS": ["airline", "aviation", "travel", "flight", "airport"],
-        "CIBR": ["cyber", "hack", "ransomware", "internet disruption", "malware"],
+        "MP":   ["rare earth", "critical mineral", "china mineral", "supply chain"],
+        # Agriculture / Food Security
+        "WEAT": ["ukraine", "wheat", "grain", "food", "russia", "black sea", "hunger"],
+        "CORN": ["ukraine", "corn", "grain", "food security", "ethanol"],
+        "SOYB": ["soybean", "agriculture", "china trade", "food"],
+        "MOS":  ["fertilizer", "agriculture", "ukraine", "food security", "potash"],
+        # Nuclear
+        "CCJ":  ["nuclear", "uranium", "reactor", "energy transition"],
+        "URA":  ["nuclear", "uranium", "reactor", "atomic"],
+        # Currency
+        "UUP":  ["dollar", "fed", "interest rate", "reserve currency", "inflation"],
+        "FXE":  ["euro", "europe", "ecb", "european"],
+        "FXY":  ["yen", "japan", "boj", "japanese"],
+        # Emerging Markets
+        "EEM":  ["emerging market", "global", "developing", "EM stress"],
+        "EWZ":  ["brazil", "latin america", "south america"],
+        "EWT":  ["taiwan", "strait", "tsmc"],
+        "INDA": ["india", "indian", "modi", "south asia"],
+        # Airlines (inverse signal)
+        "JETS": ["airline", "aviation", "travel", "flight", "airport", "hormuz", "fuel"],
+        # Cyber
+        "CIBR": ["cyber", "hack", "ransomware", "internet disruption", "malware", "attack"],
+        # Inflation hedges
+        "TIPS": ["inflation", "cpi", "fed", "interest rate", "price"],
+        "GSG":  ["commodity", "inflation", "supply chain", "energy"],
+        "PDBC": ["commodity", "inflation", "oil", "energy", "metals"],
     }
 
     filtered = []

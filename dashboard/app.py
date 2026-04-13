@@ -3896,6 +3896,97 @@ if tab7 is not None:
         </div>
         """, unsafe_allow_html=True)
 
+        # ── PROMINENT MANUAL TRADE LOGGER ────────────────────────
+        st.markdown("""
+        <div style="font-family:JetBrains Mono,monospace;font-size:0.62em;
+             color:#555;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">
+             📝 LOG A TRADE MANUALLY
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("➕ Log Any Trade — Any Ticker", expanded=False):
+            st.markdown('<div style="font-size:0.68em;color:#555;margin-bottom:12px;">Log any trade you placed on Alpaca. Enter any ticker — signal-driven or your own call.</div>', unsafe_allow_html=True)
+
+            # Full stock universe for manual logging
+            ALL_TICKERS = [
+                # Energy
+                "USO","BNO","XLE","XOM","CVX","COP","UNG","BOIL","LNG",
+                # Metals / Safe Haven
+                "GLD","IAU","SLV","GDX","GDXJ","GOLD",
+                # Defense
+                "LMT","RTX","NOC","BA","ITA","GD","HII","LDOS","CACI","AXON",
+                # Volatility
+                "VIXY","UVXY","SQQQ","SPXS",
+                # Broad Market
+                "SPY","QQQ","IWM","DIA","VTI",
+                # Bonds
+                "TLT","IEF","SHY","HYG","LQD","TIPS",
+                # Emerging Markets
+                "EEM","VWO","EWZ","EWT","FXI","MCHI","EWG","EWQ","EWJ","EWY","INDA","EWC",
+                # Semiconductors / Tech
+                "SMH","SOXX","TSM","NVDA","AMD","INTC","QCOM","AMAT","ASML",
+                # Shipping
+                "ZIM","SBLK","GOGL","DSX","BDRY","MATX",
+                # Agriculture
+                "WEAT","CORN","SOYB","MOS","NTR","CF",
+                # Rare Earth / Materials
+                "MP","REMX","COPX","PICK",
+                # Currency
+                "UUP","FXE","FXY","FXB","FXF",
+                # Nuclear / Energy Transition
+                "CCJ","URA","NLR","UUUU",
+                # Commodities
+                "DJP","GSG","PDBC","DBO","DBB",
+                # China specific
+                "KWEB","BABA","JD","PDD","BIDU",
+                # Other geo
+                "RSX","ERUS","TUR","EWW","EZA",
+            ]
+            ALL_TICKERS.sort()
+
+            mt_col1, mt_col2, mt_col3, mt_col4 = st.columns(4)
+            with mt_col1:
+                mt_ticker = st.selectbox("Ticker", [""] + ALL_TICKERS, key="mt_ticker_main")
+                mt_custom = st.text_input("Or type any ticker", key="mt_custom_main", placeholder="e.g. AAPL")
+            with mt_col2:
+                mt_side = st.selectbox("Side", ["buy","sell"], key="mt_side_main")
+                mt_live = st.radio("Account", ["Paper","Live"], horizontal=True, key="mt_live_main")
+            with mt_col3:
+                mt_notional = st.number_input("Amount ($)", min_value=1.0, value=100.0, step=10.0, key="mt_notional_main")
+                mt_entry = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.01, key="mt_entry_main")
+            with mt_col4:
+                mt_notes = st.text_area("Notes / Signal", height=80, key="mt_notes_main", placeholder="Which signal triggered this?")
+
+            if st.button("✅ LOG TRADE", use_container_width=True, key="mt_submit_main", type="primary"):
+                final_ticker = mt_custom.upper().strip() if mt_custom.strip() else mt_ticker
+                if final_ticker:
+                    try:
+                        from bets.alpaca_trader import log_manual_trade
+                        _ak = st.secrets.get("ALPACA_PAPER_KEY","") if mt_live == "Paper" else st.secrets.get("ALPACA_LIVE_KEY","")
+                        _as = st.secrets.get("ALPACA_PAPER_SECRET","") if mt_live == "Paper" else st.secrets.get("ALPACA_LIVE_SECRET","")
+                        order_id = log_manual_trade(
+                            signal_id=None,
+                            ticker=final_ticker,
+                            side=mt_side,
+                            notional_usd=mt_notional,
+                            is_live=(mt_live == "Live"),
+                            entry_price=mt_entry if mt_entry > 0 else None,
+                            notes=mt_notes,
+                            key=_ak,
+                            secret=_as
+                        )
+                        if order_id:
+                            st.success(f"✅ Trade logged: {mt_side.upper()} {final_ticker} ${mt_notional:,.0f} — ID: {order_id}")
+                            st.cache_data.clear()
+                        else:
+                            st.warning("Trade saved to DB but no Alpaca order ID returned.")
+                    except Exception as e:
+                        st.error(f"Trade log error: {e}")
+                else:
+                    st.warning("Please select or enter a ticker.")
+
+        st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
+
         # ── Account Info ─────────────────────────────────────────
         try:
             from bets.alpaca_trader import (
