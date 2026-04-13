@@ -1443,42 +1443,37 @@ if _logo_b64:
 else:
     _logo_html = '<span style="font-family:Barlow Condensed,sans-serif;font-size:1.4em;font-weight:800;letter-spacing:0.14em;color:#f0f0f4;">KAIROS<span style="color:#cc2200;">IQ</span></span>'
 
-st.markdown(f"""
-<div style="background:#0d0e13;border-bottom:1px solid rgba(255,255,255,0.05);
-     padding:0 32px;display:flex;align-items:center;justify-content:space-between;
-     height:64px;box-sizing:border-box;">
-
-    <!-- Left: Logo -->
-    <div style="display:flex;align-items:center;gap:0;padding-right:32px;
-         border-right:1px solid rgba(255,255,255,0.06);margin-right:8px;height:100%;">
-        {_logo_html}
-    </div>
-
-    <!-- Middle: Nav items -->
-    <div style="display:flex;align-items:center;gap:4px;flex:1;padding-left:8px;">
-        {_nav_items_html}
-    </div>
-
-    <!-- Right: Badges -->
-    <div style="display:flex;align-items:center;gap:10px;padding-left:16px;">
-        <div style="background:rgba(180,20,0,0.15);border:1px solid rgba(180,20,0,0.5);
-             border-radius:4px;padding:6px 16px;text-align:center;min-width:80px;">
-            <div style="color:#e03010;font-family:JetBrains Mono,monospace;
-                 font-weight:800;font-size:1.4em;line-height:1.1;">{_active_alerts}</div>
-            <div style="color:#803020;font-family:JetBrains Mono,monospace;
-                 font-size:0.5em;letter-spacing:0.1em;text-transform:uppercase;
-                 white-space:nowrap;margin-top:1px;">Active Alerts</div>
-        </div>
-        <div style="padding:6px 16px;text-align:center;min-width:60px;">
-            <div style="color:#f0f0f4;font-family:JetBrains Mono,monospace;
-                 font-weight:800;font-size:1.6em;line-height:1.1;">{_gpr_hdr}</div>
-            <div style="color:#4a4a5e;font-family:JetBrains Mono,monospace;
-                 font-size:0.5em;letter-spacing:0.1em;text-transform:uppercase;
-                 margin-top:1px;">GPR INDEX</div>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    '<div style="background:#0d0e13;border-bottom:1px solid rgba(255,255,255,0.05);'
+    'padding:0 32px;display:flex;align-items:center;justify-content:space-between;'
+    'height:64px;box-sizing:border-box;">'
+    '<div style="display:flex;align-items:center;gap:0;padding-right:32px;'
+    'border-right:1px solid rgba(255,255,255,0.06);margin-right:8px;height:100%;">'
+    + _logo_html +
+    '</div>'
+    '<div style="display:flex;align-items:center;gap:4px;flex:1;padding-left:8px;">'
+    + _nav_items_html +
+    '</div>'
+    '<div style="display:flex;align-items:center;gap:10px;padding-left:16px;">'
+    f'<div style="background:rgba(180,20,0,0.15);border:1px solid rgba(180,20,0,0.5);'
+    f'border-radius:4px;padding:6px 16px;text-align:center;min-width:80px;">'
+    f'<div style="color:#e03010;font-family:JetBrains Mono,monospace;'
+    f'font-weight:800;font-size:1.4em;line-height:1.1;">{_active_alerts}</div>'
+    f'<div style="color:#803020;font-family:JetBrains Mono,monospace;'
+    f'font-size:0.5em;letter-spacing:0.1em;text-transform:uppercase;'
+    f'white-space:nowrap;margin-top:1px;">Active Alerts</div>'
+    f'</div>'
+    f'<div style="padding:6px 16px;text-align:center;min-width:60px;">'
+    f'<div style="color:#f0f0f4;font-family:JetBrains Mono,monospace;'
+    f'font-weight:800;font-size:1.6em;line-height:1.1;">{_gpr_hdr}</div>'
+    f'<div style="color:#4a4a5e;font-family:JetBrains Mono,monospace;'
+    f'font-size:0.5em;letter-spacing:0.1em;text-transform:uppercase;'
+    f'margin-top:1px;">GPR INDEX</div>'
+    f'</div>'
+    '</div>'
+    '</div>',
+    unsafe_allow_html=True
+)
 
 # Invisible click handlers positioned under the nav
 st.markdown("""
@@ -1515,6 +1510,9 @@ for _ci, (_cc, _pg) in enumerate(zip(_click_cols, NAV_PAGES)):
             st.session_state.kiq_page = _pg
             st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
+
+# ── Page routing ──────────────────────────────────────────────────────────────
+_page = st.session_state.kiq_page
 
 # ============================================================
 # PAGE: OVERVIEW  (was: GPI Index + Intelligence Command Center)
