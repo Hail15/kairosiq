@@ -172,12 +172,66 @@ def filter_assets_by_relevance(assets, description, event_category):
         "INDA": ["india", "indian", "modi", "south asia"],
         # Airlines (inverse signal)
         "JETS": ["airline", "aviation", "travel", "flight", "airport", "hormuz", "fuel"],
+        "UAL":  ["airline", "aviation", "fuel", "oil", "travel ban"],
+        "DAL":  ["airline", "aviation", "fuel", "oil", "travel ban"],
+        "AAL":  ["airline", "aviation", "fuel", "oil"],
         # Cyber
         "CIBR": ["cyber", "hack", "ransomware", "internet disruption", "malware", "attack"],
+        "CRWD": ["cyber", "hack", "ransomware", "attack", "security breach"],
+        "PANW": ["cyber", "hack", "firewall", "security", "attack"],
+        "FTNT": ["cyber", "network security", "firewall", "hack"],
         # Inflation hedges
         "TIPS": ["inflation", "cpi", "fed", "interest rate", "price"],
         "GSG":  ["commodity", "inflation", "supply chain", "energy"],
         "PDBC": ["commodity", "inflation", "oil", "energy", "metals"],
+        # Energy transition / Nuclear
+        "CCJ":  ["nuclear", "uranium", "reactor", "energy"],
+        "URA":  ["nuclear", "uranium", "atomic", "reactor"],
+        "URNM": ["nuclear", "uranium", "reactor"],
+        "NLR":  ["nuclear", "uranium", "power", "reactor"],
+        # Tanker stocks (oil shipping)
+        "STNG": ["oil", "tanker", "hormuz", "shipping", "suez"],
+        "TNK":  ["oil", "tanker", "hormuz", "shipping"],
+        "DHT":  ["oil", "tanker", "crude", "shipping"],
+        "FRO":  ["oil", "tanker", "crude", "hormuz", "shipping"],
+        # Palladium/Platinum
+        "PALL": ["russia", "palladium", "sanctions", "ukraine"],
+        "PPLT": ["russia", "platinum", "south africa", "mining"],
+        # Additional defense
+        "LHX":  ["military", "defense", "electronic warfare", "nato"],
+        "KTOS": ["drone", "military", "unmanned", "defense"],
+        "AVAV": ["drone", "military", "uav", "defense"],
+        "BAESY":["military", "bae systems", "uk defense", "nato"],
+        "EADSY":["military", "airbus", "nato", "europe defense"],
+        # Middle East
+        "KSA":  ["saudi", "arabia", "opec", "oil", "middle east"],
+        "ISRA": ["israel", "israeli", "middle east", "gaza"],
+        "EGPT": ["egypt", "suez", "middle east", "canal"],
+        # Turkey / EM stress
+        "TUR":  ["turkey", "turkish", "erdogan", "lira", "middle east"],
+        # Lithium / Critical minerals
+        "ALB":  ["lithium", "battery", "electric vehicle", "critical mineral"],
+        "SQM":  ["lithium", "chile", "battery", "supply"],
+        "LAC":  ["lithium", "battery", "critical mineral"],
+        # Copper
+        "COPX": ["copper", "china", "supply chain", "industrial"],
+        "FCX":  ["copper", "mining", "supply chain", "china"],
+        # Short China
+        "YANG": ["china", "chinese", "beijing", "escalation"],
+        # Short Semis
+        "SOXS": ["semiconductor", "chip", "taiwan", "china"],
+        # Short Bonds (rising rates)
+        "TBT":  ["inflation", "fed", "rate hike", "interest rate"],
+        "TMV":  ["inflation", "fed", "rate hike", "treasury"],
+        # Mexico (tariff exposure)
+        "EWW":  ["mexico", "tariff", "trade", "nafta", "usmca"],
+        # Brazil
+        "EWZ":  ["brazil", "latin america", "commodity", "iron ore"],
+        # Argentina
+        "ARGT": ["argentina", "peso", "debt crisis", "latin america"],
+        # Broader EM stress
+        "FM":   ["frontier market", "emerging", "political risk"],
+        "EMHY": ["emerging market", "high yield", "debt", "default"],
     }
 
     filtered = []

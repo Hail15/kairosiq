@@ -3962,18 +3962,14 @@ if tab7 is not None:
                 if final_ticker:
                     try:
                         from bets.alpaca_trader import log_manual_trade
-                        _ak = st.secrets.get("ALPACA_PAPER_KEY","") if mt_live == "Paper" else st.secrets.get("ALPACA_LIVE_KEY","")
-                        _as = st.secrets.get("ALPACA_PAPER_SECRET","") if mt_live == "Paper" else st.secrets.get("ALPACA_LIVE_SECRET","")
                         order_id = log_manual_trade(
                             signal_id=None,
                             ticker=final_ticker,
                             side=mt_side,
                             notional_usd=mt_notional,
-                            is_live=(mt_live == "Live"),
                             entry_price=mt_entry if mt_entry > 0 else None,
+                            is_live=(mt_live == "Live"),
                             notes=mt_notes,
-                            key=_ak,
-                            secret=_as
                         )
                         if order_id:
                             st.success(f"✅ Trade logged: {mt_side.upper()} {final_ticker} ${mt_notional:,.0f} — ID: {order_id}")
