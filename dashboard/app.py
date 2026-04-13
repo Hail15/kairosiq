@@ -76,17 +76,17 @@ html, body, [class*="css"] {
     max-width: 100% !important;
 }
 
-/* ── Sidebar ────────────────────────────────────────────────── */
-[data-testid="stSidebar"] {
-    background: var(--bg-surface) !important;
-    border-right: 1px solid var(--border) !important;
-}
-[data-testid="stSidebar"] > div:first-child {
+/* ── Hide Sidebar Completely ────────────────────────────────── */
+[data-testid="stSidebar"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+.main .block-container {
     padding: 0 !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
 }
-[data-testid="stSidebar"] * {
-    font-family: var(--font-sans) !important;
-}
+/* Remove top padding Streamlit adds */
+.stApp > header { display: none !important; }
+section[data-testid="stSidebarContent"] { display: none !important; }
 
 /* ── Logo Block ─────────────────────────────────────────────── */
 .kiq-logo-block {
@@ -1178,10 +1178,10 @@ with st.sidebar:
     try:
         # Try multiple paths for Streamlit Cloud vs local
         possible_paths = [
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "kairos_logoV2.png"),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard", "static", "kairos_logoV2.png"),
-            "dashboard/static/kairos_logoV2.png",
-            "static/kairos_logoV2.png",
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "kairos_logo.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard", "static", "kairos_logo.png"),
+            "dashboard/static/kairos_logo.png",
+            "static/kairos_logo.png",
         ]
         logo_loaded = False
         for logo_path in possible_paths:
@@ -1379,204 +1379,142 @@ if "kiq_page" not in st.session_state:
 
 # --- Full-Width Top Status Bar ---
 st.markdown(f"""
-<div style="background:#030305;border-bottom:1px solid rgba(255,255,255,0.05);
-     padding:7px 28px;display:flex;justify-content:space-between;align-items:center;">
-    <div style="display:flex;align-items:center;gap:18px;font-family:JetBrains Mono,monospace;
-         font-size:0.6em;color:#44445a;text-transform:uppercase;letter-spacing:0.1em;">
-        <span><span style="color:#00c97a;">&#9679;</span>&nbsp;LIVE FEED ACTIVE</span>
-        <span style="color:#1a1a2e;">|</span>
+<div style="background:#0a0b0f;border-bottom:1px solid rgba(255,255,255,0.04);
+     padding:6px 32px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:20px;font-family:JetBrains Mono,monospace;
+         font-size:0.58em;color:#3a3a4a;text-transform:uppercase;letter-spacing:0.12em;">
+        <span style="display:flex;align-items:center;gap:6px;">
+            <span style="color:#00c97a;font-size:0.9em;">&#9679;</span>LIVE FEED ACTIVE
+        </span>
+        <span style="color:#1e1e2a;">&#124;</span>
         <span>124 INDICATORS MONITORED</span>
-        <span style="color:#1a1a2e;">|</span>
+        <span style="color:#1e1e2a;">&#124;</span>
         <span>LAST UPDATE: {_last_update} AGO</span>
     </div>
-    <div style="font-family:JetBrains Mono,monospace;font-size:0.6em;color:#44445a;letter-spacing:0.06em;">
-        UTC {datetime.utcnow().strftime('%H:%M:%S')} &nbsp; &#183; &nbsp; {datetime.now().strftime('%b %d %Y').upper()}
+    <div style="font-family:JetBrains Mono,monospace;font-size:0.58em;color:#3a3a4a;letter-spacing:0.08em;">
+        UTC {datetime.utcnow().strftime('%H:%M:%S')} &nbsp;&#183;&nbsp; {datetime.now().strftime('%b %d %Y').upper()}
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- Main Nav Bar (HTML logo + right badges, radio for nav items) ---
+# --- Pure HTML Nav Bar matching screenshot ---
+_cur_page = st.session_state.kiq_page
+
+# Load logo as base64 for embedding in HTML
+import base64 as _b64
+_logo_b64 = ""
+_logo_paths_v = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "kairos_logoV2.png"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard", "static", "kairos_logoV2.png"),
+    "dashboard/static/kairos_logoV2.png",
+    "static/kairos_logoV2.png",
+]
+for _lp in _logo_paths_v:
+    if os.path.exists(_lp):
+        with open(_lp, "rb") as _lf:
+            _logo_b64 = _b64.b64encode(_lf.read()).decode()
+        break
+
+# Build nav items HTML
+_nav_items_html = ""
+for _np in NAV_PAGES:
+    _is_active = (_cur_page == _np)
+    if _is_active:
+        _nav_items_html += (
+            f'<div style="padding:6px 18px;border:1px solid rgba(180,40,20,0.55);'
+            f'border-radius:3px;background:rgba(180,40,20,0.08);margin:0 2px;">'
+            f'<span style="color:#e8e8f0;font-family:JetBrains Mono,monospace;'
+            f'font-size:0.72em;font-weight:700;letter-spacing:0.12em;'
+            f'text-transform:uppercase;">{_np}</span>'
+            f'</div>'
+        )
+    else:
+        _nav_items_html += (
+            f'<div style="padding:6px 18px;margin:0 2px;cursor:pointer;">'
+            f'<span style="color:#4a4a5e;font-family:JetBrains Mono,monospace;'
+            f'font-size:0.72em;font-weight:500;letter-spacing:0.12em;'
+            f'text-transform:uppercase;">{_np}</span>'
+            f'</div>'
+        )
+
+# Logo HTML
+if _logo_b64:
+    _logo_html = f'<img src="data:image/png;base64,{_logo_b64}" style="height:28px;object-fit:contain;">'
+else:
+    _logo_html = '<span style="font-family:Barlow Condensed,sans-serif;font-size:1.4em;font-weight:800;letter-spacing:0.14em;color:#f0f0f4;">KAIROS<span style="color:#cc2200;">IQ</span></span>'
+
 st.markdown(f"""
+<div style="background:#0d0e13;border-bottom:1px solid rgba(255,255,255,0.05);
+     padding:0 32px;display:flex;align-items:center;justify-content:space-between;
+     height:64px;box-sizing:border-box;">
+
+    <!-- Left: Logo -->
+    <div style="display:flex;align-items:center;gap:0;padding-right:32px;
+         border-right:1px solid rgba(255,255,255,0.06);margin-right:8px;height:100%;">
+        {_logo_html}
+    </div>
+
+    <!-- Middle: Nav items -->
+    <div style="display:flex;align-items:center;gap:4px;flex:1;padding-left:8px;">
+        {_nav_items_html}
+    </div>
+
+    <!-- Right: Badges -->
+    <div style="display:flex;align-items:center;gap:10px;padding-left:16px;">
+        <div style="background:rgba(180,20,0,0.15);border:1px solid rgba(180,20,0,0.5);
+             border-radius:4px;padding:6px 16px;text-align:center;min-width:80px;">
+            <div style="color:#e03010;font-family:JetBrains Mono,monospace;
+                 font-weight:800;font-size:1.4em;line-height:1.1;">{_active_alerts}</div>
+            <div style="color:#803020;font-family:JetBrains Mono,monospace;
+                 font-size:0.5em;letter-spacing:0.1em;text-transform:uppercase;
+                 white-space:nowrap;margin-top:1px;">Active Alerts</div>
+        </div>
+        <div style="padding:6px 16px;text-align:center;min-width:60px;">
+            <div style="color:#f0f0f4;font-family:JetBrains Mono,monospace;
+                 font-weight:800;font-size:1.6em;line-height:1.1;">{_gpr_hdr}</div>
+            <div style="color:#4a4a5e;font-family:JetBrains Mono,monospace;
+                 font-size:0.5em;letter-spacing:0.1em;text-transform:uppercase;
+                 margin-top:1px;">GPR INDEX</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Invisible click handlers positioned under the nav
+st.markdown("""
 <style>
-.kiq-topnav {{
-    background: #07070d;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    padding: 0 28px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: 60px;
-    margin-bottom: 0;
-}}
-.kiq-logo {{
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 1.5em;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    color: #f0f0f4;
-    padding-right: 28px;
-    border-right: 1px solid rgba(255,255,255,0.07);
-    margin-right: 0;
-    white-space: nowrap;
-}}
-.kiq-logo span {{ color: #cc2200; }}
-.kiq-badges {{
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}}
-.kiq-badge-alert {{
-    background: rgba(204,34,0,0.1);
-    border: 1px solid rgba(204,34,0,0.45);
-    border-radius: 4px;
-    padding: 5px 16px;
-    text-align: center;
-}}
-.kiq-badge-gpr {{
-    background: #0a0a14;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 4px;
-    padding: 5px 16px;
-    text-align: center;
-}}
-.kiq-badge-num-red {{
-    color: #cc2200;
-    font-family: JetBrains Mono, monospace;
-    font-weight: 700;
-    font-size: 1.2em;
-    line-height: 1.1;
-}}
-.kiq-badge-num-amber {{
-    color: #e8b84b;
-    font-family: JetBrains Mono, monospace;
-    font-weight: 700;
-    font-size: 1.2em;
-    line-height: 1.1;
-}}
-.kiq-badge-label-red {{
-    color: #cc2200;
-    font-family: JetBrains Mono, monospace;
-    font-size: 0.5em;
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-}}
-.kiq-badge-label-gray {{
-    color: #555;
-    font-family: JetBrains Mono, monospace;
-    font-size: 0.5em;
-    letter-spacing: 0.08em;
-}}
-/* Nav radio — hide everything except labels */
-[data-testid="stRadio"] > label {{ display: none !important; }}
-[data-testid="stRadio"] input[type="radio"] {{ display: none !important; }}
-[data-testid="stRadio"] > div {{
-    display: flex !important;
-    flex-direction: row !important;
+/* Make nav click buttons invisible but functional */
+div.nav-click-row { margin: -6px 0 16px 0 !important; }
+div.nav-click-row button {
+    opacity: 0 !important;
+    height: 6px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    pointer-events: all !important;
+}
+div.nav-click-row [data-testid="stHorizontalBlock"] {
     gap: 0 !important;
-    background: #07070d !important;
-    padding: 0 0 0 20px !important;
-    margin: 0 !important;
-    align-items: center !important;
-    flex: 1 !important;
-}}
-[data-testid="stRadio"] > div > label {{
     background: transparent !important;
     border: none !important;
-    border-radius: 0 !important;
-    color: #44445a !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.72em !important;
-    letter-spacing: 0.12em !important;
-    text-transform: uppercase !important;
-    padding: 18px 22px !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-    margin: 0 !important;
-    border-bottom: 2px solid transparent !important;
-    transition: color 0.15s, border-color 0.15s !important;
-}}
-[data-testid="stRadio"] > div > label:hover {{
-    color: #8888aa !important;
-    border-bottom-color: rgba(204,34,0,0.3) !important;
-}}
-[data-testid="stRadio"] > div > label[data-checked="true"],
-[data-testid="stRadio"] > div > label[aria-checked="true"] {{
-    color: #f0f0f4 !important;
-    background: rgba(204,34,0,0.07) !important;
-    border: 1px solid rgba(204,34,0,0.4) !important;
-    border-radius: 4px !important;
-    padding: 6px 18px !important;
-    margin: 0 2px !important;
-}}
-[data-testid="stRadio"] > div > label > div:first-child {{ display: none !important; }}
-[data-testid="stRadio"] > div > label > div:last-child {{
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 1em !important;
-    font-weight: 700 !important;
-}}
-/* Wrap nav + logo in flex row */
-.kiq-nav-wrapper {{
-    display: flex;
-    align-items: center;
-    background: #07070d;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    padding: 0 28px;
-    justify-content: space-between;
-}}
+    padding: 0 !important;
+}
+div.nav-click-row [data-testid="stHorizontalBlock"] > div {
+    background: transparent !important;
+    padding: 0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Build logo + right badges via columns with radio in middle
-_nav_left, _nav_mid, _nav_right = st.columns([2, 7, 3])
-
-with _nav_left:
-    st.markdown(f"""
-    <div style="background:#07070d;padding:10px 0 10px 0;height:60px;
-         display:flex;align-items:center;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
-             font-weight:800;letter-spacing:0.14em;color:#f0f0f4;
-             padding-right:24px;border-right:1px solid rgba(255,255,255,0.07);
-             white-space:nowrap;">
-            KAIROS<span style="color:#cc2200;">IQ</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with _nav_mid:
-    _page = st.radio(
-        "",
-        NAV_PAGES,
-        index=NAV_PAGES.index(st.session_state.kiq_page),
-        horizontal=True,
-        key="kiq_nav_radio",
-        label_visibility="collapsed"
-    )
-    if _page != st.session_state.kiq_page:
-        st.session_state.kiq_page = _page
-        st.rerun()
-
-with _nav_right:
-    st.markdown(f"""
-    <div style="background:#07070d;padding:10px 0;height:60px;
-         display:flex;align-items:center;justify-content:flex-end;gap:12px;">
-        <div style="background:rgba(204,34,0,0.1);border:1px solid rgba(204,34,0,0.45);
-             border-radius:4px;padding:5px 16px;text-align:center;">
-            <div style="color:#cc2200;font-family:JetBrains Mono,monospace;
-                 font-weight:700;font-size:1.2em;line-height:1.1;">{_active_alerts}</div>
-            <div style="color:#cc2200;font-family:JetBrains Mono,monospace;
-                 font-size:0.5em;letter-spacing:0.08em;white-space:nowrap;">Active Alerts</div>
-        </div>
-        <div style="background:#0a0a14;border:1px solid rgba(255,255,255,0.08);
-             border-radius:4px;padding:5px 16px;text-align:center;">
-            <div style="color:#e8b84b;font-family:JetBrains Mono,monospace;
-                 font-weight:700;font-size:1.2em;line-height:1.1;">{_gpr_hdr}</div>
-            <div style="color:#555;font-family:JetBrains Mono,monospace;
-                 font-size:0.5em;letter-spacing:0.08em;">GPR INDEX</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown('<div style="height:1px;background:rgba(255,255,255,0.05);margin-bottom:20px;"></div>', unsafe_allow_html=True)
+st.markdown('<div class="nav-click-row">', unsafe_allow_html=True)
+_click_cols = st.columns(len(NAV_PAGES))
+for _ci, (_cc, _pg) in enumerate(zip(_click_cols, NAV_PAGES)):
+    with _cc:
+        if st.button(_pg, key=f"nav_click_{_pg}", use_container_width=True):
+            st.session_state.kiq_page = _pg
+            st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
 # PAGE: OVERVIEW  (was: GPI Index + Intelligence Command Center)
