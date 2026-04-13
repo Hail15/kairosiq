@@ -381,7 +381,8 @@ def check_stop_loss(trade, tech_data):
     # Fire Telegram immediately — works even if Resend quota exceeded
     try:
         if telegram_exit:
-            telegram_exit(ticker, side, alert_type, pnl, current_price)
+            telegram_exit(ticker, side, alert_type, pnl, current_price,
+                          entry_price=entry_price, notional=notional)
             print(f"📱 Exit Telegram sent: {ticker}")
     except Exception as te:
         print(f"⚠️ Telegram exit error: {te}")
@@ -442,7 +443,8 @@ def check_take_profit(trade, tech_data, avg_move_72h=None):
     print(f"✅ Take profit alert: {ticker} +{pct*100:.1f}%")
     try:
         if telegram_exit:
-            telegram_exit(ticker, side, "take_profit", pnl, current_price)
+            telegram_exit(ticker, side, "take_profit", pnl, current_price,
+                          entry_price=entry_price, notional=notional)
     except Exception as te:
         print(f"⚠️ Telegram exit error: {te}")
     send_exit_email(subject, html)
@@ -490,7 +492,8 @@ def check_signal_expiry(trade, current_price):
         print(f"⏰ Signal expiry alert: {ticker}")
         try:
             if telegram_exit:
-                telegram_exit(ticker, side, "signal_expired", pnl, current_price)
+                telegram_exit(ticker, side, "signal_expired", pnl, current_price,
+                              entry_price=entry_price, notional=notional)
         except Exception as te:
             print(f"⚠️ Telegram exit error: {te}")
         send_exit_email(subject, html)

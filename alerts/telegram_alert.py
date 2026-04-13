@@ -311,35 +311,50 @@ def notify_convergence(region, sources, signals):
     return send_telegram(message)
 
 
-def notify_exit(ticker, side, alert_type, pnl=None, current_price=None):
+def notify_exit(ticker, side, alert_type, pnl=None, current_price=None,
+                entry_price=None, notional=None):
     """Exit alert push notification."""
     side_label = "LONG" if side == "buy" else "SHORT"
 
     alert_emojis = {
-        "stop_loss":      "🛑",
-        "take_profit":    "✅",
-        "signal_expired": "⏰",
-        "counter_signal": "⚠️",
+        "stop_loss":         "🛑",
+        "take_profit":       "✅",
+        "signal_expired":    "⏰",
+        "counter_signal":    "⚠️",
+        "momentum_reversal": "📉",
+        "rsi_overbought":    "⚡",
     }
     alert_labels = {
-        "stop_loss":      "STOP LOSS TRIGGERED",
-        "take_profit":    "TAKE PROFIT TARGET HIT",
-        "signal_expired": "SIGNAL EXPIRED — REVIEW POSITION",
-        "counter_signal": "COUNTER-SIGNAL DETECTED",
+        "stop_loss":         "STOP LOSS TRIGGERED",
+        "take_profit":       "TAKE PROFIT TARGET HIT",
+        "signal_expired":    "SIGNAL EXPIRED — REVIEW POSITION",
+        "counter_signal":    "COUNTER-SIGNAL DETECTED",
+        "momentum_reversal": "MOMENTUM REVERSAL — REVIEW POSITION",
+        "rsi_overbought":    "RSI OVERBOUGHT — CONSIDER EXIT",
     }
-
-    emoji      = alert_emojis.get(alert_type, "🚪")
-    label      = alert_labels.get(alert_type, "EXIT ALERT")
-    pnl_str    = f"\n💰 Unrealized P&L: ${pnl:+.4f}" if pnl is not None else ""
-    price_str  = f"\n📊 Current Price: ${current_price:.2f}" if current_price else ""
 
     action_map = {
-        "stop_loss":      "Consider closing to limit losses.",
-        "take_profit":    "Consider taking profits — target reached.",
-        "signal_expired": "The geopolitical signal has expired. Review your thesis.",
-        "counter_signal": "A new signal contradicts your position. Review immediately.",
+        "stop_loss":         "Consider closing to limit losses.",
+        "take_profit":       "Consider taking profits — target reached.",
+        "signal_expired":    "The geopolitical signal has expired. Review your thesis.",
+        "counter_signal":    "A new signal contradicts your position. Review immediately.",
+        "momentum_reversal": "Price action reversing against position. Review immediately.",
+        "rsi_overbought":    "RSI in overbought territory. Consider locking in gains.",
     }
+
+    emoji  = alert_emojis.get(alert_type, "🚪")
+    label  = alert_labels.get(alert_type, "EXIT ALERT")
     action = action_map.get(alert_type, "Review your position.")
+
+    # Show P&L as percentage (primary) + dollar (secondary)
+    pnl_str = ""
+    if pnl is not None and notional and float(notional) > 0:
+        pct = pnl / float(notional) * 100
+        pnl_str = f"\n💰 Unrealized P&L: {pct:+.2f}% (${pnl:+.4f})"
+    elif pnl is not None:
+        pnl_str = f"\n💰 Unrealized P&L: ${pnl:+.4f}"
+
+    price_str = f"\n📊 Current Price: ${current_price:.2f}" if current_price else ""
 
     message = (
         f"{emoji} <b>KairosIQ {label}</b>\n\n"
