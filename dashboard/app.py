@@ -1144,6 +1144,28 @@ def fetch_trade_summary():
     cur.close()
     return row
 
+def get_domain(category, platform, description):
+    text = (description or "").lower()
+    cat  = (category or "").lower()
+    if any(k in text for k in ["strike", "airstrike", "bomb", "missile", "troops", "war", "invasion", "attack on", "military", "combat", "drone strike", "restrikes", "kharg", "assassination"]):
+        return "Military & Conflict"
+    elif any(k in cat for k in ["military","conflict","nuclear","russia","taiwan","china_taiwan","state_media"]):
+        return "Military & Conflict"
+    elif any(k in cat for k in ["opec","shipping","trade","sanctions","energy"]):
+        return "Energy & Trade"
+    elif any(k in text for k in ["cyber","internet disruption","hack","malware","gps"]):
+        return "Cyber & Tech"
+    elif any(k in cat for k in ["election","political","coup","protest"]):
+        return "Political"
+    elif any(k in text for k in ["earthquake","flood","fire","climate","weather","volcano"]):
+        return "Environment"
+    elif any(k in text for k in ["outbreak","disease","food","refugee","pandemic"]):
+        return "Human & Social"
+    elif any(k in cat for k in ["financial","debt","currency","bank"]):
+        return "Financial"
+    else:
+        return "Military & Conflict"
+
 # --- Load Data ---
 signals = fetch_active_signals()
 questions = fetch_questions()
@@ -1156,10 +1178,10 @@ with st.sidebar:
     try:
         # Try multiple paths for Streamlit Cloud vs local
         possible_paths = [
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "kairos_logo.png"),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard", "static", "kairos_logo.png"),
-            "dashboard/static/kairos_logo.png",
-            "static/kairos_logo.png",
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "kairos_logoV2.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard", "static", "kairos_logoV2.png"),
+            "dashboard/static/kairos_logoV2.png",
+            "static/kairos_logoV2.png",
         ]
         logo_loaded = False
         for logo_path in possible_paths:
@@ -1357,101 +1379,204 @@ if "kiq_page" not in st.session_state:
 
 # --- Full-Width Top Status Bar ---
 st.markdown(f"""
-<div style="background:#050508;border-bottom:1px solid rgba(255,255,255,0.06);
-     padding:8px 28px;display:flex;justify-content:space-between;align-items:center;">
-    <div style="display:flex;align-items:center;gap:20px;font-family:JetBrains Mono,monospace;font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;">
+<div style="background:#030305;border-bottom:1px solid rgba(255,255,255,0.05);
+     padding:7px 28px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:18px;font-family:JetBrains Mono,monospace;
+         font-size:0.6em;color:#44445a;text-transform:uppercase;letter-spacing:0.1em;">
         <span><span style="color:#00c97a;">&#9679;</span>&nbsp;LIVE FEED ACTIVE</span>
-        <span style="color:#333;">|</span>
+        <span style="color:#1a1a2e;">|</span>
         <span>124 INDICATORS MONITORED</span>
-        <span style="color:#333;">|</span>
-        <span>LAST UPDATE: {_last_update}</span>
-        <span style="color:#333;">|</span>
-        <span style="color:{_regime_color};">REGIME: {_regime_hdr.replace('_',' ')}</span>
+        <span style="color:#1a1a2e;">|</span>
+        <span>LAST UPDATE: {_last_update} AGO</span>
     </div>
-    <div style="font-family:JetBrains Mono,monospace;font-size:0.62em;color:#555;">
-        UTC {datetime.utcnow().strftime('%H:%M:%S')} &nbsp;·&nbsp; {datetime.now().strftime('%b %d %Y')}
+    <div style="font-family:JetBrains Mono,monospace;font-size:0.6em;color:#44445a;letter-spacing:0.06em;">
+        UTC {datetime.utcnow().strftime('%H:%M:%S')} &nbsp; &#183; &nbsp; {datetime.now().strftime('%b %d %Y').upper()}
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- Main Nav Bar ---
+# --- Main Nav Bar (HTML logo + right badges, radio for nav items) ---
 st.markdown(f"""
-<div style="background:#07070d;border-bottom:1px solid rgba(255,255,255,0.06);
-     padding:0 28px;display:flex;justify-content:space-between;align-items:center;
-     position:sticky;top:0;z-index:200;">
-    <div style="display:flex;align-items:center;gap:0px;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4em;
-             font-weight:800;letter-spacing:0.12em;color:#f0f0f4;
-             padding:14px 24px 14px 0;border-right:1px solid rgba(255,255,255,0.06);
-             margin-right:8px;">
-            KAIROS<span style="color:#cc2200;">IQ</span>
-        </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:4px;flex:1;padding-left:12px;">
-    </div>
-    <div style="display:flex;align-items:center;gap:16px;">
-        <div style="background:rgba(204,34,0,0.12);border:1px solid rgba(204,34,0,0.4);
-             border-radius:4px;padding:6px 14px;text-align:center;cursor:pointer;">
-            <div style="color:#cc2200;font-family:JetBrains Mono,monospace;font-weight:700;font-size:1.1em;line-height:1;">{_active_alerts}</div>
-            <div style="color:#cc2200;font-family:JetBrains Mono,monospace;font-size:0.55em;letter-spacing:0.08em;">Active Alerts</div>
-        </div>
-        <div style="background:#0d0d18;border:1px solid rgba(255,255,255,0.08);
-             border-radius:4px;padding:6px 14px;text-align:center;">
-            <div style="color:#e8b84b;font-family:JetBrains Mono,monospace;font-weight:700;font-size:1.1em;line-height:1;">{_gpr_hdr}</div>
-            <div style="color:#555;font-family:JetBrains Mono,monospace;font-size:0.55em;letter-spacing:0.08em;">GPR INDEX</div>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# --- Nav Buttons ---
-nav_cols = st.columns(len(NAV_PAGES))
-for i, (col, page) in enumerate(zip(nav_cols, NAV_PAGES)):
-    with col:
-        is_active = st.session_state.kiq_page == page
-        btn_style = "primary" if is_active else "secondary"
-        if st.button(
-            page,
-            key=f"nav_{page}",
-            use_container_width=True,
-            type=btn_style
-        ):
-            st.session_state.kiq_page = page
-            st.rerun()
-
-st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.06);margin:0 0 16px 0;">', unsafe_allow_html=True)
-
-# ── CSS for nav buttons ───────────────────────────────────────────────────────
-st.markdown("""
 <style>
-div[data-testid="stHorizontalBlock"] > div > div > div > button {
+.kiq-topnav {{
+    background: #07070d;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 0 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    margin-bottom: 0;
+}}
+.kiq-logo {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.5em;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: #f0f0f4;
+    padding-right: 28px;
+    border-right: 1px solid rgba(255,255,255,0.07);
+    margin-right: 0;
+    white-space: nowrap;
+}}
+.kiq-logo span {{ color: #cc2200; }}
+.kiq-badges {{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}}
+.kiq-badge-alert {{
+    background: rgba(204,34,0,0.1);
+    border: 1px solid rgba(204,34,0,0.45);
+    border-radius: 4px;
+    padding: 5px 16px;
+    text-align: center;
+}}
+.kiq-badge-gpr {{
+    background: #0a0a14;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 5px 16px;
+    text-align: center;
+}}
+.kiq-badge-num-red {{
+    color: #cc2200;
+    font-family: JetBrains Mono, monospace;
+    font-weight: 700;
+    font-size: 1.2em;
+    line-height: 1.1;
+}}
+.kiq-badge-num-amber {{
+    color: #e8b84b;
+    font-family: JetBrains Mono, monospace;
+    font-weight: 700;
+    font-size: 1.2em;
+    line-height: 1.1;
+}}
+.kiq-badge-label-red {{
+    color: #cc2200;
+    font-family: JetBrains Mono, monospace;
+    font-size: 0.5em;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+}}
+.kiq-badge-label-gray {{
+    color: #555;
+    font-family: JetBrains Mono, monospace;
+    font-size: 0.5em;
+    letter-spacing: 0.08em;
+}}
+/* Nav radio — hide everything except labels */
+[data-testid="stRadio"] > label {{ display: none !important; }}
+[data-testid="stRadio"] input[type="radio"] {{ display: none !important; }}
+[data-testid="stRadio"] > div {{
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0 !important;
+    background: #07070d !important;
+    padding: 0 0 0 20px !important;
+    margin: 0 !important;
+    align-items: center !important;
+    flex: 1 !important;
+}}
+[data-testid="stRadio"] > div > label {{
     background: transparent !important;
     border: none !important;
-    border-bottom: 2px solid transparent !important;
     border-radius: 0 !important;
     color: #44445a !important;
     font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.7em !important;
+    font-size: 0.72em !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
-    padding: 12px 8px !important;
+    padding: 18px 22px !important;
     font-weight: 600 !important;
-    transition: all 0.15s ease !important;
-}
-div[data-testid="stHorizontalBlock"] > div > div > div > button:hover {
+    cursor: pointer !important;
+    margin: 0 !important;
+    border-bottom: 2px solid transparent !important;
+    transition: color 0.15s, border-color 0.15s !important;
+}}
+[data-testid="stRadio"] > div > label:hover {{
     color: #8888aa !important;
-    border-bottom-color: rgba(204,34,0,0.4) !important;
-}
-div[data-testid="stHorizontalBlock"] > div > div > div > button[kind="primary"] {
-    color: #cc2200 !important;
-    border-bottom: 2px solid #cc2200 !important;
-    background: rgba(204,34,0,0.04) !important;
-}
+    border-bottom-color: rgba(204,34,0,0.3) !important;
+}}
+[data-testid="stRadio"] > div > label[data-checked="true"],
+[data-testid="stRadio"] > div > label[aria-checked="true"] {{
+    color: #f0f0f4 !important;
+    background: rgba(204,34,0,0.07) !important;
+    border: 1px solid rgba(204,34,0,0.4) !important;
+    border-radius: 4px !important;
+    padding: 6px 18px !important;
+    margin: 0 2px !important;
+}}
+[data-testid="stRadio"] > div > label > div:first-child {{ display: none !important; }}
+[data-testid="stRadio"] > div > label > div:last-child {{
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 1em !important;
+    font-weight: 700 !important;
+}}
+/* Wrap nav + logo in flex row */
+.kiq-nav-wrapper {{
+    display: flex;
+    align-items: center;
+    background: #07070d;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 0 28px;
+    justify-content: space-between;
+}}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Page routing ──────────────────────────────────────────────────────────────
-_page = st.session_state.kiq_page
+# Build logo + right badges via columns with radio in middle
+_nav_left, _nav_mid, _nav_right = st.columns([2, 7, 3])
+
+with _nav_left:
+    st.markdown(f"""
+    <div style="background:#07070d;padding:10px 0 10px 0;height:60px;
+         display:flex;align-items:center;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.6em;
+             font-weight:800;letter-spacing:0.14em;color:#f0f0f4;
+             padding-right:24px;border-right:1px solid rgba(255,255,255,0.07);
+             white-space:nowrap;">
+            KAIROS<span style="color:#cc2200;">IQ</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with _nav_mid:
+    _page = st.radio(
+        "",
+        NAV_PAGES,
+        index=NAV_PAGES.index(st.session_state.kiq_page),
+        horizontal=True,
+        key="kiq_nav_radio",
+        label_visibility="collapsed"
+    )
+    if _page != st.session_state.kiq_page:
+        st.session_state.kiq_page = _page
+        st.rerun()
+
+with _nav_right:
+    st.markdown(f"""
+    <div style="background:#07070d;padding:10px 0;height:60px;
+         display:flex;align-items:center;justify-content:flex-end;gap:12px;">
+        <div style="background:rgba(204,34,0,0.1);border:1px solid rgba(204,34,0,0.45);
+             border-radius:4px;padding:5px 16px;text-align:center;">
+            <div style="color:#cc2200;font-family:JetBrains Mono,monospace;
+                 font-weight:700;font-size:1.2em;line-height:1.1;">{_active_alerts}</div>
+            <div style="color:#cc2200;font-family:JetBrains Mono,monospace;
+                 font-size:0.5em;letter-spacing:0.08em;white-space:nowrap;">Active Alerts</div>
+        </div>
+        <div style="background:#0a0a14;border:1px solid rgba(255,255,255,0.08);
+             border-radius:4px;padding:5px 16px;text-align:center;">
+            <div style="color:#e8b84b;font-family:JetBrains Mono,monospace;
+                 font-weight:700;font-size:1.2em;line-height:1.1;">{_gpr_hdr}</div>
+            <div style="color:#555;font-family:JetBrains Mono,monospace;
+                 font-size:0.5em;letter-spacing:0.08em;">GPR INDEX</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('<div style="height:1px;background:rgba(255,255,255,0.05);margin-bottom:20px;"></div>', unsafe_allow_html=True)
 
 # ============================================================
 # PAGE: OVERVIEW  (was: GPI Index + Intelligence Command Center)
@@ -1767,28 +1892,7 @@ if tab1 is not None:
             # Filter buttons defined after get_domain (below)
             col_all, col_mil, col_energy, col_cyber, col_pol, col_fin, col_env = st.columns(7)
 
-            def get_domain(category, platform, description):
-                text = (description or "").lower()
-                cat  = (category or "").lower()
-                # Military/conflict keywords in description override category
-                if any(k in text for k in ["strike", "airstrike", "bomb", "missile", "troops", "war", "invasion", "attack on", "military", "combat", "drone strike", "restrikes", "kharg", "assassination"]):
-                    return "Military & Conflict"
-                elif any(k in cat for k in ["military","conflict","nuclear","russia","taiwan","china_taiwan","state_media"]):
-                    return "Military & Conflict"
-                elif any(k in cat for k in ["opec","shipping","trade","sanctions","energy"]):
-                    return "Energy & Trade"
-                elif any(k in text for k in ["cyber","internet disruption","hack","malware","gps"]):
-                    return "Cyber & Tech"
-                elif any(k in cat for k in ["election","political","coup","protest"]):
-                    return "Political"
-                elif any(k in text for k in ["earthquake","flood","fire","climate","weather","volcano"]):
-                    return "Environment"
-                elif any(k in text for k in ["outbreak","disease","food","refugee","pandemic"]):
-                    return "Human & Social"
-                elif any(k in cat for k in ["financial","debt","currency","bank"]):
-                    return "Financial"
-                else:
-                    return "Military & Conflict"
+            # get_domain defined globally above
 
             # Count signals per domain for filter badges (now get_domain is defined)
             domain_counts = {}
@@ -5386,7 +5490,7 @@ if tab12 is not None:
             conf_weights = {"extreme": 40, "high": 25, "medium": 12, "low": 5}
 
             for sig in signals:
-                domain = get_domain(sig[3] or "", sig[8] or "", sig[1] or "")
+                domain = get_domain(sig[3] or "", sig[8] or "", sig[1] or "") if 'get_domain' in dir() else "Military & Conflict"
                 gpi_key = domain_to_gpi.get(domain, "Armed Conflict & Military")
                 conf_score = conf_weights.get(sig[7] or "low", 5)
                 shift_score = min(float(sig[6] or 0) * 0.5, 20)
