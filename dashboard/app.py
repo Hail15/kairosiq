@@ -5915,9 +5915,89 @@ with tab15:
     except Exception:
         pass
 
+    # ── Congressional Trade Monitor ───────────────────────────────────────
     st.markdown('<hr class="kiq-divider" style="margin:20px 0 12px;">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2em;
+         font-weight:700;letter-spacing:0.1em;color:#f0f0f4;margin-bottom:4px;">
+         🏛️ CONGRESSIONAL <span style="color:#cc2200;">TRADE MONITOR</span>
+    </div>
+    <div style="font-size:0.62em;color:#555;font-family:JetBrains Mono,monospace;margin-bottom:12px;">
+    Public STOCK Act disclosures — committee member trades cross-referenced with geopolitical signals
+    </div>
+    """, unsafe_allow_html=True)
 
-    # ── Geopolitical Stress Test ──────────────────────────────────────────
+    try:
+        from ingestion.congress_trades import get_recent_congress_trades, COMMITTEE_ASSET_MAP
+
+        congress_trades = get_recent_congress_trades(15)
+
+        if congress_trades:
+            # Summary metrics
+            high_value_count = sum(1 for t in congress_trades if t[7])
+            signal_count     = sum(1 for t in congress_trades if t[8])
+            total_value      = sum(t[5] or 0 for t in congress_trades)
+
+            col_c1, col_c2, col_c3 = st.columns(3)
+            with col_c1:
+                st.markdown(f'<div class="stat-box" style="border-left:3px solid #cc2200;"><span class="stat-value" style="color:#cc2200;">{len(congress_trades)}</span><span class="stat-label">Trades (45 days)</span></div>', unsafe_allow_html=True)
+            with col_c2:
+                st.markdown(f'<div class="stat-box" style="border-left:3px solid #e8b84b;"><span class="stat-value" style="color:#e8b84b;">{high_value_count}</span><span class="stat-label">High-Value Members</span></div>', unsafe_allow_html=True)
+            with col_c3:
+                st.markdown(f'<div class="stat-box"><span class="stat-value">${total_value/1e6:.1f}M</span><span class="stat-label">Est. Total Value</span></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            for trade in congress_trades:
+                member, chamber, ticker, trade_type, trade_date, est_val, committee, is_hv, sig_fired = trade
+
+                direction  = "up" if trade_type and "purchase" in trade_type.lower() else "down"
+                dir_color  = "#2a9a4a" if direction == "up" else "#cc2200"
+                dir_label  = "PURCHASE" if direction == "up" else "SALE"
+                hv_badge   = '<span style="background:rgba(232,184,75,0.15);border:1px solid #e8b84b;color:#e8b84b;padding:1px 6px;border-radius:2px;font-size:0.6em;margin-left:6px;">⭐ KEY MEMBER</span>' if is_hv else ''
+                sig_badge  = '<span style="background:rgba(204,34,0,0.15);border:1px solid #cc2200;color:#cc2200;padding:1px 6px;border-radius:2px;font-size:0.6em;margin-left:4px;">⚡ SIGNAL FIRED</span>' if sig_fired else ''
+
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;'
+                    f'background:#0d0d18;border:1px solid #1a1a2e;'
+                    f'border-left:3px solid {dir_color};border-radius:4px;margin:3px 0;">'
+                    f'<div style="min-width:50px;text-align:center;">'
+                    f'<div style="color:{dir_color};font-family:JetBrains Mono,monospace;font-weight:700;font-size:0.82em;">{ticker}</div>'
+                    f'<div style="color:{dir_color};font-size:0.6em;">{dir_label}</div>'
+                    f'</div>'
+                    f'<div style="flex:1;">'
+                    f'<div style="color:#e0e0e0;font-size:0.75em;font-weight:600;">{member or "Unknown"} {hv_badge}{sig_badge}</div>'
+                    f'<div style="color:#555;font-family:JetBrains Mono,monospace;font-size:0.62em;margin-top:2px;">'
+                    f'{chamber} · {committee or "Unknown Committee"} · {str(trade_date)[:10]}</div>'
+                    f'</div>'
+                    f'<div style="text-align:right;font-family:JetBrains Mono,monospace;">'
+                    f'<div style="color:#e8b84b;font-size:0.72em;">${(est_val or 0):,}</div>'
+                    f'<div style="color:#555;font-size:0.58em;">est. value</div>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown("""
+            <div style="font-size:0.58em;color:#333;margin-top:8px;font-family:JetBrains Mono,monospace;">
+            All data is publicly disclosed per STOCK Act requirements.
+            Trade dates reflect disclosure date — actual trades may precede by up to 45 days.
+            Not investment advice.
+            </div>""", unsafe_allow_html=True)
+
+        else:
+            st.markdown("""
+            <div style="color:#333;font-size:0.72em;padding:16px;
+                 background:#0d0d18;border:1px solid #1a1a2e;border-radius:4px;">
+                Congressional trade data loading on next cycle...
+                Data updates every 4 hours from House and Senate Stock Watcher.
+            </div>
+            """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.markdown(f'<div style="color:#333;font-size:0.7em;">Congressional data loading... ({e})</div>', unsafe_allow_html=True)
+
+    st.markdown('<hr class="kiq-divider" style="margin:20px 0 12px;">', unsafe_allow_html=True)
     st.markdown("""
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2em;
          font-weight:700;letter-spacing:0.1em;color:#f0f0f4;margin-bottom:4px;">

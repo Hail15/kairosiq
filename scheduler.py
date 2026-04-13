@@ -41,6 +41,7 @@ from signals.prediction_engine import run_prediction_engine
 from signals.unpriced_risk import run_unpriced_risk_detector
 from signals.smart_money import run_smart_money_detector
 from signals.silence_detector import run_silence_detector
+from ingestion.congress_trades import run_congress_monitor
 
 def run_morning_digest():
     """
@@ -290,6 +291,14 @@ def run_full_cycle():
         run_silence_detector()
     except Exception as e:
         print(f"❌ Silence detector error: {e}")
+
+    # Congress monitor — runs every 4 hours (data only updates daily)
+    current_hour = datetime.now().hour
+    if current_hour % 4 == 0:
+        try:
+            run_congress_monitor()
+        except Exception as e:
+            print(f"❌ Congress monitor error: {e}")
 
     # Always run email alerts every cycle — catches news/GDELT/Cloudflare signals too
     try:
