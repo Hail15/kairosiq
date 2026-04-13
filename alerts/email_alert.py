@@ -265,16 +265,15 @@ def mark_signal_alerted(signal_id, event_category=None, region=None, source_plat
 
 
 def run_email_alerts():
-    print("\n📧 Running email alert check...")
+    print("\n📧 Running alert check (Telegram only — email disabled)...")
 
     # Skip alerts on startup to prevent flood after Railway redeploys
     if os.environ.get("KAIROS_STARTUP_CYCLE") == "1":
         print("   ⏳ Startup grace period — skipping alerts this cycle")
         return
 
-    email_enabled = bool(settings.RESEND_API_KEY)
-    if not email_enabled:
-        print("   ⚠️  No RESEND_API_KEY — Telegram only mode")
+    # EMAIL DISABLED — Telegram only
+    email_enabled = False
 
     # Import Telegram notifier
     try:
@@ -319,8 +318,8 @@ def run_email_alerts():
                 if email_sent:
                     print(f"✅ Email sent: {signal[1][:60]}...")
 
-            # Mark alerted if Telegram or email succeeded
-            if telegram_sent or email_enabled:
+            # Mark alerted if Telegram succeeded (email disabled)
+            if telegram_sent:
                 mark_signal_alerted(signal[0], category, region, signal[8])
 
         except Exception as e:

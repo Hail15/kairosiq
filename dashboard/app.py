@@ -954,6 +954,7 @@ def fetch_similar_historical_event(event_category, region, description):
         return None
 
 # --- Data Fetching ---
+@st.cache_data(ttl=60)
 def fetch_active_signals():
     conn = get_db()
     cur = conn.cursor()
@@ -1038,6 +1039,7 @@ def fetch_active_signals():
     cur.close()
     return rows
 
+@st.cache_data(ttl=60)
 def fetch_all_signals():
     conn = get_db()
     cur = conn.cursor()
@@ -1052,6 +1054,7 @@ def fetch_all_signals():
     cur.close()
     return rows
 
+@st.cache_data(ttl=60)
 def fetch_bets():
     conn = get_db()
     cur = conn.cursor()
@@ -1065,6 +1068,7 @@ def fetch_bets():
     cur.close()
     return rows
 
+@st.cache_data(ttl=60)
 def fetch_questions():
     conn = get_db()
     cur = conn.cursor()
@@ -1079,6 +1083,7 @@ def fetch_questions():
     cur.close()
     return rows
 
+@st.cache_data(ttl=60)
 def fetch_probability_history(question_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1092,6 +1097,7 @@ def fetch_probability_history(question_id):
     cur.close()
     return rows
 
+@st.cache_data(ttl=60)
 def fetch_outcomes():
     conn = get_db()
     cur = conn.cursor()
@@ -1109,6 +1115,7 @@ def fetch_outcomes():
     cur.close()
     return rows
 
+@st.cache_data(ttl=60)
 def fetch_trades():
     conn = get_db()
     cur = conn.cursor()
@@ -1125,6 +1132,7 @@ def fetch_trades():
     cur.close()
     return rows
 
+@st.cache_data(ttl=60)
 def fetch_trade_summary():
     conn = get_db()
     cur = conn.cursor()
@@ -3954,6 +3962,7 @@ if tab7 is not None:
             st.markdown('<hr class="kiq-divider">', unsafe_allow_html=True)
 
             # ── Intelligence Header — KIQ + Black Swan + Regime ──────────────
+            bs_count2 = 0  # Initialize before try block
             try:
                 from signals.prediction_engine import get_latest_forecasts
                 from signals.someone_knows import get_richter_score
