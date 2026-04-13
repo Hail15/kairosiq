@@ -88,24 +88,35 @@ SIGNAL_KEYWORDS = [
 
 # Stories that match keywords but are noise — filter these out
 NOISE_KEYWORDS = [
+    # Celebrity / entertainment
     "pope", "easter", "moon", "artemis", "astronaut",
-    "minimum wage", "arson", "ambulance", "lobster", "cyber attack jlr",
-    "migrant workers", "mortgage", "salmonella", "listeria", "food recall", "supplement",
-    "hungary", "kanye", "west festival", "wireless festival", "music festival",
     "taylor swift", "beyonce", "celebrity", "grammy", "oscar", "academy award",
-    "student loan", "plan 2", "postgraduate loan", "nhs", "school curriculum",
-    "interest rate cap", "wage cap", "cost of living benefit",
-    "ice detention", "newlywed", "undocumented immigrant", "deportation",
-    "freed by ice", "immigration arrest", "visa overstay",
-    "soldier freed by ice", "military base detention", "ice after detention",
-    "trees are key", "spring offensive vegetation", "drone warfare concealment",
-    "war crimes definition", "civilian target definition",
-    "chipmaking step", "packaging capacity", "round trip to taiwan",
-    "next bottleneck for ai", "reserved capacity", "advanced packaging",
-    "rehab center", "mourning the", "rift over", "hezbollah embroil",
-    "general caine", "joint chiefs of staff threat",
-    "drives a tank", "succession talk", "kim ju-ae tank",
-    "postgraduate loan", "interest rate cap",
+    "kanye", "west festival", "wireless festival", "music festival",
+    "love song", "singing", "singer", "musician", "dancer", "artist", "painter",
+    "jailed for", "persecuted for performing", "romantic music",
+    "emmy award", "bafta", "golden globe",
+    # Health / domestic
+    "minimum wage", "arson", "ambulance", "lobster", "salmonella",
+    "listeria", "food recall", "supplement", "nhs", "school curriculum",
+    "student loan", "plan 2", "postgraduate loan", "cost of living benefit",
+    "mortgage rates uk", "uk energy bill",
+    # Immigration (non-geopolitical)
+    "ice detention", "newlywed", "undocumented immigrant personal",
+    "freed by ice", "immigration arrest personal", "visa overstay",
+    "soldier freed by ice", "military base detention",
+    # Nature / wildlife
+    "trees are key", "wildlife cameraman", "nature photographer",
+    "spring offensive vegetation", "drone warfare concealment",
+    "blue planet", "attenborough",
+    # Misc noise
+    "rehab center", "mourning the", "rift over personal",
+    "general caine", "kim ju-ae tank", "succession talk",
+    "drives a tank parade", "obituary", "died peacefully",
+    "wedding", "married", "divorce", "pregnant", "baby born",
+    "recipe", "restaurant review", "food critic",
+    "sports result", "football score", "nba game", "nfl game",
+    "chipmaking step", "packaging capacity advanced",
+    "next bottleneck for ai chips",
 ]
 
 # Map keywords to signal categories

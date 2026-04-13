@@ -201,28 +201,64 @@ def get_unalerted_signals():
     cur.close()
     conn.close()
 
+    # ── Noise filter — only alert on financially relevant signals ────────
+    NOISE_KEYWORDS = [
+        "love song", "wildlife", "cameraman", "obituary", "died", "death",
+        "recipe", "restaurant", "sports", "football", "soccer", "basketball",
+        "celebrity", "music", "film", "movie", "oscar", "grammy", "emmy",
+        "weather", "earthquake damage", "flood damage",
+        "immigration personal", "refugee story", "human interest",
+        "jailed for", "singing", "dancer", "artist", "painter",
+        "married", "divorced", "pregnant", "baby",
+    ]
+
+    FINANCIAL_REQUIRED = [
+        # At least one of these must be present OR source must be non-news
+        "iran", "china", "taiwan", "russia", "ukraine", "nato", "opec",
+        "oil", "gold", "defense", "military", "conflict", "war", "attack",
+        "sanction", "tariff", "trade", "fed", "rate", "inflation",
+        "hormuz", "shipping", "semiconductor", "nuclear", "missile",
+        "election", "coup", "protest", "blockade", "strike",
+        "congress", "options", "silence", "correlation", "unpriced",
+        "someone knows", "black swan", "bitcoin", "crypto",
+        "market", "stock", "bond", "currency", "dollar",
+    ]
+
     # Headline keyword dedup — prevent same story from different sources/regions firing
-    # Extract key headline phrases (first 60 chars of description after source tag)
     KEY_PHRASES = [
         "strait of hormuz", "hormuz reopens", "gas prices",
         "taiwan opposition", "bridge for peace", "taiwan strait",
         "north korea", "ukraine", "cease-fire", "ceasefire",
+        "starmer", "blockade", "silence detected",
     ]
     seen_phrases = set()
     deduped = []
+    import re
     for row in rows:
         desc_lower = (row[1] or "").lower()
+        platform   = (row[8] or "").upper()
+
+        # Skip noise signals — non-financial human interest stories
+        is_noise = any(kw in desc_lower for kw in NOISE_KEYWORDS)
+        if is_noise:
+            print(f"   🚫 Noise filtered: {desc_lower[:60]}...")
+            continue
+
+        # For news signals require financial relevance
+        if platform in ("NEWS_INTELLIGENCE", "news_intelligence"):
+            has_financial = any(kw in desc_lower for kw in FINANCIAL_REQUIRED)
+            if not has_financial:
+                print(f"   🚫 Not financially relevant: {desc_lower[:60]}...")
+                continue
 
         # Check for key phrase overlap
         phrase_hit = next((p for p in KEY_PHRASES if p in desc_lower), None)
         if phrase_hit:
             if phrase_hit in seen_phrases:
-                continue  # Same story — skip
+                continue
             seen_phrases.add(phrase_hit)
 
-        # Also dedup by first 80 chars of headline (catches exact same title from different sources)
-        # Extract headline after the [Source]: prefix
-        import re
+        # Dedup by first 50 chars of headline
         headline_match = re.search(r'\]: (.{20,80})', desc_lower)
         if headline_match:
             headline_key = headline_match.group(1)[:50]

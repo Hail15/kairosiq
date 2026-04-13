@@ -124,9 +124,8 @@ def silence_already_detected(conn, region, category):
         SELECT id FROM signals
         WHERE source_platform = 'SILENCE_DETECTOR'
         AND region = %s
-        AND event_category = %s
-        AND signal_time >= NOW() - INTERVAL '24 hours';
-    """, (region, category))
+        AND signal_time >= NOW() - INTERVAL '48 hours';
+    """, (region,))
     row = cur.fetchone()
     cur.close()
     return row is not None
