@@ -176,7 +176,7 @@ def get_unalerted_signals():
     conn = get_db_connection()
     cur  = conn.cursor()
     cur.execute("""
-        SELECT DISTINCT ON (s.event_category, s.region)
+        SELECT DISTINCT ON (s.event_category, s.region, s.source_platform)
                s.id, s.event_description, s.region, s.event_category,
                s.probability_before, s.probability_after, s.probability_shift,
                s.confidence_score, s.source_platform, s.affected_assets,
@@ -190,12 +190,13 @@ def get_unalerted_signals():
             SELECT 1 FROM signal_alerts_sent sas
             WHERE sas.event_category = s.event_category
             AND sas.region = s.region
+            AND sas.source_platform = s.source_platform
             AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
         )
-        ORDER BY s.event_category, s.region,
+        ORDER BY s.event_category, s.region, s.source_platform,
             CASE s.confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 END,
             s.probability_shift DESC
-        LIMIT 5;
+        LIMIT 15;
     """)
     rows = cur.fetchall()
     cur.close()
