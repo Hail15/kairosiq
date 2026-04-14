@@ -340,6 +340,13 @@ def run_email_alerts():
         print("   No new signals to alert.")
         return
 
+    # Run agent triage — filters noise, enriches with brief + portfolio assessment
+    try:
+        from agent.agent import run_agent_triage
+        signals = run_agent_triage(signals)
+    except Exception as e:
+        print(f"   ⚠️ Agent triage error: {e} — proceeding with all signals")
+
     print(f"   Found {len(signals)} signals to alert")
     for signal in signals:
         try:

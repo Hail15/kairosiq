@@ -42,6 +42,11 @@ from signals.unpriced_risk import run_unpriced_risk_detector
 from signals.smart_money import run_smart_money_detector
 from signals.silence_detector import run_silence_detector
 from ingestion.congress_trades import run_congress_monitor
+from agent.agent import (
+    run_agent_triage,
+    run_agent_morning_brief,
+    run_agent_outcome_documentation
+)
 
 def run_morning_digest():
     """
@@ -52,7 +57,8 @@ def run_morning_digest():
     try:
         import psycopg2
         from config import settings
-        from alerts.telegram_alert import notify_morning_digest
+        from alerts.telegram_alert import notify_morning_digest, send_telegram
+        from agent.agent import run_agent_morning_brief
 
         conn = psycopg2.connect(settings.DATABASE_URL)
         cur  = conn.cursor()
@@ -95,8 +101,8 @@ def run_morning_digest():
 
             from processing.asset_mapper import calculate_signal_strength
             strength = calculate_signal_strength(
-                r[6] or 0, r[7] or "low", r[8] or "", assets
-            ).get("signal_strength", 50)
+                r[6] or 0, r[7] or "low", assets, r[8] or ""
+            )
 
             signals.append({
                 "confidence":  r[7] or "low",
@@ -137,8 +143,13 @@ def run_morning_digest():
                 except Exception:
                     pass
 
-        notify_morning_digest(signals, open_positions)
-        print(f"   ✅ Morning digest sent — {len(signals)} signals, {len(open_positions)} positions")
+        # Use agent to generate brief instead of template
+        agent_brief = run_agent_morning_brief(signals, open_positions)
+        if agent_brief:
+            send_telegram(agent_brief)
+        else:
+            notify_morning_digest(signals, open_positions)
+        print(f"   ✅ Morning brief sent — {len(signals)} signals, {len(open_positions)} positions")
 
     except Exception as e:
         print(f"   ❌ Morning digest error: {e}")
@@ -325,6 +336,11 @@ def run_validator_cycle():
         run_signal_validator()
     except Exception as e:
         print(f"❌ Validator error: {e}")
+
+    try:
+        run_agent_outcome_documentation()
+    except Exception as e:
+        print(f"❌ Agent outcome documentation error: {e}")
 
 # Schedule
 schedule.every(15).minutes.do(run_full_cycle)
