@@ -235,7 +235,7 @@ def notify_convergence_telegram(region, category, source_count, platforms, asset
     cat_clean    = category.replace("_", " ").upper()
 
     message = (
-        f"🔥 <b>KAIROS</b><span>IQ</span> <b>CONVERGENCE ALERT</b>\n\n"
+        f"🔥 <b>KairosIQ CONVERGENCE ALERT</b>\n\n"
         f"<b>{source_count} INDEPENDENT SOURCES CONFIRMED</b>\n"
         f"📍 {region.upper()} · {cat_clean}\n\n"
         f"<b>Sources:</b> {platform_str}\n\n"
