@@ -259,7 +259,7 @@ def notify_signal(signal):
             raw_brief = re.sub(r'<[^>]+>', '', raw_brief)
             # Escape < and > that could break Telegram HTML
             raw_brief = raw_brief.replace('<', '&lt;').replace('>', '&gt;')
-            agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief[:400]}</i>"
+            agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief[:600]}</i>"
     except Exception:
         pass
     dip_lines = []
