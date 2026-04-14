@@ -249,7 +249,19 @@ def notify_signal(signal):
 
     desc_short = description[:200] + "..." if len(description) > 200 else description
 
-    # Dip detection — check top UP assets for discounted entries
+    # Agent brief — appended if available (signal tuple index 12)
+    agent_brief = ""
+    try:
+        if len(signal) > 12 and signal[12]:
+            raw_brief = signal[12]
+            # Sanitize — remove any HTML tags Claude might have generated
+            import re
+            raw_brief = re.sub(r'<[^>]+>', '', raw_brief)
+            # Escape < and > that could break Telegram HTML
+            raw_brief = raw_brief.replace('<', '&lt;').replace('>', '&gt;')
+            agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief[:400]}</i>"
+    except Exception:
+        pass
     dip_lines = []
     try:
         import yfinance as _yf3
@@ -283,7 +295,8 @@ def notify_signal(signal):
         f"📈 Accuracy Range: {acc_min:.0f}% — {acc_max:.0f}%\n\n"
         f"🟢 <b>HISTORICALLY UP:</b>\n{up_section}\n\n"
         f"🔴 <b>HISTORICALLY DOWN:</b>\n{down_section}"
-        f"{dip_section}\n\n"
+        f"{dip_section}"
+        f"{agent_brief}\n\n"
         f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
     )
 
@@ -408,8 +421,7 @@ def notify_morning_digest(signals, open_positions=None):
             "☀️ <b>KairosIQ Morning Brief</b>\n\n"
             f"📅 {datetime.now().strftime('%A, %B %d %Y')}\n\n"
             "No active signals at this time.\n"
-            "All monitored markets are within normal ranges.\n\n"
-            "🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
+            "All monitored markets are within normal ranges.\n"
         )
         return send_telegram(message)
 
@@ -462,13 +474,12 @@ def notify_morning_digest(signals, open_positions=None):
             lines.append(f"• {ticker} {arrow} {color}{pct:.1f}%")
 
     lines.append("")
-    lines.append("🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>")
 
     message = "\n".join(lines)
 
     # Enforce Telegram 4096 char limit
     if len(message) > 4000:
-        message = message[:3950] + "...\n\n🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
+        message = message[:3950] + "..."
 
     return send_telegram(message)
 
