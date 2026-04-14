@@ -4180,7 +4180,7 @@ if tab7 is not None:
                         try:
                             import hashlib
                             order_id = hashlib.sha256(
-                                f"manual-{manual_ticker}-{manual_price}-{datetime.now().isoformat()}"
+                                f"manual-{manual_ticker}-{manual_price}-{manual_side}-{manual_account}"
                                 .encode()
                             ).hexdigest()[:32]
 
@@ -4685,6 +4685,8 @@ if tab7 is not None:
                             pnl = close_manual_trade(order_id, exit_price_input)
                             if pnl is not None:
                                 st.success(f"Position closed. P&L: ${pnl:+.4f}")
+                                st.cache_data.clear()
+                                st.rerun()
                             else:
                                 st.error("Failed to close — check logs")
 
