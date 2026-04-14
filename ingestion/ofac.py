@@ -28,6 +28,16 @@ NEWS_FEEDS = [
         "credibility": 0.95
     },
     {
+        "url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",
+        "name": "NYT Business",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://rss.nytimes.com/services/xml/rss/nyt/Energy.xml",
+        "name": "NYT Energy",
+        "credibility": 0.95
+    },
+    {
         "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
         "name": "BBC Business",
         "credibility": 0.95
@@ -53,9 +63,59 @@ NEWS_FEEDS = [
         "credibility": 0.90
     },
     {
+        "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10001147",
+        "name": "CNBC US News",
+        "credibility": 0.90
+    },
+    {
+        "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664",
+        "name": "CNBC Energy",
+        "credibility": 0.90
+    },
+    {
         "url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines",
         "name": "MarketWatch",
         "credibility": 0.88
+    },
+    {
+        "url": "https://feeds.reuters.com/reuters/businessNews",
+        "name": "Reuters Business",
+        "credibility": 0.97
+    },
+    {
+        "url": "https://feeds.reuters.com/reuters/worldNews",
+        "name": "Reuters World",
+        "credibility": 0.97
+    },
+    {
+        "url": "https://feeds.reuters.com/reuters/energy",
+        "name": "Reuters Energy",
+        "credibility": 0.97
+    },
+    {
+        "url": "https://apnews.com/rss",
+        "name": "AP News",
+        "credibility": 0.96
+    },
+    {
+        "url": "https://www.ft.com/?format=rss",
+        "name": "Financial Times",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
+        "name": "WSJ World",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+        "name": "WSJ Markets",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://www.investing.com/rss/news.rss",
+        "name": "Investing.com",
+        "credibility": 0.85
     },
 ]
 

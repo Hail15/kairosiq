@@ -64,6 +64,11 @@ def fetch_gdelt_rss():
         "https://feeds.bbci.co.uk/news/world/asia/rss.xml",
         "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
         "https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml",
+        "https://feeds.reuters.com/reuters/worldNews",
+        "https://feeds.reuters.com/reuters/businessNews",
+        "https://feeds.reuters.com/reuters/energy",
+        "https://apnews.com/rss",
+        "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
     ]
 
     for url in rss_urls:
