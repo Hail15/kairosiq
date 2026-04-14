@@ -78,22 +78,22 @@ NEWS_FEEDS = [
         "credibility": 0.88
     },
     {
-        "url": "https://feeds.reuters.com/reuters/businessNews",
-        "name": "Reuters Business",
-        "credibility": 0.97
-    },
-    {
-        "url": "https://feeds.reuters.com/reuters/worldNews",
+        "url": "https://news.google.com/rss/search?q=when:24h+allinurl:reuters.com&ceid=US:en&hl=en-US&gl=US",
         "name": "Reuters World",
         "credibility": 0.97
     },
     {
-        "url": "https://feeds.reuters.com/reuters/energy",
+        "url": "https://news.google.com/rss/search?q=when:24h+allinurl:reuters.com+energy+oil&ceid=US:en&hl=en-US&gl=US",
         "name": "Reuters Energy",
         "credibility": 0.97
     },
     {
-        "url": "https://apnews.com/rss",
+        "url": "https://news.google.com/rss/search?q=when:24h+allinurl:reuters.com+business+markets&ceid=US:en&hl=en-US&gl=US",
+        "name": "Reuters Business",
+        "credibility": 0.97
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+allinurl:apnews.com&ceid=US:en&hl=en-US&gl=US",
         "name": "AP News",
         "credibility": 0.96
     },

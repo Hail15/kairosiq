@@ -64,10 +64,9 @@ def fetch_gdelt_rss():
         "https://feeds.bbci.co.uk/news/world/asia/rss.xml",
         "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
         "https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml",
-        "https://feeds.reuters.com/reuters/worldNews",
-        "https://feeds.reuters.com/reuters/businessNews",
-        "https://feeds.reuters.com/reuters/energy",
-        "https://apnews.com/rss",
+        "https://news.google.com/rss/search?q=when:24h+allinurl:reuters.com&ceid=US:en&hl=en-US&gl=US",
+        "https://news.google.com/rss/search?q=when:24h+allinurl:reuters.com+energy+oil&ceid=US:en&hl=en-US&gl=US",
+        "https://news.google.com/rss/search?q=when:24h+allinurl:apnews.com&ceid=US:en&hl=en-US&gl=US",
         "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
     ]
 
