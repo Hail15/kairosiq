@@ -261,7 +261,7 @@ def notify_signal(signal):
             raw_brief = re.sub(r'<(?!/?(?:b|i|a)(?:\s[^>]*)?>)', '&lt;', raw_brief)
             # Escape bare > that aren't closing tags
             raw_brief = re.sub(r'>(?![^<]*<)', '&gt;', raw_brief)
-            agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief[:900]}</i>"
+            agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief[:1200]}</i>"
     except Exception:
         pass
     dip_lines = []

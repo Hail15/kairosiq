@@ -39,7 +39,18 @@ def get_client():
 def get_db():
     return psycopg2.connect(settings.DATABASE_URL)
 
-def call_agent(system_prompt, user_prompt, max_tokens=600):
+def sanitize_for_telegram(text):
+    """
+    Escape characters that break Telegram HTML parsing.
+    Keeps allowed tags: <b>, <i>, <a>
+    """
+    if not text:
+        return ""
+    # Replace bare < and > that aren't part of allowed HTML tags
+    import re
+    # Remove any unsupported HTML tags but keep content
+    text = re.sub(r'<(?!/?(?:b|i|a|br)(?:\s[^>]*)?>)', '&lt;', text)
+    return text
     """
     Single Claude call. Tight token budget enforced.
     Returns text response or None on failure.
@@ -259,10 +270,10 @@ def generate_brief(signal):
     system = (
         "You are a senior intelligence analyst writing a brief for institutional "
         "hedge fund clients. Write in clear, direct, professional prose. "
-        "No bullet points. No headers. Maximum 150 words. "
+        "No bullet points. No headers. No markdown. Maximum 120 words. "
         "Cover: what is happening, why it matters financially, what the market "
         "is currently pricing vs what history suggests, and one specific thing to watch. "
-        "End with a one-sentence risk caveat."
+        "End with a one-sentence risk caveat. Stop at exactly 120 words."
     )
 
     user = f"""Write an intelligence brief for this signal:
@@ -274,9 +285,9 @@ Historically correlated assets: {', '.join(top_assets)}
 Current macro regime: {regime}
 Platform accuracy: {accuracy}
 
-Write the brief now. 150 words maximum."""
+Write the brief now. Exactly 120 words. End on a complete sentence."""
 
-    brief = call_agent(system, user, max_tokens=300)
+    brief = call_agent(system, user, max_tokens=400)
     print(f"   🤖 Brief generated: {len(brief or '')} chars")
     return brief
 
