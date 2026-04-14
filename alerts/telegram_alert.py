@@ -254,12 +254,14 @@ def notify_signal(signal):
     try:
         if len(signal) > 12 and signal[12]:
             raw_brief = signal[12]
-            # Sanitize — remove any HTML tags Claude might have generated
+            # Convert markdown bold to Telegram HTML bold
             import re
-            raw_brief = re.sub(r'<[^>]+>', '', raw_brief)
-            # Escape < and > that could break Telegram HTML
-            raw_brief = raw_brief.replace('<', '&lt;').replace('>', '&gt;')
-            agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief[:600]}</i>"
+            raw_brief = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', raw_brief)
+            # Strip any other HTML tags Claude might have generated
+            raw_brief = re.sub(r'<(?!/?(?:b|i|a)(?:\s[^>]*)?>)', '&lt;', raw_brief)
+            # Escape bare > that aren't closing tags
+            raw_brief = re.sub(r'>(?![^<]*<)', '&gt;', raw_brief)
+            agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief[:900]}</i>"
     except Exception:
         pass
     dip_lines = []
