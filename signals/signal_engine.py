@@ -215,10 +215,10 @@ def map_to_event_category(question_text):
         return "us_sanctions_announcement"
     elif any(w in text for w in ["coup", "junta", "military takeover"]):
         return "coup_risk"
-    elif any(w in text for w in ["cyber", "hack", "ransomware", "malware"]):
-        return "cyber_attack"
+    elif any(w in text for w in ["cyber", "hack", "ransomware", "malware", "internet disruption", "connectivity disruption"]):
+        return "cyber_attack_infrastructure"
     elif any(w in text for w in ["outbreak", "pandemic", "disease", "virus", "ebola"]):
-        return "disease_outbreak"
+        return "pandemic_outbreak"
     elif any(w in text for w in ["election", "vote", "referendum", "ballot"]):
         return "election_outcome_surprise"
     else:

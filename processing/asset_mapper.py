@@ -366,10 +366,10 @@ def map_event_to_category(event_description):
         return "coup_risk"
     elif any(w in text for w in ["election", "vote", "president", "prime minister"]):
         return "election_outcome_surprise"
-    elif any(w in text for w in ["cyber", "hack", "ransomware", "malware"]):
-        return "cyber_attack"
-    elif any(w in text for w in ["outbreak", "disease", "pandemic", "virus"]):
-        return "disease_outbreak"
+    elif any(w in text for w in ["cyber", "hack", "ransomware", "malware", "internet disruption", "connectivity disruption"]):
+        return "cyber_attack_infrastructure"
+    elif any(w in text for w in ["outbreak", "disease", "pandemic", "virus", "who alert", "epidemic"]):
+        return "pandemic_outbreak"
     else:
         return "emerging_market_political_crisis"
 

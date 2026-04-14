@@ -825,7 +825,7 @@ def fetch_similar_historical_event(event_category, region, description):
             specific_event_id = "EVT_002"
         elif event_category == "middle_east_military_escalation":
             specific_event_id = "EVT_007"
-        elif event_category == "disease_outbreak":
+        elif event_category == "pandemic_outbreak":
             specific_event_id = "EVT_001"
         elif event_category == "emerging_market_political_crisis":
             specific_event_id = "EVT_051"
@@ -4744,7 +4744,7 @@ if tab8 is not None:
             },
             "Major cyberattack on US grid": {
                 "region": "United States",
-                "category": "cyber_attack",
+                "category": "cyber_attack_infrastructure",
                 "description": "Nation-state cyberattack takes down major US power grid infrastructure across eastern seaboard. Attribution points to Russia."
             },
             "OPEC+ surprise production cut": {
@@ -4788,20 +4788,20 @@ if tab8 is not None:
                 "Event category:",
                 ["china_taiwan_tension", "shipping_lane_disruption", "nuclear_wmd_escalation",
                  "global_tariff_escalation", "middle_east_military_escalation",
-                 "russia_eastern_europe_conflict", "cyber_attack", "opec_production_decision",
+                 "russia_eastern_europe_conflict", "cyber_attack_infrastructure", "opec_production_decision",
                  "us_sanctions_announcement", "emerging_market_political_crisis",
-                 "election_outcome_surprise", "disease_outbreak"],
+                 "election_outcome_surprise", "pandemic_outbreak"],
                 index=["china_taiwan_tension", "shipping_lane_disruption", "nuclear_wmd_escalation",
                        "global_tariff_escalation", "middle_east_military_escalation",
-                       "russia_eastern_europe_conflict", "cyber_attack", "opec_production_decision",
+                       "russia_eastern_europe_conflict", "cyber_attack_infrastructure", "opec_production_decision",
                        "us_sanctions_announcement", "emerging_market_political_crisis",
-                       "election_outcome_surprise", "disease_outbreak"].index(preset_data["category"])
+                       "election_outcome_surprise", "pandemic_outbreak"].index(preset_data["category"])
                        if preset_data["category"] in ["china_taiwan_tension", "shipping_lane_disruption",
                        "nuclear_wmd_escalation", "global_tariff_escalation",
                        "middle_east_military_escalation", "russia_eastern_europe_conflict",
-                       "cyber_attack", "opec_production_decision", "us_sanctions_announcement",
+                       "cyber_attack_infrastructure", "opec_production_decision", "us_sanctions_announcement",
                        "emerging_market_political_crisis", "election_outcome_surprise",
-                       "disease_outbreak"] else 0,
+                       "pandemic_outbreak"] else 0,
                 key="scenario_category"
             )
 
@@ -5340,7 +5340,7 @@ if tab11 is not None:
             bt_category = st.selectbox("Event category:", [
                 "All", "middle_east_military_escalation", "russia_eastern_europe_conflict",
                 "china_taiwan_tension", "nuclear_wmd_escalation", "shipping_lane_disruption",
-                "global_tariff_escalation", "opec_production_decision", "cyber_attack"
+                "global_tariff_escalation", "opec_production_decision", "cyber_attack_infrastructure"
             ], key="bt_category")
         with col2:
             bt_confidence = st.selectbox("Min confidence:", ["All", "high", "medium"], key="bt_confidence")

@@ -190,7 +190,7 @@ def get_unalerted_signals():
             SELECT 1 FROM signal_alerts_sent sas
             WHERE sas.event_category = s.event_category
             AND sas.region = s.region
-            AND sas.alerted_at >= NOW() - INTERVAL '12 hours'
+            AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
         )
         ORDER BY s.event_category, s.region,
             CASE s.confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 END,
@@ -210,6 +210,15 @@ def get_unalerted_signals():
         "immigration personal", "refugee story", "human interest",
         "jailed for", "singing", "dancer", "artist", "painter",
         "married", "divorced", "pregnant", "baby",
+        # Royal family / celebrity noise
+        "harry and meghan", "prince harry", "meghan markle", "royal family",
+        "king charles", "princess", "buckingham", "sussex",
+        # Other non-market noise
+        "barnaby joyce", "pauline hanson", "redemption",
+        "nigeria air force", "airstrike civilians",
+        "luxury recovery", "lvmh sales", "sales miss",
+        "rolls-royce jobs", "nuclear power station jobs",
+        "electric cars malaysia", "australia news live",
     ]
 
     FINANCIAL_REQUIRED = [
@@ -230,6 +239,11 @@ def get_unalerted_signals():
         "taiwan opposition", "bridge for peace", "taiwan strait",
         "north korea", "ukraine", "cease-fire", "ceasefire",
         "starmer", "blockade", "silence detected",
+        # Repeat offenders from today
+        "internet disruption", "connectivity disruption", "sudan",
+        "china's electrostate", "electrostate", "poised to win",
+        "hormuz blockade", "u.s. blockade", "us blockade",
+        "european markets", "harry and meghan",
     ]
     seen_phrases = set()
     deduped = []
