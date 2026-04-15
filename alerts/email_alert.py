@@ -299,26 +299,14 @@ def mark_signal_alerted(signal_id, event_category=None, region=None, source_plat
         cur.execute("""
             INSERT INTO signal_alerts_sent (signal_id, event_category, region, source_platform, alerted_at)
             VALUES (%s, %s, %s, %s, NOW())
-            ON CONFLICT DO NOTHING;
+            ON CONFLICT (signal_id) DO UPDATE SET alerted_at = NOW();
         """, (str(signal_id), event_category or '', region or '', source_platform or ''))
         conn.commit()
         cur.close()
         conn.close()
+        print(f"   ✅ Marked alerted: {str(signal_id)[:8]}")
     except Exception as e:
         print(f"⚠️  mark_signal_alerted error: {e}")
-        try:
-            conn = get_db_connection()
-            cur  = conn.cursor()
-            cur.execute("""
-                INSERT INTO signal_alerts_sent (signal_id, event_category, region, alerted_at)
-                VALUES (%s, %s, %s, NOW())
-                ON CONFLICT DO NOTHING;
-            """, (str(signal_id), event_category or '', region or ''))
-            conn.commit()
-            cur.close()
-            conn.close()
-        except Exception:
-            pass
 
 
 def run_email_alerts():
