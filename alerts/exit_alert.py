@@ -378,10 +378,52 @@ def check_stop_loss(trade, tech_data):
     mark_alerted(tid, alert_type)
     print(f"🛑 Exit alert: {ticker} {alert_type} {pct*100:+.1f}% (stop: {stop_label})")
 
+    # Get agent assessment for stop loss
+    agent_assessment = None
+    try:
+        from agent.agent import call_agent, get_active_regime
+        regime = get_active_regime()
+        system = (
+            "You are a portfolio risk manager. A stop loss just triggered. "
+            "Give a 2-sentence assessment: (1) why the position likely moved against us, "
+            "(2) whether to stay out or re-enter and under what conditions. "
+            "Be direct. Historical pattern analysis only."
+        )
+        user = f"""Stop loss triggered: {ticker} {side.upper()}
+Entry: ${float(entry_price or 0):.2f} → Now: ${current_price:.2f} ({pct*100:+.2f}%)
+Stop level: {stop_label}
+Signal: {(description or '')[:150]}
+Regime: {regime}
+RSI: {rsi} | MACD: {'bullish' if macd_bullish else 'bearish'} | Day: {day_change*100:+.2f}%"""
+        agent_assessment = call_agent(system, user, max_tokens=120)
+    except Exception:
+        pass
+
+    # Send agent-powered Telegram message
     try:
         if telegram_exit:
-            telegram_exit(ticker, side, alert_type, pnl, current_price,
-                          entry_price=entry_price, notional=notional)
+            try:
+                from alerts.telegram_alert import send_telegram
+            except ImportError:
+                from telegram_alert import send_telegram
+
+            side_label = "LONG" if side == "buy" else "SHORT"
+            pnl_str = f"{pct*100:+.2f}% (${pnl:+.4f})" if pnl else f"{pct*100:+.2f}%"
+            assessment_block = (
+                f"\n\n🤖 <b>Agent Assessment:</b>\n<i>{agent_assessment}</i>"
+                if agent_assessment else
+                f"\n\nConsider closing to limit losses."
+            )
+            message = (
+                f"🛑 <b>KairosIQ STOP LOSS — {ticker} {side_label}</b>\n\n"
+                f"📊 Entry: <b>${float(entry_price or 0):.2f}</b> → Now: <b>${current_price:.2f}</b>\n"
+                f"💰 P&L: <b>{pnl_str}</b>\n"
+                f"🛑 Stop: <b>{stop_label}</b>"
+                f"{assessment_block}\n\n"
+                f"<i>Historical pattern analysis only. Not investment advice.</i>\n\n"
+                f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard → Close Position</a>"
+            )
+            send_telegram(message)
             print(f"📱 Exit Telegram sent: {ticker}")
     except Exception as te:
         print(f"⚠️ Telegram exit error: {te}")
@@ -447,10 +489,49 @@ def check_take_profit(trade, tech_data, avg_move_72h=None):
 
     mark_alerted(tid, "take_profit")
     print(f"✅ Take profit alert: {ticker} +{pct*100:.1f}% (target: {target_label})")
+
+    # Agent assessment for take profit
+    agent_assessment = None
+    try:
+        from agent.agent import call_agent, get_active_regime
+        regime = get_active_regime()
+        system = (
+            "You are a portfolio manager. A take profit target just hit. "
+            "Give a 2-sentence assessment: (1) whether to fully exit or trail the stop, "
+            "(2) what price level to watch for re-entry if the thesis continues. "
+            "Be direct. Historical pattern analysis only."
+        )
+        user = f"""Take profit hit: {ticker} {side.upper()}
+Entry: ${float(entry_price or 0):.2f} → Now: ${current_price:.2f} (+{pct*100:.2f}%)
+Target: {target_label}
+RSI: {rsi} | MACD: {'bullish' if macd_bullish else 'bearish'} | Day: {day_change*100:+.2f}%
+Regime: {regime}"""
+        agent_assessment = call_agent(system, user, max_tokens=120)
+    except Exception:
+        pass
+
     try:
         if telegram_exit:
-            telegram_exit(ticker, side, "take_profit", pnl, current_price,
-                          entry_price=entry_price, notional=notional)
+            try:
+                from alerts.telegram_alert import send_telegram
+            except ImportError:
+                from telegram_alert import send_telegram
+            side_label = "LONG" if side == "buy" else "SHORT"
+            assessment_block = (
+                f"\n\n🤖 <b>Agent Assessment:</b>\n<i>{agent_assessment}</i>"
+                if agent_assessment else
+                "\n\nConsider taking profits — target reached."
+            )
+            message = (
+                f"✅ <b>KairosIQ TAKE PROFIT — {ticker} {side_label}</b>\n\n"
+                f"📊 Entry: <b>${float(entry_price or 0):.2f}</b> → Now: <b>${current_price:.2f}</b>\n"
+                f"💰 P&L: <b>+{pct*100:.2f}%</b> (${pnl:+.4f})\n"
+                f"🎯 Target: <b>{target_label}</b>"
+                f"{assessment_block}\n\n"
+                f"<i>Historical pattern analysis only. Not investment advice.</i>\n\n"
+                f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard → Close Position</a>"
+            )
+            send_telegram(message)
     except Exception as te:
         print(f"⚠️ Telegram exit error: {te}")
     send_exit_email(subject, html)
