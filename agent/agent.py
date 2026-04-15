@@ -1119,8 +1119,20 @@ def run_agent_triage(signals):
     except Exception:
         pass
 
-    approved = []
+    approved      = []
+    seen_this_cycle = set()  # track region+platform already approved this cycle
+
     for signal in signals:
+        description = signal[1] or ""
+        region      = signal[2] or "Global"
+        platform    = signal[8] or ""
+
+        # Within-cycle dedup — agent already approved this region+platform
+        cycle_key = f"{region.lower()}_{platform.lower()}"
+        if cycle_key in seen_this_cycle:
+            print(f"   🔁 Cycle dedup — already approved {region} [{platform}] this cycle")
+            continue
+
         decision = triage_signal(signal)
         if decision == "suppress":
             continue
@@ -1163,6 +1175,7 @@ def run_agent_triage(signals):
             print(f"   ⚠️ Persist error: {e}")
 
         approved.append(enriched)
+        seen_this_cycle.add(cycle_key)
 
     print(f"   ✅ Agent approved {len(approved)}/{len(signals)} signals for alerting")
     return approved
