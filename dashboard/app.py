@@ -5136,14 +5136,51 @@ if tab7 is not None:
                             step=0.01,
                             key=f"exit_{order_id}"
                         )
-                        if st.button(f"✅ Close {ticker} Position", key=f"close_{order_id}"):
-                            pnl = close_manual_trade(order_id, exit_price_input)
-                            if pnl is not None:
-                                st.success(f"Position closed. P&L: ${pnl:+.4f}")
-                                st.cache_data.clear()
-                                st.rerun()
-                            else:
-                                st.error("Failed to close — check logs")
+
+                        # Partial close
+                        st.markdown(
+                            '<div style="font-size:0.7em;color:#555;font-family:JetBrains Mono,'
+                            'monospace;margin:8px 0 4px;">PARTIAL CLOSE</div>',
+                            unsafe_allow_html=True
+                        )
+                        partial_pct = st.select_slider(
+                            "Reduce position by",
+                            options=[25, 33, 50, 67, 75],
+                            value=50,
+                            format_func=lambda x: f"{x}%",
+                            key=f"partial_pct_{order_id}"
+                        )
+                        col_partial, col_full = st.columns(2)
+                        with col_partial:
+                            if st.button(f"📉 Close {partial_pct}% of {ticker}",
+                                         key=f"partial_{order_id}"):
+                                try:
+                                    from alpaca_trader import partial_close_trade
+                                except ImportError:
+                                    from trading.alpaca_trader import partial_close_trade
+                                pnl = partial_close_trade(
+                                    order_id, exit_price_input,
+                                    partial_pct / 100, "partial_close"
+                                )
+                                if pnl is not None:
+                                    st.success(
+                                        f"Closed {partial_pct}% of {ticker}. "
+                                        f"P&L on closed portion: ${pnl:+.4f}"
+                                    )
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                else:
+                                    st.error("Partial close failed — check logs")
+                        with col_full:
+                            if st.button(f"✅ Close 100% of {ticker}",
+                                         key=f"close_{order_id}"):
+                                pnl = close_manual_trade(order_id, exit_price_input)
+                                if pnl is not None:
+                                    st.success(f"Position closed. P&L: ${pnl:+.4f}")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to close — check logs")
 
         except Exception as e:
             st.error(f"Trading tab error: {e}")

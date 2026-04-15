@@ -197,6 +197,59 @@ def log_manual_trade(signal_id, ticker, side, notional_usd,
         return None
 
 
+def partial_close_trade(order_id, exit_price, close_pct, exit_reason="partial_close"):
+    """
+    Reduces a position by close_pct (e.g. 0.5 = 50%).
+    Logs the partial P&L in notes and reduces notional_usd.
+    """
+    try:
+        conn = get_db_connection()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT side, notional_usd, entry_price, notes
+            FROM alpaca_trades WHERE order_id = %s;
+        """, (order_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        side, notional, entry, existing_notes = row
+        notional    = float(notional or 0)
+        entry       = float(entry or 1)
+        exit_price  = float(exit_price)
+        close_pct   = float(close_pct)
+
+        closed_notional   = round(notional * close_pct, 4)
+        remaining_notional = round(notional * (1 - close_pct), 4)
+
+        multiplier  = 1 if side == "buy" else -1
+        partial_pnl = round(
+            multiplier * (exit_price - entry) / entry * closed_notional, 4
+        )
+
+        note = (f"Partial close {int(close_pct*100)}% @ ${exit_price:.2f} "
+                f"| P&L on closed portion: ${partial_pnl:+.4f} "
+                f"| Remaining: ${remaining_notional:.2f}")
+        updated_notes = f"{existing_notes or ''} | {note}".strip(" |")
+
+        cur.execute("""
+            UPDATE alpaca_trades
+            SET notional_usd = %s,
+                notes        = %s,
+                exit_reason  = %s
+            WHERE order_id = %s;
+        """, (remaining_notional, updated_notes, exit_reason, order_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"✅ Partial close {int(close_pct*100)}%: P&L ${partial_pnl:+.4f}, "
+              f"remaining ${remaining_notional:.2f}")
+        return partial_pnl
+    except Exception as e:
+        print(f"❌ partial_close_trade error: {e}")
+        return None
+
+
 def close_manual_trade(order_id, exit_price, exit_reason="manual_close"):
     try:
         conn = get_db_connection()
