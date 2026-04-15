@@ -353,6 +353,10 @@ def notify_signal(signal):
     if dip_lines:
         dip_section = f"\n\n⚡ <b>DIP ENTRY OPPORTUNITIES:</b>\n" + "\n".join(dip_lines)
 
+    # Signal ID for feedback — first 8 chars
+    signal_id_short = str(signal[0])[:8] if signal[0] else ""
+    feedback_line   = f"\n<code>ID: {signal_id_short}</code> · /feedback {signal_id_short} noise · /feedback {signal_id_short} correct"
+
     message = (
         f"{conf_emoji} <b>KairosIQ {confidence} SIGNAL — {domain.upper()}</b>\n\n"
         f"📍 <b>{region.upper()}</b> · {platform} · {tier_label}\n"
@@ -366,7 +370,8 @@ def notify_signal(signal):
         f"🔴 <b>HISTORICALLY DOWN:</b>\n{down_section}"
         f"{dip_section}"
         f"{trade_section}"
-        f"{agent_brief}\n\n"
+        f"{agent_brief}"
+        f"{feedback_line}\n\n"
         f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
     )
 
