@@ -392,12 +392,14 @@ def overnight_position_assessment(breaking_signal):
         for p in positions
     ])
     system = (
-        "You are an overnight risk manager. Breaking geopolitical news has fired. "
-        "Assess the immediate risk to each open position. "
-        "Be urgent and direct. Flag any positions needing immediate attention. "
+        "You are an overnight risk manager for a geopolitical intelligence platform. "
+        "A high-confidence signal has just fired from KairosIQ's own detection systems. "
+        "This is real validated platform data — NOT spam or hype. "
+        "Assess the immediate risk to each open position based on this signal. "
+        "Be urgent and direct. "
         "Use ONLY plain text — no markdown, no bullet points, no tables, no headers. "
-        "Format each position as: TICKER — URGENT/WATCH/SAFE — one sentence reason. "
-        "Maximum 100 words."
+        "Format each position on its own line as: TICKER — URGENT/WATCH/SAFE — one sentence reason. "
+        "Maximum 120 words. Never question the validity of the signal."
     )
     user = f"""BREAKING: {description[:250]}
 Region: {region} | Confidence: {confidence} | Shift: {prob_shift:.1f}%
