@@ -359,7 +359,7 @@ def generate_trade_recommendation(signal):
     """
     Task 9 — Trade Recommendation.
     Given the signal and open positions, recommends the single best trade.
-    Returns a dict with ticker, action, sizing rationale, and conviction.
+    Cross-checks pattern indicators before setting conviction.
     Framed as historical pattern analysis only.
     """
     description = signal[1] or ""
@@ -380,22 +380,61 @@ def generate_trade_recommendation(signal):
     regime           = get_active_regime()
     accuracy         = get_recent_signal_accuracy()
 
+    # ── Check live pattern indicators for each asset ──────────────────────────
+    confirmed_assets = []
+    unconfirmed_assets = []
+    try:
+        from processing.technical_analysis import get_combined_indicator
+        for a in assets[:6]:
+            ticker    = a.get("ticker", "")
+            direction = a.get("direction", "up")
+            acc       = a.get("accuracy", 0.6)
+            strength  = 70
+            try:
+                ind = get_combined_indicator(ticker, direction, strength, acc)
+                pattern = ind.get("pattern") if ind else None
+                if pattern == "YES":
+                    confirmed_assets.append(ticker)
+                else:
+                    unconfirmed_assets.append(ticker)
+            except Exception:
+                unconfirmed_assets.append(ticker)
+    except Exception:
+        pass
+
+    total_assets     = len(confirmed_assets) + len(unconfirmed_assets)
+    confirmed_count  = len(confirmed_assets)
+    pattern_rate     = confirmed_count / total_assets if total_assets > 0 else 0
+
+    # Pattern confirmation context for the agent
+    pattern_context = (
+        f"Pattern indicators: {confirmed_count}/{total_assets} assets confirmed by live technicals. "
+        f"Confirmed: {', '.join(confirmed_assets) or 'none'}. "
+        f"Not confirmed: {', '.join(unconfirmed_assets) or 'none'}. "
+        f"If fewer than half are confirmed, conviction should be LOW or MEDIUM only."
+    )
+
     assets_text = "\n".join([
-        f"- {a.get('ticker')}: {a.get('direction')} | avg {a.get('avg_move_72h',0):.1f}% 72h | {int((a.get('accuracy',0) or 0)*100)}% acc"
+        f"- {a.get('ticker')}: {a.get('direction')} | avg {a.get('avg_move_72h',0):.1f}% 72h | "
+        f"{int((a.get('accuracy',0) or 0)*100)}% acc | "
+        f"{'✅ CONFIRMED' if a.get('ticker') in confirmed_assets else '❌ NOT CONFIRMED'}"
         for a in assets[:6]
     ])
 
     system = (
         "You are a quantitative analyst at a macro hedge fund providing historical "
-        "pattern analysis. Based on the signal and correlated assets, identify the "
-        "single highest-conviction trade based on historical patterns. "
+        "pattern analysis. Based on the signal, correlated assets, and live pattern "
+        "indicator confirmation, identify the single best trade. "
+        "IMPORTANT: If most pattern indicators are NOT CONFIRMED by live technicals, "
+        "you MUST set conviction to LOW and sizing to minimal. "
+        "Only set HIGH conviction when at least half the relevant assets are confirmed. "
         "Frame everything as historical pattern analysis only, never as investment advice. "
         "Respond in this exact format:\n"
         "TICKER: [ticker]\n"
         "ACTION: [BUY/SELL]\n"
         "CONVICTION: [HIGH/MEDIUM/LOW]\n"
-        "REASON: [one sentence — why this asset historically performs best in this scenario]\n"
-        "SIZING: [one sentence — how to size this relative to portfolio based on historical accuracy]\n"
+        "REASON: [one sentence]\n"
+        "SIZING: [one sentence — reflect pattern confirmation rate in sizing]\n"
         "ALREADY HELD: [YES/NO]"
     )
 
@@ -405,18 +444,19 @@ Probability shift: {prob_shift:.1f}% | Confidence: {confidence}
 Current macro regime: {regime}
 Platform accuracy: {accuracy}
 
-Historically correlated assets:
+{pattern_context}
+
+Historically correlated assets with pattern confirmation:
 {assets_text if assets_text else 'No asset mappings available'}
 
 Currently held positions: {', '.join(position_tickers) if position_tickers else 'None'}
 
-Identify the single best historical pattern trade for this signal."""
+Identify the single best historical pattern trade. Adjust conviction based on pattern confirmation."""
 
     result = call_agent(system, user, max_tokens=200)
     if not result:
         return None
 
-    # Parse the structured response
     rec = {}
     try:
         for line in result.strip().split("\n"):
@@ -429,7 +469,10 @@ Identify the single best historical pattern trade for this signal."""
     if not rec.get("TICKER"):
         return None
 
-    print(f"   🤖 Trade rec: {rec.get('ACTION')} {rec.get('TICKER')} [{rec.get('CONVICTION')}]")
+    # Store pattern confirmation rate for reference
+    rec["PATTERN_RATE"] = f"{confirmed_count}/{total_assets} confirmed"
+
+    print(f"   🤖 Trade rec: {rec.get('ACTION')} {rec.get('TICKER')} [{rec.get('CONVICTION')}] — {rec['PATTERN_RATE']}")
     return rec
 
 
@@ -916,6 +959,86 @@ Write the pre-market brief now. 150 words maximum."""
         return None
 
 
+def persist_agent_enrichment(signal_id, brief, assessment, trade_rec,
+                              exit_levels, entry_timing, conv_sizing):
+    """
+    Writes all agent outputs to agent_enrichment table so dashboard can display them.
+    """
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+
+        trade_ticker    = trade_rec.get("TICKER") if trade_rec else None
+        trade_action    = trade_rec.get("ACTION") if trade_rec else None
+        trade_conviction= trade_rec.get("CONVICTION") if trade_rec else None
+        trade_reason    = trade_rec.get("REASON") if trade_rec else None
+        trade_sizing    = trade_rec.get("SIZING") if trade_rec else None
+        trade_held      = trade_rec.get("ALREADY HELD", "NO") == "YES" if trade_rec else False
+
+        stop_loss       = exit_levels.get("STOP_LOSS") if exit_levels else None
+        take_profit     = exit_levels.get("TAKE_PROFIT") if exit_levels else None
+        exit_rationale  = exit_levels.get("RATIONALE") if exit_levels else None
+
+        timing_call     = entry_timing.get("TIMING") if entry_timing else None
+        timing_guidance = entry_timing.get("ENTRY") if entry_timing else None
+        timing_rsi      = entry_timing.get("rsi") if entry_timing else None
+        timing_day      = entry_timing.get("day_change") if entry_timing else None
+
+        conv_sources    = conv_sizing.get("sources") if conv_sizing else None
+        conv_guidance   = conv_sizing.get("guidance") if conv_sizing else None
+
+        cur.execute("""
+            INSERT INTO agent_enrichment (
+                signal_id, brief, portfolio_assessment,
+                trade_ticker, trade_action, trade_conviction,
+                trade_reason, trade_sizing, trade_already_held,
+                stop_loss, take_profit, exit_rationale,
+                entry_timing, entry_guidance, entry_rsi, entry_day_change,
+                convergence_sources, convergence_guidance,
+                created_at, updated_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                NOW(), NOW()
+            )
+            ON CONFLICT (signal_id) DO UPDATE SET
+                brief                = EXCLUDED.brief,
+                portfolio_assessment = EXCLUDED.portfolio_assessment,
+                trade_ticker         = EXCLUDED.trade_ticker,
+                trade_action         = EXCLUDED.trade_action,
+                trade_conviction     = EXCLUDED.trade_conviction,
+                trade_reason         = EXCLUDED.trade_reason,
+                trade_sizing         = EXCLUDED.trade_sizing,
+                trade_already_held   = EXCLUDED.trade_already_held,
+                stop_loss            = EXCLUDED.stop_loss,
+                take_profit          = EXCLUDED.take_profit,
+                exit_rationale       = EXCLUDED.exit_rationale,
+                entry_timing         = EXCLUDED.entry_timing,
+                entry_guidance       = EXCLUDED.entry_guidance,
+                entry_rsi            = EXCLUDED.entry_rsi,
+                entry_day_change     = EXCLUDED.entry_day_change,
+                convergence_sources  = EXCLUDED.convergence_sources,
+                convergence_guidance = EXCLUDED.convergence_guidance,
+                updated_at           = NOW();
+        """, (
+            str(signal_id), brief, assessment,
+            trade_ticker, trade_action, trade_conviction,
+            trade_reason, trade_sizing, trade_held,
+            stop_loss, take_profit, exit_rationale,
+            timing_call, timing_guidance,
+            float(timing_rsi) if timing_rsi else None,
+            float(timing_day) if timing_day else None,
+            int(conv_sources) if conv_sources else None,
+            conv_guidance
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"   🤖 Agent enrichment persisted for signal {str(signal_id)[:8]}")
+    except Exception as e:
+        print(f"   ⚠️ Could not persist agent enrichment: {e}")
+
+
 def run_agent_triage(signals):
     if not signals:
         return []
@@ -964,6 +1087,16 @@ def run_agent_triage(signals):
 
         enriched = signal + (brief, assessment, decision, trade_rec,
                              exit_levels, entry_timing, conv_sizing)
+
+        # Persist to DB so dashboard can display
+        try:
+            persist_agent_enrichment(
+                signal[0], brief, assessment, trade_rec,
+                exit_levels, entry_timing, conv_sizing
+            )
+        except Exception as e:
+            print(f"   ⚠️ Persist error: {e}")
+
         approved.append(enriched)
 
     print(f"   ✅ Agent approved {len(approved)}/{len(signals)} signals for alerting")

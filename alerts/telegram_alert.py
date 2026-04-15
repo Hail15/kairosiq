@@ -277,10 +277,12 @@ def notify_signal(signal):
             conviction_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(conviction, "⚡")
             action_emoji     = "📈" if action == "BUY" else "📉"
             held_note        = " · <i>Already in portfolio</i>" if already == "YES" else ""
+            pattern_rate     = rec.get("PATTERN_RATE", "")
+            pattern_note     = f" · <i>{pattern_rate}</i>" if pattern_rate else ""
 
             trade_section = (
                 f"\n\n{action_emoji} <b>PATTERN TRADE:</b> {action} <b>{ticker}</b> "
-                f"{conviction_emoji} {conviction} CONVICTION{held_note}\n"
+                f"{conviction_emoji} {conviction} CONVICTION{held_note}{pattern_note}\n"
                 f"<i>{reason}</i>\n"
                 f"<i>Sizing: {sizing}</i>"
             )
