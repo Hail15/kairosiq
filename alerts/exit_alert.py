@@ -461,7 +461,8 @@ def check_signal_expiry(trade, current_price):
     """Fire when signal is expiring within 2 hours."""
     tid, signal_id, ticker, side, notional, order_id, is_live, \
         entry_price, notes, created_at, description, expires_at, \
-        confidence, region, prob_shift, assets_json = trade
+        confidence, region, prob_shift, assets_json, \
+        agent_stop_loss, agent_take_profit, agent_conviction = trade
 
     if not expires_at:
         return False
@@ -514,7 +515,8 @@ def check_counter_signal(trade):
     """
     tid, signal_id, ticker, side, notional, order_id, is_live, \
         entry_price, notes, created_at, description, expires_at, \
-        confidence, region, prob_shift, assets_json = trade
+        confidence, region, prob_shift, assets_json, \
+        agent_stop_loss, agent_take_profit, agent_conviction = trade
 
     if already_alerted(tid, "counter_signal"):
         return False
