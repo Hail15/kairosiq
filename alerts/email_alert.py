@@ -188,6 +188,10 @@ def get_unalerted_signals():
         AND s.signal_time >= NOW() - INTERVAL '48 hours'
         AND NOT EXISTS (
             SELECT 1 FROM signal_alerts_sent sas
+            WHERE sas.signal_id = s.id
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM signal_alerts_sent sas
             WHERE sas.event_category = s.event_category
             AND sas.region = s.region
             AND sas.source_platform = s.source_platform
