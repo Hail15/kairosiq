@@ -746,12 +746,16 @@ def assess_entry_timing(signal, trade_rec):
         prev_close    = float(hist["Close"].iloc[-2])
         day_change    = (current_price - prev_close) / prev_close * 100
 
-        # RSI
-        delta  = hist["Close"].diff()
-        gain   = delta.clip(lower=0).rolling(14).mean()
-        loss   = (-delta.clip(upper=0)).rolling(14).mean()
-        rs     = gain / loss
-        rsi    = float(100 - (100 / (1 + rs.iloc[-1])))
+        # RSI (14-day) — handle insufficient data gracefully
+        try:
+            delta  = hist["Close"].diff()
+            gain   = delta.clip(lower=0).rolling(14).mean()
+            loss   = (-delta.clip(upper=0)).rolling(14).mean()
+            rs     = gain / loss
+            rsi_val = float(100 - (100 / (1 + rs.iloc[-1])))
+            rsi    = rsi_val if not (rsi_val != rsi_val) else None  # check for nan
+        except Exception:
+            rsi = None
     except Exception:
         return None
 
@@ -765,7 +769,7 @@ def assess_entry_timing(signal, trade_rec):
 
     user = f"""Trade: {trade_rec.get('ACTION')} {ticker}
 Current day change: {day_change:+.1f}%
-RSI: {rsi:.0f}
+RSI: {f'{rsi:.0f}' if rsi else 'unavailable'}
 Historical avg signal move: +{avg_move:.1f}% over 72h
 Signal: {description[:150]}
 
@@ -775,7 +779,10 @@ Is this a good entry point based on historical patterns?"""
     if not result:
         return None
 
-    timing_data = {"day_change": round(day_change, 2), "rsi": round(rsi, 1)}
+    timing_data = {
+        "day_change": round(day_change, 2),
+        "rsi": round(rsi, 1) if rsi else None
+    }
     try:
         for line in result.strip().split("\n"):
             if ":" in line:

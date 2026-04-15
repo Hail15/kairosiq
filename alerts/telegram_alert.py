@@ -309,9 +309,9 @@ def notify_signal(signal):
                     timing_emoji = {"NOW": "✅", "WAIT": "⏳", "DIP": "📉"}.get(t_call, "⚡")
                     if t_call:
                         trade_section += f"\n{timing_emoji} Entry: <b>{t_call}</b>"
-                        if t_rsi:
+                        if t_rsi and str(t_rsi) != "nan":
                             trade_section += f" · RSI {t_rsi}"
-                        if t_day:
+                        if t_day and str(t_day) != "nan":
                             trade_section += f" · Day {t_day:+.1f}%" if isinstance(t_day, float) else f" · Day {t_day}"
                         if t_entry:
                             trade_section += f"\n<i>{t_entry}</i>"
