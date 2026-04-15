@@ -370,21 +370,14 @@ def run_email_alerts():
                     print(f"📱 Telegram sent: {region} {category}")
                 except Exception as te:
                     print(f"⚠️  Telegram error: {te}")
+                    telegram_sent = True  # mark as alerted even if Telegram errors
+                    # so we don't spam the same signal forever
 
-            # Email is best-effort
-            if email_enabled:
-                subject = (f"⚡ KairosIQ {confidence.upper()} SIGNAL — "
-                          f"{region} | {prob_shift:.1f}% shift"
-                          if prob_shift else
-                          f"⚡ KairosIQ {confidence.upper()} SIGNAL — {region}")
-                html = build_signal_email(signal)
-                email_sent = send_email(settings.ALERT_EMAIL_TO, subject, html)
-                if email_sent:
-                    print(f"✅ Email sent: {signal[1][:60]}...")
-
-            # Mark alerted if Telegram succeeded (email disabled)
-            if telegram_sent:
+            # Always mark alerted to prevent duplicate sends
+            try:
                 mark_signal_alerted(signal[0], category, region, signal[8])
+            except Exception as me:
+                print(f"⚠️  mark_signal_alerted error: {me}")
 
         except Exception as e:
             print(f"❌ Alert error for signal {signal[0]}: {e}")
