@@ -102,6 +102,42 @@ def get_recent_signal_accuracy():
     except Exception:
         return "Unknown"
 
+def get_recent_feedback():
+    """Get recent operator feedback to inform triage decisions."""
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT feedback_type, region, event_category,
+                   source_platform, description_snippet
+            FROM agent_feedback
+            WHERE created_at >= NOW() - INTERVAL '30 days'
+            ORDER BY created_at DESC
+            LIMIT 20;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+def get_active_suppressions():
+    """Get active suppression rules set by operator."""
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT keyword FROM agent_suppression_rules
+            WHERE expires_at > NOW();
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return [r[0] for r in rows]
+    except Exception:
+        return []
+
 def triage_signal(signal):
     signal_id   = signal[0]
     description = signal[1] or ""
@@ -113,6 +149,27 @@ def triage_signal(signal):
     positions        = get_open_positions()
     regime           = get_active_regime()
     position_tickers = [p["ticker"] for p in positions]
+
+    # Check suppression rules first — hard stop before any API call
+    suppressions = get_active_suppressions()
+    desc_lower   = description.lower()
+    for keyword in suppressions:
+        if keyword in desc_lower:
+            print(f"   🔇 Suppressed by rule [{keyword}]: {description[:60]}")
+            return "suppress"
+
+    # Load recent operator feedback for context
+    feedback     = get_recent_feedback()
+    noise_count  = sum(1 for f in feedback
+                       if f[0] == "noise" and
+                       (f[2] == category or f[3] == platform))
+    feedback_ctx = ""
+    if noise_count >= 2:
+        feedback_ctx = (
+            f"NOTE: Operator has marked {noise_count} similar signals "
+            f"(same category/platform) as noise in the last 30 days. "
+            f"Be more skeptical of this signal type."
+        )
     system = (
         "You are a senior geopolitical intelligence analyst at a hedge fund. "
         "Evaluate whether a signal is worth alerting to the portfolio team. "
@@ -129,6 +186,7 @@ Probability shift: {prob_shift:.1f}%
 Confidence: {confidence}
 Current macro regime: {regime}
 Open positions: {', '.join(position_tickers) if position_tickers else 'None'}
+{feedback_ctx}
 Respond with exactly one word: alert, suppress, or watch."""
     result   = call_agent(system, user, max_tokens=10)
     decision = (result or "watch").lower().strip()

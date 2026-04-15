@@ -49,6 +49,7 @@ from agent.agent import (
     run_weekly_performance_review,
     run_pre_market_brief
 )
+from alerts.telegram_listener import run_telegram_listener
 
 def run_morning_digest():
     """
@@ -347,9 +348,10 @@ def run_validator_cycle():
 # Schedule
 schedule.every(15).minutes.do(run_full_cycle)
 schedule.every(1).hours.do(run_validator_cycle)
-schedule.every().day.at("14:00").do(run_morning_digest)   # 9am ET = 14:00 UTC
-schedule.every().day.at("13:30").do(run_pre_market_brief) # 8:30am ET = 13:30 UTC
+schedule.every().day.at("14:00").do(run_morning_digest)    # 9am ET
+schedule.every().day.at("13:30").do(run_pre_market_brief)  # 8:30am ET
 schedule.every().sunday.at("12:00").do(run_weekly_performance_review)  # Sunday 8am ET
+schedule.every(30).seconds.do(run_telegram_listener)        # Listen for commands
 
 if __name__ == "__main__":
     print("⚡ KairosIQ Scheduler Starting...")

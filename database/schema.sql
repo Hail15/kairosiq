@@ -117,6 +117,54 @@ CREATE TABLE IF NOT EXISTS second_order_effects (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 10. Agent Enrichment
+-- Stores all agent outputs per signal so dashboard can display them
+CREATE TABLE IF NOT EXISTS agent_enrichment (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    signal_id UUID NOT NULL UNIQUE,
+    brief TEXT,
+    portfolio_assessment TEXT,
+    trade_ticker VARCHAR(20),
+    trade_action VARCHAR(10),
+    trade_conviction VARCHAR(10),
+    trade_reason TEXT,
+    trade_sizing TEXT,
+    trade_already_held BOOLEAN DEFAULT false,
+    stop_loss VARCHAR(20),
+    take_profit VARCHAR(20),
+    exit_rationale TEXT,
+    entry_timing VARCHAR(10),
+    entry_guidance TEXT,
+    entry_rsi FLOAT,
+    entry_day_change FLOAT,
+    convergence_sources INTEGER,
+    convergence_guidance TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 11. Agent Feedback
+-- Stores operator feedback on signals to improve triage
+CREATE TABLE IF NOT EXISTS agent_feedback (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    signal_id UUID NOT NULL UNIQUE,
+    feedback_type VARCHAR(20) NOT NULL, -- noise / correct / wrong
+    region VARCHAR(100),
+    event_category VARCHAR(100),
+    source_platform VARCHAR(50),
+    description_snippet TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 12. Agent Suppression Rules
+-- Temporary keyword suppression rules set by operator
+CREATE TABLE IF NOT EXISTS agent_suppression_rules (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    keyword VARCHAR(200) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Maps event types and regions to historically correlated assets
 CREATE TABLE IF NOT EXISTS asset_mappings (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
