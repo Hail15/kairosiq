@@ -1212,6 +1212,27 @@ def fetch_signal_sources_bulk():
     except Exception:
         return []
 
+@st.cache_data(ttl=300)
+def fetch_gpi_history():
+    """Fetch historical GPI snapshots for trend chart."""
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT snapshot_date, gpi_score, vix_value, gap_points,
+                   armed_conflict, energy_resource, political_diplomatic,
+                   cyber_information, economic_financial, maritime_trade, nuclear_wmd
+            FROM gpi_daily_snapshots
+            ORDER BY snapshot_date DESC
+            LIMIT 30;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
 @st.cache_data(ttl=60)
 def fetch_track_record():
     """Fetch full track record with agent narratives."""
