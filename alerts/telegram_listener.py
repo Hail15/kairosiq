@@ -528,8 +528,22 @@ def run_telegram_listener():
         LAST_UPDATE_ID = update["update_id"] + 1
 
         message = update.get("message", {})
-        text    = message.get("text", "")
-        chat_id = message.get("chat", {}).get("id")
+        # Get text from message or channel post
+        text = (message.get("text", "") or
+                update.get("channel_post", {}).get("text", ""))
+
+        # Handle different chat ID locations
+        chat_id = None
+        if message.get("chat", {}).get("id"):
+            chat_id = message["chat"]["id"]
+        elif update.get("channel_post", {}).get("chat", {}).get("id"):
+            chat_id = update["channel_post"]["chat"]["id"]
+        elif update.get("callback_query", {}).get("message", {}).get("chat", {}).get("id"):
+            chat_id = update["callback_query"]["message"]["chat"]["id"]
+
+        if not chat_id:
+            print(f"   ⚠️ Could not extract chat_id from update: {list(update.keys())}")
+            continue
 
         # Only respond to your own chat ID for security
         allowed_ids = [
@@ -539,7 +553,7 @@ def run_telegram_listener():
         ]
 
         if str(chat_id) not in allowed_ids:
-            print(f"   🚫 Message from unauthorized chat {chat_id} — ignored")
+            print(f"   🚫 Message from unauthorized chat {chat_id} — allowed: {allowed_ids}")
             continue
 
         if text:
