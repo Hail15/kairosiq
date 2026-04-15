@@ -51,6 +51,120 @@ from agent.agent import (
 )
 from alerts.telegram_listener import run_telegram_listener
 
+def write_gpi_snapshot():
+    """Write daily GPI snapshot to DB for historical tracking."""
+    print("\n📊 Writing GPI daily snapshot...")
+    try:
+        import psycopg2
+        from config import settings
+        from signals.unpriced_risk import calculate_gpi_components
+
+        conn = psycopg2.connect(settings.DATABASE_URL)
+        cur  = conn.cursor()
+
+        # Get active signals
+        cur.execute("""
+            SELECT event_description, region, event_category,
+                   probability_shift, confidence_score
+            FROM signals WHERE is_active = true AND expires_at > NOW();
+        """)
+        signals = cur.fetchall()
+
+        # Get current VIX
+        vix = None
+        try:
+            import yfinance as yf
+            vix_data = yf.Ticker("^VIX").history(period="1d")
+            if not vix_data.empty:
+                vix = float(vix_data["Close"].iloc[-1])
+        except Exception:
+            pass
+
+        # Calculate GPI using same logic as public_gpi.py
+        conf_weights = {"extreme": 40, "high": 25, "medium": 12, "low": 5}
+        components = {
+            "armed_conflict":        {"weight": 0.25, "score": 0},
+            "energy_resource":       {"weight": 0.20, "score": 0},
+            "political_diplomatic":  {"weight": 0.15, "score": 0},
+            "cyber_information":     {"weight": 0.12, "score": 0},
+            "economic_financial":    {"weight": 0.12, "score": 0},
+            "maritime_trade":        {"weight": 0.08, "score": 0},
+            "nuclear_wmd":           {"weight": 0.08, "score": 0},
+        }
+
+        for sig in signals:
+            cat   = (sig[2] or "").lower()
+            conf  = sig[4] or "low"
+            shift = float(sig[3] or 0)
+            score = conf_weights.get(conf, 5) + min(shift * 0.5, 20)
+
+            if any(k in cat for k in ["nuclear", "wmd"]):
+                components["nuclear_wmd"]["score"] += score
+            elif any(k in cat for k in ["military", "conflict", "iran", "russia", "taiwan"]):
+                components["armed_conflict"]["score"] += score
+            elif any(k in cat for k in ["opec", "energy", "oil", "shipping"]):
+                components["energy_resource"]["score"] += score
+            elif any(k in cat for k in ["tariff", "trade", "financial"]):
+                components["economic_financial"]["score"] += score
+            elif any(k in cat for k in ["election", "political", "coup"]):
+                components["political_diplomatic"]["score"] += score
+            elif any(k in cat for k in ["cyber", "internet"]):
+                components["cyber_information"]["score"] += score
+            elif any(k in cat for k in ["shipping", "maritime", "suez", "hormuz"]):
+                components["maritime_trade"]["score"] += score
+
+        max_raw = max((v["score"] for v in components.values()), default=1)
+        max_raw = max(max_raw, 1)
+        weighted = 0.0
+        norm_scores = {}
+        for key, data in components.items():
+            norm = min(100, (data["score"] / max_raw) * 100)
+            norm_scores[key] = norm
+            weighted += norm * data["weight"]
+
+        gpi_score = min(100, int(weighted))
+        gap = (gpi_score - vix) if vix else None
+
+        from datetime import date
+        today = date.today()
+
+        cur.execute("""
+            INSERT INTO gpi_daily_snapshots (
+                snapshot_date, gpi_score, vix_value, gap_points,
+                armed_conflict, energy_resource, political_diplomatic,
+                cyber_information, economic_financial, maritime_trade, nuclear_wmd,
+                active_signal_count
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (snapshot_date) DO UPDATE SET
+                gpi_score             = EXCLUDED.gpi_score,
+                vix_value             = EXCLUDED.vix_value,
+                gap_points            = EXCLUDED.gap_points,
+                armed_conflict        = EXCLUDED.armed_conflict,
+                energy_resource       = EXCLUDED.energy_resource,
+                political_diplomatic  = EXCLUDED.political_diplomatic,
+                cyber_information     = EXCLUDED.cyber_information,
+                economic_financial    = EXCLUDED.economic_financial,
+                maritime_trade        = EXCLUDED.maritime_trade,
+                nuclear_wmd           = EXCLUDED.nuclear_wmd,
+                active_signal_count   = EXCLUDED.active_signal_count;
+        """, (
+            today, gpi_score, vix, round(gap, 1) if gap else None,
+            norm_scores["armed_conflict"],
+            norm_scores["energy_resource"],
+            norm_scores["political_diplomatic"],
+            norm_scores["cyber_information"],
+            norm_scores["economic_financial"],
+            norm_scores["maritime_trade"],
+            norm_scores["nuclear_wmd"],
+            len(signals)
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"   ✅ GPI snapshot: {gpi_score}/100 | VIX {vix} | Gap {gap}")
+    except Exception as e:
+        print(f"   ⚠️ GPI snapshot error: {e}")
+
 def run_morning_digest():
     """
     Fires once daily at 9am ET.
@@ -352,6 +466,7 @@ schedule.every().day.at("14:00").do(run_morning_digest)    # 9am ET
 schedule.every().day.at("13:30").do(run_pre_market_brief)  # 8:30am ET
 schedule.every().sunday.at("12:00").do(run_weekly_performance_review)  # Sunday 8am ET
 schedule.every(30).seconds.do(run_telegram_listener)        # Listen for commands
+schedule.every().day.at("21:00").do(write_gpi_snapshot)     # 4pm ET daily GPI snapshot
 
 if __name__ == "__main__":
     print("⚡ KairosIQ Scheduler Starting...")

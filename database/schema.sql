@@ -165,6 +165,25 @@ CREATE TABLE IF NOT EXISTS agent_suppression_rules (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 13. GPI Daily Snapshots
+-- Historical GPI scores for trend charting and publishing
+CREATE TABLE IF NOT EXISTS gpi_daily_snapshots (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    snapshot_date DATE NOT NULL UNIQUE,
+    gpi_score INTEGER NOT NULL,
+    vix_value FLOAT,
+    gap_points FLOAT,
+    armed_conflict FLOAT,
+    energy_resource FLOAT,
+    political_diplomatic FLOAT,
+    cyber_information FLOAT,
+    economic_financial FLOAT,
+    maritime_trade FLOAT,
+    nuclear_wmd FLOAT,
+    active_signal_count INTEGER,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Maps event types and regions to historically correlated assets
 CREATE TABLE IF NOT EXISTS asset_mappings (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

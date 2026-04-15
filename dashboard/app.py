@@ -1116,6 +1116,96 @@ def fetch_outcomes():
     return rows
 
 @st.cache_data(ttl=60)
+def fetch_agent_enrichment():
+    """Fetch all agent enrichment data keyed by signal_id."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT signal_id, brief, portfolio_assessment,
+                   trade_ticker, trade_action, trade_conviction,
+                   trade_reason, trade_sizing, trade_already_held,
+                   stop_loss, take_profit, exit_rationale,
+                   entry_timing, entry_guidance, entry_rsi, entry_day_change,
+                   convergence_sources, convergence_guidance,
+                   created_at
+            FROM agent_enrichment
+            ORDER BY created_at DESC;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return {str(r[0]): {
+            "brief":               r[1],
+            "portfolio":           r[2],
+            "trade_ticker":        r[3],
+            "trade_action":        r[4],
+            "trade_conviction":    r[5],
+            "trade_reason":        r[6],
+            "trade_sizing":        r[7],
+            "trade_held":          r[8],
+            "stop_loss":           r[9],
+            "take_profit":         r[10],
+            "exit_rationale":      r[11],
+            "entry_timing":        r[12],
+            "entry_guidance":      r[13],
+            "entry_rsi":           r[14],
+            "entry_day_change":    r[15],
+            "conv_sources":        r[16],
+            "conv_guidance":       r[17],
+        } for r in rows}
+    except Exception:
+        return {}
+
+@st.cache_data(ttl=300)
+def fetch_gpi_history():
+    """Fetch historical GPI snapshots for trend chart."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT snapshot_date, gpi_score, vix_value, gap_points,
+                   armed_conflict, energy_resource, political_diplomatic,
+                   cyber_information, economic_financial, maritime_trade, nuclear_wmd
+            FROM gpi_daily_snapshots
+            ORDER BY snapshot_date DESC
+            LIMIT 30;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+@st.cache_data(ttl=60)
+def fetch_track_record():
+    """Fetch full track record with agent narratives."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                s.id, s.event_description, s.region, s.event_category,
+                s.confidence_score, s.source_platform, s.signal_time,
+                so.asset_ticker, so.price_at_signal, so.price_at_72h,
+                so.direction_correct_72h, so.recorded_at,
+                so.agent_narrative
+            FROM signal_outcomes so
+            JOIN signals s ON so.signal_id = s.id
+            WHERE so.price_at_72h IS NOT NULL
+            AND so.direction_correct_72h IS NOT NULL
+            ORDER BY s.signal_time DESC
+            LIMIT 50;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+@st.cache_data(ttl=60)
 def fetch_trades():
     conn = get_db()
     cur = conn.cursor()
@@ -1178,6 +1268,7 @@ def get_domain(category, platform, description):
 signals = fetch_active_signals()
 questions = fetch_questions()
 all_signals = fetch_all_signals()
+agent_enrichment = fetch_agent_enrichment()
 bets = fetch_bets()
 
 # --- Sidebar ---
@@ -2408,19 +2499,89 @@ if tab1 is not None:
                         unsafe_allow_html=True
                     )
 
-                # AI Brief
+                # AI Brief — use stored agent enrichment if available
+                enrichment = agent_enrichment.get(str(sig_id), {})
+                stored_brief = enrichment.get("brief")
+
                 with st.expander("▸  INTELLIGENCE BRIEF"):
-                    with st.spinner("Generating..."):
-                        summary = generate_signal_summary(
-                            description, region, prob_before,
-                            prob_after, prob_shift, assets_json
-                        )
-                    st.markdown(f'<div class="ai-summary">{summary}</div>',
-                               unsafe_allow_html=True)
+                    if stored_brief:
+                        st.markdown(f'<div class="ai-summary">{stored_brief}</div>',
+                                   unsafe_allow_html=True)
+                    else:
+                        with st.spinner("Generating..."):
+                            summary = generate_signal_summary(
+                                description, region, prob_before,
+                                prob_after, prob_shift, assets_json
+                            )
+                        st.markdown(f'<div class="ai-summary">{summary}</div>',
+                                   unsafe_allow_html=True)
                     st.markdown("""
                     <div class="disclaimer">
                     Historical data analysis only. Not investment advice.
                     </div>""", unsafe_allow_html=True)
+
+                # Agent Trade Recommendation
+                if enrichment.get("trade_ticker"):
+                    conviction = enrichment.get("trade_conviction", "LOW")
+                    action     = enrichment.get("trade_action", "BUY")
+                    ticker     = enrichment.get("trade_ticker", "")
+                    reason     = enrichment.get("trade_reason", "")
+                    sizing     = enrichment.get("trade_sizing", "")
+                    sl         = enrichment.get("stop_loss", "")
+                    tp         = enrichment.get("take_profit", "")
+                    timing     = enrichment.get("entry_timing", "")
+                    held       = enrichment.get("trade_held", False)
+                    conv_src   = enrichment.get("conv_sources")
+                    conv_guide = enrichment.get("conv_guidance", "")
+
+                    conviction_color = {"HIGH": "#cc2200", "MEDIUM": "#e8b84b", "LOW": "#2a9a4a"}.get(conviction, "#555")
+                    action_arrow = "▲" if action == "BUY" else "▼"
+                    timing_emoji = {"NOW": "✅", "WAIT": "⏳", "DIP": "📉"}.get(timing, "")
+
+                    with st.expander("▸  AGENT TRADE RECOMMENDATION"):
+                        st.markdown(f"""
+                        <div style="background:#0a0a14;border:1px solid {conviction_color};
+                             border-radius:4px;padding:16px;margin-bottom:8px;">
+                            <div style="font-family:JetBrains Mono,monospace;font-size:0.75em;
+                                 color:#555;text-transform:uppercase;letter-spacing:0.12em;
+                                 margin-bottom:8px;">Pattern Trade · Historical Analysis Only</div>
+                            <div style="font-size:1.1em;font-weight:700;color:{conviction_color};
+                                 font-family:JetBrains Mono,monospace;margin-bottom:6px;">
+                                {action_arrow} {action} <span style="color:#e0e0e0;">{ticker}</span>
+                                &nbsp;·&nbsp;
+                                <span style="font-size:0.75em;">{conviction} CONVICTION</span>
+                                {"&nbsp;·&nbsp;<span style='font-size:0.7em;color:#555;'>Already held</span>" if held else ""}
+                            </div>
+                            <div style="font-size:0.82em;color:#aaa;margin-bottom:10px;line-height:1.5;">
+                                {reason}
+                            </div>
+                            <div style="font-size:0.78em;color:#888;margin-bottom:8px;">
+                                <b style="color:#e0e0e0;">Sizing:</b> {sizing}
+                            </div>
+                            {"<div style='display:flex;gap:16px;margin-top:10px;'>" +
+                             (f"<div style='font-family:JetBrains Mono,monospace;font-size:0.75em;'><span style='color:#ff4444;'>🛑 Stop Loss</span> <b style='color:#e0e0e0;'>{sl}</b></div>" if sl else "") +
+                             (f"<div style='font-family:JetBrains Mono,monospace;font-size:0.75em;'><span style='color:#2a9a4a;'>✅ Take Profit</span> <b style='color:#e0e0e0;'>{tp}</b></div>" if tp else "") +
+                             (f"<div style='font-family:JetBrains Mono,monospace;font-size:0.75em;'>{timing_emoji} Entry: <b style='color:#e0e0e0;'>{timing}</b></div>" if timing else "") +
+                             "</div>" if (sl or tp or timing) else ""}
+                            {f"<div style='margin-top:10px;padding:8px;background:rgba(232,184,75,0.08);border-left:2px solid #e8b84b;font-size:0.78em;color:#e8b84b;'><b>🔥 {conv_src} sources confirm</b> — {conv_guide}</div>" if conv_src and conv_src >= 2 else ""}
+                        </div>
+                        <div class="disclaimer">Historical pattern analysis only. Not investment advice.</div>
+                        """, unsafe_allow_html=True)
+
+                # Agent Portfolio Assessment
+                if enrichment.get("portfolio"):
+                    with st.expander("▸  PORTFOLIO ASSESSMENT"):
+                        st.markdown(f"""
+                        <div style="background:#0a0a14;border:1px solid #1a1a2e;
+                             border-radius:4px;padding:16px;">
+                            <div style="font-family:JetBrains Mono,monospace;font-size:0.7em;
+                                 color:#555;text-transform:uppercase;letter-spacing:0.12em;
+                                 margin-bottom:10px;">Agent Position Assessment</div>
+                            <div style="font-size:0.85em;color:#ccc;line-height:1.7;
+                                 white-space:pre-wrap;">{enrichment.get("portfolio", "")}</div>
+                        </div>
+                        <div class="disclaimer">Historical pattern analysis only. Not investment advice.</div>
+                        """, unsafe_allow_html=True)
 
                 # Smart Related Prediction Markets
                 related = find_related_questions(description, region, questions, prob_shift)
@@ -3410,8 +3571,164 @@ if tab5 is not None:
 
         st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
 
-        # Trade history table
-        st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">SIGNAL ACCURACY LEADERBOARD — VERIFIED OUTCOMES</div>', unsafe_allow_html=True)
+        # ── GPI Historical Chart ──────────────────────────────────────────────
+        st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">GEOPOLITICAL PRESSURE INDEX — 30-DAY HISTORY</div>', unsafe_allow_html=True)
+
+        gpi_history = fetch_gpi_history()
+        if gpi_history:
+            import plotly.graph_objects as go
+            gpi_dates  = [r[0].strftime("%Y-%m-%d") for r in reversed(gpi_history)]
+            gpi_scores = [r[1] for r in reversed(gpi_history)]
+            vix_vals   = [r[2] for r in reversed(gpi_history)]
+
+            fig_gpi = go.Figure()
+            fig_gpi.add_trace(go.Scatter(
+                x=gpi_dates, y=gpi_scores,
+                name="GPI Score",
+                mode="lines+markers",
+                line=dict(color="#cc2200", width=2),
+                marker=dict(size=5, color="#cc2200"),
+                fill="tozeroy",
+                fillcolor="rgba(204,34,0,0.08)",
+            ))
+            if any(v for v in vix_vals):
+                fig_gpi.add_trace(go.Scatter(
+                    x=gpi_dates, y=vix_vals,
+                    name="VIX",
+                    mode="lines",
+                    line=dict(color="#e8b84b", width=1.5, dash="dot"),
+                ))
+            fig_gpi.add_hline(y=75, line_dash="dash", line_color="#cc2200",
+                              line_width=1, opacity=0.3,
+                              annotation_text="CRITICAL", annotation_font_size=9,
+                              annotation_font_color="#cc2200")
+            fig_gpi.update_layout(
+                paper_bgcolor="#07070d", plot_bgcolor="#07070d",
+                font_color="#888", height=220,
+                margin=dict(l=10, r=10, t=10, b=30),
+                legend=dict(font=dict(family="JetBrains Mono", size=9, color="#555"),
+                            bgcolor="rgba(0,0,0,0)"),
+                xaxis=dict(tickfont=dict(family="JetBrains Mono", size=8, color="#555"),
+                           gridcolor="rgba(255,255,255,0.04)"),
+                yaxis=dict(tickfont=dict(family="JetBrains Mono", size=8, color="#555"),
+                           gridcolor="rgba(255,255,255,0.04)", range=[0, 110]),
+            )
+            st.plotly_chart(fig_gpi, use_container_width=True)
+        else:
+            st.markdown("""
+            <div style="color:var(--text-muted);font-size:0.75em;padding:16px;
+                 background:var(--bg-card);border:1px solid var(--border);border-radius:4px;">
+                GPI history accumulates daily at 4pm ET. Check back tomorrow for the trend chart.
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
+
+        # ── Verified Signal Outcomes with Agent Narratives ────────────────────
+        st.markdown('<div style="font-size:0.62em;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">VERIFIED SIGNAL OUTCOMES — AGENT DOCUMENTED</div>', unsafe_allow_html=True)
+
+        track_record = fetch_track_record()
+        if track_record:
+            correct_count = sum(1 for r in track_record if r[10])
+            total_count   = len(track_record)
+            acc_pct       = correct_count / total_count * 100 if total_count else 0
+
+            # Summary bar
+            st.markdown(f"""
+            <div style="display:flex;gap:24px;padding:12px 16px;background:var(--bg-card);
+                 border:1px solid var(--border);border-radius:4px;margin-bottom:12px;">
+                <div style="font-family:JetBrains Mono,monospace;">
+                    <span style="font-size:1.4em;font-weight:700;color:#e0e0e0;">{total_count}</span>
+                    <span style="font-size:0.65em;color:#555;display:block;">Verified Calls</span>
+                </div>
+                <div style="font-family:JetBrains Mono,monospace;">
+                    <span style="font-size:1.4em;font-weight:700;color:{'#2a9a4a' if acc_pct >= 60 else '#e8b84b'};">{acc_pct:.1f}%</span>
+                    <span style="font-size:0.65em;color:#555;display:block;">72h Accuracy</span>
+                </div>
+                <div style="font-family:JetBrains Mono,monospace;">
+                    <span style="font-size:1.4em;font-weight:700;color:#e0e0e0;">{correct_count}</span>
+                    <span style="font-size:0.65em;color:#555;display:block;">Correct Direction</span>
+                </div>
+                <div style="font-family:JetBrains Mono,monospace;margin-left:auto;align-self:center;">
+                    <span style="font-size:0.65em;color:#333;">The Worsley Intelligence Framework · All data independently verifiable</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for row in track_record[:20]:
+                sig_id, desc, region, category, confidence, platform, sig_time, \
+                ticker, price_signal, price_72h, correct, recorded_at, narrative = row
+
+                if price_signal and price_72h:
+                    pct_move = ((float(price_72h) - float(price_signal)) / float(price_signal)) * 100
+                else:
+                    pct_move = None
+
+                result_icon  = "✅" if correct else "❌"
+                result_label = "CORRECT" if correct else "INCORRECT"
+                result_color = "#2a9a4a" if correct else "#cc2200"
+                move_str     = f"{pct_move:+.2f}%" if pct_move is not None else "—"
+                date_str     = sig_time.strftime("%Y-%m-%d") if sig_time else "—"
+                conf_color   = {"extreme": "#cc2200", "high": "#e8b84b",
+                                "medium": "#2a9a4a", "low": "#555"}.get(confidence, "#555")
+
+                with st.expander(
+                    f"{result_icon} {ticker} {move_str} at 72h  ·  {(desc or '')[:70]}...  ·  {date_str}"
+                ):
+                    col_a, col_b = st.columns([1, 2])
+                    with col_a:
+                        st.markdown(f"""
+                        <div style="font-family:JetBrains Mono,monospace;font-size:0.72em;
+                             line-height:2.0;color:#888;">
+                            <div><span style="color:#555;">TICKER</span>&nbsp;&nbsp;
+                                 <b style="color:#e0e0e0;">{ticker}</b></div>
+                            <div><span style="color:#555;">REGION</span>&nbsp;&nbsp;
+                                 <b style="color:#e0e0e0;">{region or '—'}</b></div>
+                            <div><span style="color:#555;">SOURCE</span>&nbsp;&nbsp;
+                                 <b style="color:#e0e0e0;">{(platform or '').upper()}</b></div>
+                            <div><span style="color:#555;">CONFIDENCE</span>&nbsp;&nbsp;
+                                 <b style="color:{conf_color};">{(confidence or '').upper()}</b></div>
+                            <div><span style="color:#555;">ENTRY</span>&nbsp;&nbsp;
+                                 <b style="color:#e0e0e0;">${float(price_signal or 0):.2f}</b></div>
+                            <div><span style="color:#555;">72H PRICE</span>&nbsp;&nbsp;
+                                 <b style="color:#e0e0e0;">${float(price_72h or 0):.2f}</b></div>
+                            <div><span style="color:#555;">MOVE</span>&nbsp;&nbsp;
+                                 <b style="color:{result_color};">{move_str}</b></div>
+                            <div><span style="color:#555;">RESULT</span>&nbsp;&nbsp;
+                                 <b style="color:{result_color};">{result_icon} {result_label}</b></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with col_b:
+                        if narrative:
+                            st.markdown(f"""
+                            <div style="background:#0a0a14;border-left:2px solid {result_color};
+                                 padding:12px 16px;border-radius:0 4px 4px 0;">
+                                <div style="font-size:0.62em;color:#555;text-transform:uppercase;
+                                     letter-spacing:0.1em;font-family:JetBrains Mono,monospace;
+                                     margin-bottom:8px;">Agent Analysis</div>
+                                <div style="font-size:0.82em;color:#ccc;line-height:1.6;">
+                                    {narrative}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""
+                            <div style="background:#0a0a14;border-left:2px solid #1a1a2e;
+                                 padding:12px 16px;border-radius:0 4px 4px 0;">
+                                <div style="font-size:0.75em;color:#555;">
+                                    Agent narrative pending — generates automatically when 72h window completes.
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="color:var(--text-muted);font-size:0.75em;padding:20px;
+                 background:var(--bg-card);border:1px solid var(--border);border-radius:4px;">
+                Verified outcomes accumulate automatically as signals complete their 72h windows.
+                The agent documents each outcome with analysis. Check back as signals mature.
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
 
         try:
             conn_acc = get_db()
