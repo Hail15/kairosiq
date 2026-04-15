@@ -433,20 +433,539 @@ Identify the single best historical pattern trade for this signal."""
     return rec
 
 
+# ── Task 10: Dynamic Stop Loss & Take Profit ──────────────────────────────────
+
+def generate_exit_levels(signal, trade_rec):
+    """
+    Given a signal and trade recommendation, generates dynamic
+    stop loss and take profit levels based on historical patterns.
+    """
+    if not trade_rec:
+        return None
+
+    description = signal[1] or ""
+    assets_json = signal[9]
+    assets = []
+    try:
+        assets = assets_json if isinstance(assets_json, list) else json.loads(assets_json or "[]")
+    except Exception:
+        pass
+
+    ticker    = trade_rec.get("TICKER", "")
+    action    = trade_rec.get("ACTION", "BUY")
+    regime    = get_active_regime()
+    accuracy  = get_recent_signal_accuracy()
+
+    # Find the specific asset data
+    asset_data = next((a for a in assets if a.get("ticker") == ticker), None)
+    avg_move   = asset_data.get("avg_move_72h", 3.0) if asset_data else 3.0
+    acc        = asset_data.get("accuracy", 0.6) if asset_data else 0.6
+
+    system = (
+        "You are a risk manager setting dynamic exit levels based on historical patterns. "
+        "Calculate specific stop loss and take profit percentages. "
+        "Respond in this exact format:\n"
+        "STOP_LOSS: -X.X%\n"
+        "TAKE_PROFIT: +X.X%\n"
+        "RATIONALE: [one sentence explaining the levels]"
+    )
+
+    user = f"""Signal: {description[:200]}
+Trade: {action} {ticker}
+Historical avg move 72h: {avg_move:.1f}%
+Historical accuracy: {int(acc*100)}%
+Current macro regime: {regime}
+Platform accuracy: {accuracy}
+
+Set dynamic stop loss and take profit levels based on historical patterns."""
+
+    result = call_agent(system, user, max_tokens=100)
+    if not result:
+        return None
+
+    levels = {}
+    try:
+        for line in result.strip().split("\n"):
+            if ":" in line:
+                key, val = line.split(":", 1)
+                levels[key.strip().upper()] = val.strip()
+    except Exception:
+        return None
+
+    print(f"   🤖 Exit levels: SL {levels.get('STOP_LOSS')} TP {levels.get('TAKE_PROFIT')}")
+    return levels
+
+
+# ── Task 11: Correlation Conflict Detection ───────────────────────────────────
+
+def detect_signal_conflicts(signals):
+    """
+    Scans active signals for contradictions on the same ticker.
+    Returns list of conflicts worth flagging.
+    """
+    if not signals:
+        return []
+
+    # Build ticker → signals map
+    ticker_signals = {}
+    for sig in signals:
+        assets_json = sig[9]
+        description = sig[1] or ""
+        platform    = sig[8] or ""
+        try:
+            assets = assets_json if isinstance(assets_json, list) else json.loads(assets_json or "[]")
+            for a in assets[:3]:
+                ticker = a.get("ticker", "")
+                direction = a.get("direction", "")
+                if ticker:
+                    if ticker not in ticker_signals:
+                        ticker_signals[ticker] = []
+                    ticker_signals[ticker].append({
+                        "direction": direction,
+                        "platform": platform,
+                        "description": description[:80]
+                    })
+        except Exception:
+            continue
+
+    # Find tickers with conflicting directions
+    conflicts = []
+    for ticker, sigs in ticker_signals.items():
+        directions = set(s["direction"] for s in sigs)
+        if "up" in directions and "down" in directions:
+            conflicts.append({
+                "ticker": ticker,
+                "signals": sigs
+            })
+
+    if not conflicts:
+        return []
+
+    # Ask agent to assess the conflict
+    conflict_text = "\n".join([
+        f"{c['ticker']}: " + " vs ".join([f"{s['platform']} says {s['direction']}" for s in c['signals'][:3]])
+        for c in conflicts[:3]
+    ])
+
+    system = (
+        "You are a risk analyst identifying conflicting signals. "
+        "For each conflicting ticker, give a one-line assessment: "
+        "which signal is more reliable and why, or if the conflict is unresolvable. "
+        "Be direct. No markdown."
+    )
+
+    user = f"""These tickers have conflicting directional signals:
+{conflict_text}
+
+For each, state which direction has stronger historical support and why."""
+
+    assessment = call_agent(system, user, max_tokens=200)
+    print(f"   🤖 Conflict detection: {len(conflicts)} conflicts found")
+    return conflicts, assessment
+
+
+# ── Task 12: Convergence-Based Position Sizing ────────────────────────────────
+
+def convergence_sizing_guidance(signals, trade_rec):
+    """
+    When multiple signals confirm the same theme, recommends
+    larger position sizing relative to single-source signals.
+    """
+    if not trade_rec or not signals:
+        return None
+
+    ticker   = trade_rec.get("TICKER", "")
+    accuracy = get_recent_signal_accuracy()
+
+    # Count how many signals point to this ticker
+    confirming_sources = []
+    for sig in signals:
+        assets_json = sig[9]
+        platform    = sig[8] or ""
+        try:
+            assets = assets_json if isinstance(assets_json, list) else json.loads(assets_json or "[]")
+            for a in assets[:3]:
+                if a.get("ticker") == ticker:
+                    confirming_sources.append(platform)
+        except Exception:
+            continue
+
+    if len(confirming_sources) < 2:
+        return None
+
+    sources_text = ", ".join(set(confirming_sources))
+
+    system = (
+        "You are a portfolio manager providing historical pattern sizing guidance. "
+        "Multiple independent sources confirm the same trade direction. "
+        "Give specific sizing guidance in one sentence. "
+        "Frame as historical pattern analysis only. No markdown."
+    )
+
+    user = f"""Trade: {trade_rec.get('ACTION')} {ticker}
+Confirming sources ({len(confirming_sources)}): {sources_text}
+Platform accuracy: {accuracy}
+
+Give convergence-based sizing guidance for this multi-source confirmation."""
+
+    guidance = call_agent(system, user, max_tokens=100)
+    print(f"   🤖 Convergence sizing: {len(confirming_sources)} sources confirm {ticker}")
+    return {"sources": len(confirming_sources), "guidance": guidance}
+
+
+# ── Task 13: Entry Timing ─────────────────────────────────────────────────────
+
+def assess_entry_timing(signal, trade_rec):
+    """
+    Evaluates whether now is a good entry point based on
+    dip opportunity, RSI, and historical entry patterns.
+    """
+    if not trade_rec:
+        return None
+
+    ticker      = trade_rec.get("TICKER", "")
+    description = signal[1] or ""
+    assets_json = signal[9]
+    assets      = []
+    try:
+        assets = assets_json if isinstance(assets_json, list) else json.loads(assets_json or "[]")
+    except Exception:
+        pass
+
+    asset_data = next((a for a in assets if a.get("ticker") == ticker), None)
+    avg_move   = asset_data.get("avg_move_72h", 3.0) if asset_data else 3.0
+
+    # Get live price data
+    try:
+        import yfinance as yf
+        hist = yf.Ticker(ticker).history(period="5d")
+        if hist.empty:
+            return None
+        current_price = float(hist["Close"].iloc[-1])
+        prev_close    = float(hist["Close"].iloc[-2])
+        day_change    = (current_price - prev_close) / prev_close * 100
+
+        # RSI
+        delta  = hist["Close"].diff()
+        gain   = delta.clip(lower=0).rolling(14).mean()
+        loss   = (-delta.clip(upper=0)).rolling(14).mean()
+        rs     = gain / loss
+        rsi    = float(100 - (100 / (1 + rs.iloc[-1])))
+    except Exception:
+        return None
+
+    system = (
+        "You are a technical analyst assessing entry timing based on historical patterns. "
+        "Give a one-sentence entry assessment and a specific recommended entry approach. "
+        "Respond in this format:\n"
+        "TIMING: [NOW/WAIT/DIP]\n"
+        "ENTRY: [one sentence specific entry guidance]"
+    )
+
+    user = f"""Trade: {trade_rec.get('ACTION')} {ticker}
+Current day change: {day_change:+.1f}%
+RSI: {rsi:.0f}
+Historical avg signal move: +{avg_move:.1f}% over 72h
+Signal: {description[:150]}
+
+Is this a good entry point based on historical patterns?"""
+
+    result = call_agent(system, user, max_tokens=80)
+    if not result:
+        return None
+
+    timing_data = {"day_change": round(day_change, 2), "rsi": round(rsi, 1)}
+    try:
+        for line in result.strip().split("\n"):
+            if ":" in line:
+                key, val = line.split(":", 1)
+                timing_data[key.strip().upper()] = val.strip()
+    except Exception:
+        pass
+
+    print(f"   🤖 Entry timing: {timing_data.get('TIMING')} — {ticker} RSI {rsi:.0f} day {day_change:+.1f}%")
+    return timing_data
+
+
+# ── Task 14: Weekly Performance Review ───────────────────────────────────────
+
+def run_weekly_performance_review():
+    """
+    Runs every Sunday morning. Reviews all closed positions from the week,
+    calculates what the platform called vs what happened, and sends a
+    performance brief to Telegram.
+    """
+    print("\n🤖 KairosIQ Agent — generating weekly performance review...")
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+
+        # Get closed positions from last 7 days
+        cur.execute("""
+            SELECT ticker, side, entry_price, exit_price, pnl,
+                   exit_reason, created_at, closed_at, notional_usd
+            FROM alpaca_trades
+            WHERE closed_at >= NOW() - INTERVAL '7 days'
+            AND closed_at IS NOT NULL
+            ORDER BY closed_at DESC
+            LIMIT 20;
+        """)
+        closed = cur.fetchall()
+
+        # Get signal accuracy from last 7 days
+        cur.execute("""
+            SELECT
+                s.event_category,
+                COUNT(*) as total,
+                ROUND(AVG(CASE WHEN so.direction_correct_72h THEN 1.0 ELSE 0.0 END)*100,1) as acc
+            FROM signal_outcomes so
+            JOIN signals s ON so.signal_id = s.id
+            WHERE so.recorded_at >= NOW() - INTERVAL '7 days'
+            AND so.direction_correct_72h IS NOT NULL
+            GROUP BY s.event_category
+            ORDER BY total DESC
+            LIMIT 5;
+        """)
+        accuracy_by_category = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        if not closed and not accuracy_by_category:
+            print("   No data for weekly review.")
+            return None
+
+        # Format closed positions
+        positions_text = "\n".join([
+            f"- {r[0]} {r[1].upper()}: entry ${r[2]:.2f} exit ${r[3]:.2f} P&L ${r[4]:.4f} ({r[5] or 'manual'})"
+            for r in closed if r[3]
+        ]) or "No closed positions this week"
+
+        # Format accuracy
+        accuracy_text = "\n".join([
+            f"- {r[0]}: {r[1]} signals, {r[2]}% accuracy"
+            for r in accuracy_by_category
+        ]) or "No validated signals this week"
+
+        system = (
+            "You are a senior portfolio analyst writing a weekly performance review "
+            "for institutional clients. Write in clear professional prose. "
+            "No bullet points. No markdown. Maximum 200 words. "
+            "Cover: overall week performance, which signal categories worked best, "
+            "what to improve, and outlook for next week. "
+            "Be honest about losses. End with one specific thing to focus on next week."
+        )
+
+        user = f"""Write the weekly performance review.
+
+Closed positions this week:
+{positions_text}
+
+Signal accuracy by category:
+{accuracy_text}
+
+Write the review now. 200 words maximum."""
+
+        review = call_agent(system, user, max_tokens=400)
+
+        from datetime import datetime
+        week_ending = datetime.now().strftime("%B %d, %Y")
+
+        message = (
+            f"📊 <b>KairosIQ Weekly Performance Review</b>\n"
+            f"Week ending {week_ending}\n"
+            f"─────────────────────────\n\n"
+            f"{review or 'Review unavailable.'}\n\n"
+            f"─────────────────────────\n"
+            f"<i>Historical pattern analysis only. Not investment advice.</i>"
+        )
+
+        # Send to Telegram
+        try:
+            from alerts.telegram_alert import send_telegram
+            send_telegram(message)
+            print("   ✅ Weekly review sent to Telegram")
+        except Exception:
+            try:
+                from telegram_alert import send_telegram
+                send_telegram(message)
+            except Exception as e:
+                print(f"   ⚠️ Could not send weekly review: {e}")
+
+        return message
+
+    except Exception as e:
+        print(f"   ⚠️ Weekly review error: {e}")
+        return None
+
+
+# ── Task 15: Pre-Market Brief ─────────────────────────────────────────────────
+
+def run_pre_market_brief():
+    """
+    Fires at 8:30am ET (13:30 UTC) before US market open.
+    Scans active signals and open positions for key levels to watch.
+    """
+    print("\n🤖 KairosIQ Agent — generating pre-market brief...")
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+
+        # Active high/extreme signals
+        cur.execute("""
+            SELECT event_description, region, event_category,
+                   probability_shift, confidence_score, source_platform,
+                   affected_assets
+            FROM signals
+            WHERE is_active = true
+            AND expires_at > NOW()
+            AND confidence_score IN ('high', 'extreme')
+            ORDER BY probability_shift DESC
+            LIMIT 5;
+        """)
+        active_signals = cur.fetchall()
+
+        # Open positions with entry prices
+        cur.execute("""
+            SELECT ticker, side, entry_price, notional_usd, created_at
+            FROM alpaca_trades
+            WHERE closed_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT 15;
+        """)
+        positions = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        signals_text = "\n".join([
+            f"- {s[1]} [{s[5]}] {s[4].upper()} — {s[0][:80]}"
+            for s in active_signals
+        ]) or "No high-confidence signals active"
+
+        # Get live prices for positions
+        position_lines = []
+        try:
+            import yfinance as yf
+            for p in positions[:8]:
+                ticker = p[0]
+                entry  = float(p[2]) if p[2] else 0
+                try:
+                    hist = yf.Ticker(ticker).history(period="2d")
+                    if not hist.empty:
+                        curr = float(hist["Close"].iloc[-1])
+                        pct  = (curr - entry) / entry * 100 if entry else 0
+                        position_lines.append(
+                            f"- {ticker} {p[1].upper()} @ ${entry:.2f} | now ${curr:.2f} | {pct:+.1f}%"
+                        )
+                except Exception:
+                    position_lines.append(f"- {ticker} {p[1].upper()} @ ${entry:.2f}")
+        except Exception:
+            pass
+
+        positions_text = "\n".join(position_lines) or "No open positions"
+        regime         = get_active_regime()
+        today          = datetime.now().strftime("%A, %B %d")
+
+        system = (
+            "You are a trader writing a pre-market brief for a macro hedge fund. "
+            "Write in direct, actionable prose. No markdown. No bullet points. "
+            "Maximum 150 words. Cover: "
+            "(1) The key geopolitical theme to watch at the open, "
+            "(2) Which open positions are most exposed and what price action to watch for, "
+            "(3) One specific level or catalyst that would confirm or invalidate the active signals. "
+            "Be specific with tickers and levels where possible."
+        )
+
+        user = f"""Pre-market brief for {today}.
+
+Active high-confidence signals:
+{signals_text}
+
+Open positions:
+{positions_text}
+
+Current macro regime: {regime}
+
+Write the pre-market brief now. 150 words maximum."""
+
+        brief   = call_agent(system, user, max_tokens=350)
+        message = (
+            f"🔔 <b>KairosIQ Pre-Market Brief</b>\n"
+            f"📅 {today} — US Market Open\n"
+            f"─────────────────────────\n\n"
+            f"{brief or 'Brief unavailable.'}\n\n"
+            f"─────────────────────────\n"
+            f"<i>Historical pattern analysis only. Not investment advice.</i>"
+        )
+
+        try:
+            from alerts.telegram_alert import send_telegram
+            send_telegram(message)
+            print("   ✅ Pre-market brief sent")
+        except Exception:
+            try:
+                from telegram_alert import send_telegram
+                send_telegram(message)
+            except Exception as e:
+                print(f"   ⚠️ Could not send pre-market brief: {e}")
+
+        return message
+
+    except Exception as e:
+        print(f"   ⚠️ Pre-market brief error: {e}")
+        return None
+
+
 def run_agent_triage(signals):
     if not signals:
         return []
     print(f"\n🤖 KairosIQ Agent — triaging {len(signals)} signals...")
+
+    # Check for cross-signal conflicts first
+    try:
+        conflicts = detect_signal_conflicts(signals)
+        if conflicts and isinstance(conflicts, tuple):
+            conflict_list, conflict_assessment = conflicts
+            if conflict_list:
+                print(f"   ⚠️ {len(conflict_list)} ticker conflicts detected")
+    except Exception:
+        pass
+
     approved = []
     for signal in signals:
         decision = triage_signal(signal)
         if decision == "suppress":
             continue
+
         brief      = generate_brief(signal)
         assessment = portfolio_signal_assessment(signal)
         trade_rec  = generate_trade_recommendation(signal)
-        enriched   = signal + (brief, assessment, decision, trade_rec)
+
+        # Exit levels
+        exit_levels = None
+        try:
+            exit_levels = generate_exit_levels(signal, trade_rec)
+        except Exception:
+            pass
+
+        # Entry timing
+        entry_timing = None
+        try:
+            entry_timing = assess_entry_timing(signal, trade_rec)
+        except Exception:
+            pass
+
+        # Convergence sizing
+        conv_sizing = None
+        try:
+            conv_sizing = convergence_sizing_guidance(signals, trade_rec)
+        except Exception:
+            pass
+
+        enriched = signal + (brief, assessment, decision, trade_rec,
+                             exit_levels, entry_timing, conv_sizing)
         approved.append(enriched)
+
     print(f"   ✅ Agent approved {len(approved)}/{len(signals)} signals for alerting")
     return approved
 

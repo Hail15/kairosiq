@@ -284,6 +284,49 @@ def notify_signal(signal):
                 f"<i>{reason}</i>\n"
                 f"<i>Sizing: {sizing}</i>"
             )
+
+            # Exit levels — index 16
+            try:
+                if len(signal) > 16 and signal[16]:
+                    lvl = signal[16]
+                    sl  = lvl.get("STOP_LOSS", "")
+                    tp  = lvl.get("TAKE_PROFIT", "")
+                    if sl and tp:
+                        trade_section += f"\n🛑 Stop Loss: <b>{sl}</b> · ✅ Take Profit: <b>{tp}</b>"
+            except Exception:
+                pass
+
+            # Entry timing — index 17
+            try:
+                if len(signal) > 17 and signal[17]:
+                    timing = signal[17]
+                    t_call = timing.get("TIMING", "")
+                    t_entry = timing.get("ENTRY", "")
+                    t_rsi  = timing.get("rsi", "")
+                    t_day  = timing.get("day_change", "")
+                    timing_emoji = {"NOW": "✅", "WAIT": "⏳", "DIP": "📉"}.get(t_call, "⚡")
+                    if t_call:
+                        trade_section += f"\n{timing_emoji} Entry: <b>{t_call}</b>"
+                        if t_rsi:
+                            trade_section += f" · RSI {t_rsi}"
+                        if t_day:
+                            trade_section += f" · Day {t_day:+.1f}%" if isinstance(t_day, float) else f" · Day {t_day}"
+                        if t_entry:
+                            trade_section += f"\n<i>{t_entry}</i>"
+            except Exception:
+                pass
+
+            # Convergence sizing — index 18
+            try:
+                if len(signal) > 18 and signal[18]:
+                    conv = signal[18]
+                    sources  = conv.get("sources", 0)
+                    guidance = conv.get("guidance", "")
+                    if sources >= 2 and guidance:
+                        trade_section += f"\n🔥 <b>{sources} sources confirm</b> — {guidance}"
+            except Exception:
+                pass
+
     except Exception:
         pass
     dip_lines = []
