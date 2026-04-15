@@ -395,14 +395,25 @@ def overnight_position_assessment(breaking_signal):
         "You are an overnight risk manager. Breaking geopolitical news has fired. "
         "Assess the immediate risk to each open position. "
         "Be urgent and direct. Flag any positions needing immediate attention. "
+        "Use ONLY plain text — no markdown, no bullet points, no tables, no headers. "
+        "Format each position as: TICKER — URGENT/WATCH/SAFE — one sentence reason. "
         "Maximum 100 words."
     )
     user = f"""BREAKING: {description[:250]}
 Region: {region} | Confidence: {confidence} | Shift: {prob_shift:.1f}%
 Open positions at risk:
 {positions_text}
-Flag any immediate risks. URGENT / WATCH / SAFE for each relevant position."""
+Flag any immediate risks. URGENT / WATCH / SAFE for each relevant position. Plain text only."""
     assessment = call_agent(system, user, max_tokens=250)
+
+    # Strip any markdown the model produces
+    import re
+    if assessment:
+        assessment = re.sub(r'\*\*(.+?)\*\*', r'\1', assessment)  # bold
+        assessment = re.sub(r'\*(.+?)\*', r'\1', assessment)        # italic
+        assessment = re.sub(r'#{1,6}\s+', '', assessment)           # headers
+        assessment = re.sub(r'\|[^\n]+\|', '', assessment)          # tables
+        assessment = re.sub(r'\n{3,}', '\n\n', assessment)          # extra newlines
     message = (
         f"🚨 <b>OVERNIGHT ALERT — KairosIQ</b>\n\n"
         f"<b>{region} | {confidence.upper()}</b>\n"

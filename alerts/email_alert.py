@@ -220,6 +220,11 @@ def get_unalerted_signals():
         "luxury recovery", "lvmh sales", "sales miss",
         "rolls-royce jobs", "nuclear power station jobs",
         "electric cars malaysia", "australia news live",
+        # Infrastructure/logistics noise not market-relevant
+        "border delays", "airport delays", "entry exit system",
+        "border system", "eu border", "passport control",
+        "cyanide fish", "cyanide dumping", "fishermen accused",
+        "nuclear power station", "nuclear power plant jobs",
     ]
 
     FINANCIAL_REQUIRED = [
