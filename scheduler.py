@@ -434,6 +434,45 @@ def run_full_cycle():
     except Exception as e:
         print(f"❌ Email alert error: {e}")
 
+    # Overnight monitor — fires when HIGH/EXTREME signal detected outside market hours
+    try:
+        from agent.agent import overnight_position_assessment
+        from alerts.telegram_alert import send_telegram
+        import psycopg2
+        from config import settings
+
+        now_et = datetime.utcnow().hour - 4  # rough ET conversion
+        is_outside_market = not (9 <= now_et < 16)  # outside 9am-4pm ET
+
+        if is_outside_market:
+            conn_ov = psycopg2.connect(settings.DATABASE_URL)
+            cur_ov  = conn_ov.cursor()
+            cur_ov.execute("""
+                SELECT id, event_description, region, event_category,
+                       probability_before, probability_after, probability_shift,
+                       confidence_score, source_platform, affected_assets,
+                       signal_time, expires_at
+                FROM signals
+                WHERE is_active = true
+                AND expires_at > NOW()
+                AND confidence_score IN ('high', 'extreme')
+                AND signal_time >= NOW() - INTERVAL '30 minutes'
+                ORDER BY probability_shift DESC
+                LIMIT 1;
+            """)
+            breaking = cur_ov.fetchone()
+            cur_ov.close()
+            conn_ov.close()
+
+            if breaking:
+                print(f"   🌙 Overnight signal detected — running position assessment...")
+                message = overnight_position_assessment(breaking)
+                if message:
+                    send_telegram(message)
+                    print(f"   ✅ Overnight alert sent")
+    except Exception as e:
+        print(f"❌ Overnight monitor error: {e}")
+
     # Check open trades for expiring signals — send exit alerts
     try:
         run_exit_alerts()
