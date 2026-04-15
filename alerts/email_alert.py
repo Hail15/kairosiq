@@ -240,11 +240,17 @@ def get_unalerted_signals():
         "taiwan opposition", "bridge for peace", "taiwan strait",
         "north korea", "ukraine", "cease-fire", "ceasefire",
         "starmer", "blockade", "silence detected",
-        # Repeat offenders from today
+        # Repeat offenders
         "internet disruption", "connectivity disruption", "sudan",
         "china's electrostate", "electrostate", "poised to win",
         "hormuz blockade", "u.s. blockade", "us blockade",
         "european markets", "harry and meghan",
+        # SOMEONE_KNOWS dedup by region
+        "someone knows something — iran",
+        "someone knows something — israel",
+        "someone knows something — china",
+        "someone knows something — russia",
+        "someone knows something — global",
     ]
     seen_phrases = set()
     deduped = []

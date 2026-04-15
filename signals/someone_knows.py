@@ -377,12 +377,12 @@ def save_someone_knows_signal(alert):
         conn = get_db()
         cur  = conn.cursor()
 
-        # Check if already fired for this region in last 6h
+        # Check if already fired for this region in last 24h
         cur.execute("""
             SELECT id FROM signals
             WHERE source_platform = 'SOMEONE_KNOWS'
             AND region = %s
-            AND signal_time >= NOW() - INTERVAL '6 hours';
+            AND signal_time >= NOW() - INTERVAL '24 hours';
         """, (alert["region"],))
         if cur.fetchone():
             cur.close()
