@@ -249,19 +249,41 @@ def notify_signal(signal):
 
     desc_short = description[:200] + "..." if len(description) > 200 else description
 
-    # Agent brief — appended if available (signal tuple index 12)
+    # Agent brief — index 12
     agent_brief = ""
     try:
         if len(signal) > 12 and signal[12]:
             raw_brief = signal[12]
-            # Convert markdown bold to Telegram HTML bold
             import re
             raw_brief = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', raw_brief)
-            # Strip any other HTML tags Claude might have generated
             raw_brief = re.sub(r'<(?!/?(?:b|i|a)(?:\s[^>]*)?>)', '&lt;', raw_brief)
-            # Escape bare > that aren't closing tags
             raw_brief = re.sub(r'>(?![^<]*<)', '&gt;', raw_brief)
             agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief}</i>"
+    except Exception:
+        pass
+
+    # Agent trade recommendation — index 15
+    trade_section = ""
+    try:
+        if len(signal) > 15 and signal[15]:
+            rec = signal[15]
+            ticker     = rec.get("TICKER", "")
+            action     = rec.get("ACTION", "")
+            conviction = rec.get("CONVICTION", "")
+            reason     = rec.get("REASON", "")
+            sizing     = rec.get("SIZING", "")
+            already    = rec.get("ALREADY HELD", "NO")
+
+            conviction_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(conviction, "⚡")
+            action_emoji     = "📈" if action == "BUY" else "📉"
+            held_note        = " · <i>Already in portfolio</i>" if already == "YES" else ""
+
+            trade_section = (
+                f"\n\n{action_emoji} <b>PATTERN TRADE:</b> {action} <b>{ticker}</b> "
+                f"{conviction_emoji} {conviction} CONVICTION{held_note}\n"
+                f"<i>{reason}</i>\n"
+                f"<i>Sizing: {sizing}</i>"
+            )
     except Exception:
         pass
     dip_lines = []
@@ -298,6 +320,7 @@ def notify_signal(signal):
         f"🟢 <b>HISTORICALLY UP:</b>\n{up_section}\n\n"
         f"🔴 <b>HISTORICALLY DOWN:</b>\n{down_section}"
         f"{dip_section}"
+        f"{trade_section}"
         f"{agent_brief}\n\n"
         f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
     )

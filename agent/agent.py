@@ -355,6 +355,84 @@ Flag any immediate risks. URGENT / WATCH / SAFE for each relevant position."""
     )
     return message
 
+def generate_trade_recommendation(signal):
+    """
+    Task 9 — Trade Recommendation.
+    Given the signal and open positions, recommends the single best trade.
+    Returns a dict with ticker, action, sizing rationale, and conviction.
+    Framed as historical pattern analysis only.
+    """
+    description = signal[1] or ""
+    region      = signal[2] or "Global"
+    category    = signal[3] or ""
+    prob_shift  = signal[6] or 0
+    confidence  = signal[7] or "medium"
+    assets_json = signal[9]
+
+    assets = []
+    try:
+        assets = assets_json if isinstance(assets_json, list) else json.loads(assets_json or "[]")
+    except Exception:
+        pass
+
+    positions        = get_open_positions()
+    position_tickers = [p["ticker"] for p in positions]
+    regime           = get_active_regime()
+    accuracy         = get_recent_signal_accuracy()
+
+    assets_text = "\n".join([
+        f"- {a.get('ticker')}: {a.get('direction')} | avg {a.get('avg_move_72h',0):.1f}% 72h | {int((a.get('accuracy',0) or 0)*100)}% acc"
+        for a in assets[:6]
+    ])
+
+    system = (
+        "You are a quantitative analyst at a macro hedge fund providing historical "
+        "pattern analysis. Based on the signal and correlated assets, identify the "
+        "single highest-conviction trade based on historical patterns. "
+        "Frame everything as historical pattern analysis only, never as investment advice. "
+        "Respond in this exact format:\n"
+        "TICKER: [ticker]\n"
+        "ACTION: [BUY/SELL]\n"
+        "CONVICTION: [HIGH/MEDIUM/LOW]\n"
+        "REASON: [one sentence — why this asset historically performs best in this scenario]\n"
+        "SIZING: [one sentence — how to size this relative to portfolio based on historical accuracy]\n"
+        "ALREADY HELD: [YES/NO]"
+    )
+
+    user = f"""Signal: {description[:250]}
+Region: {region} | Category: {category}
+Probability shift: {prob_shift:.1f}% | Confidence: {confidence}
+Current macro regime: {regime}
+Platform accuracy: {accuracy}
+
+Historically correlated assets:
+{assets_text if assets_text else 'No asset mappings available'}
+
+Currently held positions: {', '.join(position_tickers) if position_tickers else 'None'}
+
+Identify the single best historical pattern trade for this signal."""
+
+    result = call_agent(system, user, max_tokens=200)
+    if not result:
+        return None
+
+    # Parse the structured response
+    rec = {}
+    try:
+        for line in result.strip().split("\n"):
+            if ":" in line:
+                key, val = line.split(":", 1)
+                rec[key.strip().upper()] = val.strip()
+    except Exception:
+        return None
+
+    if not rec.get("TICKER"):
+        return None
+
+    print(f"   🤖 Trade rec: {rec.get('ACTION')} {rec.get('TICKER')} [{rec.get('CONVICTION')}]")
+    return rec
+
+
 def run_agent_triage(signals):
     if not signals:
         return []
@@ -366,7 +444,8 @@ def run_agent_triage(signals):
             continue
         brief      = generate_brief(signal)
         assessment = portfolio_signal_assessment(signal)
-        enriched   = signal + (brief, assessment, decision)
+        trade_rec  = generate_trade_recommendation(signal)
+        enriched   = signal + (brief, assessment, decision, trade_rec)
         approved.append(enriched)
     print(f"   ✅ Agent approved {len(approved)}/{len(signals)} signals for alerting")
     return approved
