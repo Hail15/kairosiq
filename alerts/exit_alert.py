@@ -458,7 +458,7 @@ def check_take_profit(trade, tech_data, avg_move_72h=None):
 
 
 def check_signal_expiry(trade, current_price):
-    """Fire when signal is expiring within 2 hours."""
+    """Fire when signal is expiring within 2 hours — with agent assessment."""
     tid, signal_id, ticker, side, notional, order_id, is_live, \
         entry_price, notes, created_at, description, expires_at, \
         confidence, region, prob_shift, assets_json, \
@@ -478,31 +478,93 @@ def check_signal_expiry(trade, current_price):
         if already_alerted(tid, "signal_expired"):
             return False
 
-        mult  = 1 if side == "buy" else -1
-        pnl   = None
+        mult = 1 if side == "buy" else -1
+        pct  = None
+        pnl  = None
         if current_price and entry_price:
-            pnl = round(mult * (current_price - float(entry_price))
-                        / float(entry_price) * float(notional), 4)
+            pct = mult * (current_price - float(entry_price)) / float(entry_price) * 100
+            pnl = round(pct / 100 * float(notional), 4)
 
-        mode   = "LIVE" if is_live else "PAPER"
-        reason = (f"The signal driving this trade expires in "
-                  f"{hours_left:.1f} hours. The geopolitical event "
-                  f"that triggered this position is no longer active. "
-                  f"Review whether the thesis still holds.")
-        subject = (f"⏰ KairosIQ SIGNAL EXPIRED — {ticker} ({mode}) | "
-                   f"P&L: ${pnl:+.4f}" if pnl else
-                   f"⏰ KairosIQ SIGNAL EXPIRED — {ticker} ({mode})")
-        html = build_exit_html(ticker, side, mode, entry_price, current_price,
-                               notional, "signal_expired", reason, description,
-                               region, expires_at, pnl)
+        mode     = "LIVE" if is_live else "PAPER"
+        pct_str  = f"{pct:+.2f}%" if pct is not None else "unknown"
+        side_label = "LONG" if side == "buy" else "SHORT"
+
+        # Get agent assessment on expiry
+        agent_assessment = None
+        try:
+            from agent.agent import call_agent, get_active_regime
+
+            regime = get_active_regime()
+
+            # Get historical avg move for this signal type
+            avg_move = None
+            try:
+                assets = assets_json if isinstance(assets_json, list) else \
+                         __import__('json').loads(assets_json) if assets_json else []
+                best = next((a for a in assets if a.get("ticker") == ticker), None)
+                if best:
+                    avg_move = abs(best.get("avg_move_72h", 0) or 0)
+            except Exception:
+                pass
+
+            system = (
+                "You are a portfolio manager reviewing a position as its signal expires. "
+                "Give a specific 3-line assessment: "
+                "(1) Did the signal play out as expected? "
+                "(2) Should the position be held, reduced, or closed — and why? "
+                "(3) What is the new stop loss level to use going forward? "
+                "Be direct. Frame as historical pattern analysis only."
+            )
+
+            user = f"""Signal expiring: {description[:200]}
+Region: {region} | Confidence: {confidence}
+Position: {side_label} {ticker} @ ${float(entry_price or 0):.2f}
+Current price: ${current_price:.2f} | Move: {pct_str}
+Historical avg move for this signal: {f'+{avg_move:.1f}%' if avg_move else 'unknown'}
+Current macro regime: {regime}
+
+Assess: did the signal play out? Should we hold, reduce, or close?"""
+
+            agent_assessment = call_agent(system, user, max_tokens=150)
+        except Exception as e:
+            print(f"   ⚠️ Expiry agent error: {e}")
+
+        # Build Telegram message
+        pnl_line = f"\n💰 P&L: <b>{pct_str}</b> (${pnl:+.4f})" if pnl is not None else ""
+        assessment_block = (
+            f"\n\n🤖 <b>Agent Assessment:</b>\n<i>{agent_assessment}</i>"
+            if agent_assessment else
+            "\n\nThe geopolitical signal has expired. Review whether your thesis still holds."
+        )
+
+        message = (
+            f"⏰ <b>KairosIQ SIGNAL EXPIRED — {ticker} {side_label}</b>\n\n"
+            f"📊 Entry: <b>${float(entry_price or 0):.2f}</b> → Now: <b>${current_price:.2f}</b>"
+            f"{pnl_line}"
+            f"{assessment_block}\n\n"
+            f"<i>Historical pattern analysis only. Not investment advice.</i>\n\n"
+            f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard → Close Position</a>"
+        )
+
         mark_alerted(tid, "signal_expired")
-        print(f"⏰ Signal expiry alert: {ticker}")
+        print(f"⏰ Signal expiry alert: {ticker} {pct_str}")
+
         try:
             if telegram_exit:
-                telegram_exit(ticker, side, "signal_expired", pnl, current_price,
-                              entry_price=entry_price, notional=notional)
+                try:
+                    from alerts.telegram_alert import send_telegram
+                except ImportError:
+                    from telegram_alert import send_telegram
+                send_telegram(message)
+                print(f"📱 Expiry alert sent: {ticker}")
         except Exception as te:
             print(f"⚠️ Telegram exit error: {te}")
+
+        subject = f"⏰ KairosIQ SIGNAL EXPIRED — {ticker} ({mode}) | {pct_str}"
+        html = build_exit_html(ticker, side, mode, entry_price, current_price,
+                               notional, "signal_expired",
+                               agent_assessment or "Signal expired. Review position.",
+                               description, region, expires_at, pnl)
         send_exit_email(subject, html)
         return True
     return False
