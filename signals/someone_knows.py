@@ -419,10 +419,31 @@ def save_someone_knows_signal(alert):
             json.dumps([]),
         ))
 
+        row = cur.fetchone()
         conn.commit()
         cur.close()
         conn.close()
         print(f"   🚨 SOMEONE KNOWS SOMETHING: {alert['region']}")
+
+        # Save source evidence — what platforms were converging
+        if row:
+            try:
+                from processing.signal_sources import save_signal_sources
+                sources = [{
+                    "source_type":     "someone_knows",
+                    "title":           f"{alert['region']} convergence — {stype}",
+                    "source_name":     stype,
+                    "relevance_score": 1.0,
+                    "raw_data": {
+                        "region":           alert["region"],
+                        "source_types":     alert.get("source_types", []),
+                        "probability_shift": alert.get("probability_shift"),
+                        "categories":       alert.get("categories", []),
+                    }
+                } for stype in alert.get("source_types", [])]
+                save_signal_sources(row[0], sources)
+            except Exception as se:
+                pass
 
     except Exception as e:
         print(f"   ⚠️ Someone knows save error: {e}")

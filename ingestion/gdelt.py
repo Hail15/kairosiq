@@ -236,7 +236,32 @@ def run_gdelt_ingestion():
     for anomaly in anomalies:
         result = save_gdelt_signal(cur, anomaly)
         if result:
+            signal_id = result[0]
             saved += 1
+
+            # Save source evidence — top matching articles for this country
+            try:
+                from processing.signal_sources import save_signal_sources
+                country = anomaly["country"]
+                search  = country.replace("NORTHKOREA", "NORTH KOREA") \
+                                 .replace("SAUDIARABIA", "SAUDI ARABIA")
+                matching = [
+                    a for a in articles
+                    if search in (a.get("title","") + a.get("summary","") + a.get("source","")).upper()
+                ][:10]
+                sources = [{
+                    "source_type":  "gdelt_article",
+                    "title":        a.get("title", "")[:300],
+                    "url":          a.get("link") or a.get("url"),
+                    "source_name":  a.get("source", "GDELT"),
+                    "published_at": datetime.strptime(a["published"], "%a, %d %b %Y %H:%M:%S %z")
+                                    if a.get("published") else None,
+                    "snippet":      a.get("summary", "")[:300],
+                    "relevance_score": 0.9,
+                } for a in matching]
+                save_signal_sources(signal_id, sources)
+            except Exception as e:
+                print(f"   ⚠️ GDELT source save error: {e}")
 
     conn.commit()
     cur.close()

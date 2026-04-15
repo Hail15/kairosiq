@@ -1157,8 +1157,42 @@ def fetch_agent_enrichment():
     except Exception:
         return {}
 
-@st.cache_data(ttl=300)
-def fetch_gpi_history():
+@st.cache_data(ttl=60)
+def fetch_signal_sources_bulk():
+    """Fetch all signal sources keyed by signal_id for the dashboard."""
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT ss.signal_id, ss.source_type, ss.title, ss.url,
+                   ss.source_name, ss.published_at, ss.snippet, ss.raw_data
+            FROM signal_sources ss
+            JOIN signals s ON s.id = ss.signal_id
+            WHERE s.signal_time >= NOW() - INTERVAL '7 days'
+            ORDER BY ss.signal_id, ss.relevance_score DESC NULLS LAST;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Group by signal_id
+        result = {}
+        for r in rows:
+            sid = str(r[0])
+            if sid not in result:
+                result[sid] = []
+            result[sid].append({
+                "source_type":  r[1],
+                "title":        r[2],
+                "url":          r[3],
+                "source_name":  r[4],
+                "published_at": r[5].strftime("%Y-%m-%d %H:%M") if r[5] else None,
+                "snippet":      r[6],
+                "raw_data":     r[7],
+            })
+        return result
+    except Exception:
+        return {}
     """Fetch historical GPI snapshots for trend chart."""
     try:
         conn = get_db()
@@ -1269,6 +1303,7 @@ signals = fetch_active_signals()
 questions = fetch_questions()
 all_signals = fetch_all_signals()
 agent_enrichment = fetch_agent_enrichment()
+signal_sources_map = fetch_signal_sources_bulk()
 bets = fetch_bets()
 
 # --- Sidebar ---
@@ -2583,7 +2618,89 @@ if tab1 is not None:
                         <div class="disclaimer">Historical pattern analysis only. Not investment advice.</div>
                         """, unsafe_allow_html=True)
 
-                # Smart Related Prediction Markets
+                # ── Signal Source Viewer ──────────────────────────────────────
+                sources = signal_sources_map.get(str(sig_id), [])
+                src_label = f"▸  VERIFY SOURCES ({len(sources)})" if sources else "▸  VERIFY SOURCES"
+                with st.expander(src_label):
+                    if sources:
+                        by_type = {}
+                        for src in sources:
+                            t = src.get("source_type", "article")
+                            if t not in by_type:
+                                by_type[t] = []
+                            by_type[t].append(src)
+
+                        type_labels = {
+                            "article":       "📰 News Articles",
+                            "gdelt_article": "📡 GDELT Conflict Data",
+                            "state_media":   "📺 State Media",
+                            "someone_knows": "🔍 Convergence Sources",
+                            "options_flow":  "📊 Options Flow",
+                            "kalshi_market": "🎯 Prediction Markets",
+                        }
+
+                        for stype, srcs in by_type.items():
+                            label = type_labels.get(stype, f"📎 {stype.replace('_',' ').title()}")
+                            st.markdown(
+                                f'<div style="font-family:JetBrains Mono,monospace;font-size:0.62em;'
+                                f'color:#555;text-transform:uppercase;letter-spacing:0.1em;'
+                                f'margin:12px 0 6px;">{label} · {len(srcs)}</div>',
+                                unsafe_allow_html=True
+                            )
+                            for src in srcs:
+                                title_txt = src.get("title") or "Untitled"
+                                url       = src.get("url")
+                                src_name  = src.get("source_name") or ""
+                                pub       = src.get("published_at") or ""
+                                snippet   = src.get("snippet") or ""
+                                raw       = src.get("raw_data") or {}
+
+                                title_html = (
+                                    f'<a href="{url}" target="_blank" style="color:#e8b84b;'
+                                    f'text-decoration:none;">{title_txt[:120]}</a>'
+                                    if url else
+                                    f'<span style="color:#ccc;">{title_txt[:120]}</span>'
+                                )
+
+                                extra = ""
+                                if stype == "state_media" and raw:
+                                    esc = raw.get("escalation_count", 0)
+                                    des = raw.get("deescalation_count", 0)
+                                    net = raw.get("net_score", 0)
+                                    extra = (f'<span style="color:#cc2200;">▲{esc} escalatory</span>'
+                                             f' · <span style="color:#2a9a4a;">▼{des} de-escalatory</span>'
+                                             f' · <b style="color:#e8b84b;">net +{net}</b>')
+                                elif stype == "someone_knows" and raw:
+                                    src_types = raw.get("source_types", [])
+                                    shift     = raw.get("probability_shift", 0)
+                                    extra = (f'<span style="color:#cc2200;">'
+                                             f'{", ".join(src_types)}</span>'
+                                             f' · {float(shift or 0):.0f}pt shift')
+
+                                st.markdown(
+                                    f'<div style="padding:8px 12px;margin:3px 0;'
+                                    f'background:#06060e;border:1px solid #111;'
+                                    f'border-radius:3px;font-size:0.78em;line-height:1.5;">'
+                                    f'<div>{title_html}</div>'
+                                    f'<div style="color:#444;font-family:JetBrains Mono,monospace;'
+                                    f'font-size:0.85em;margin-top:3px;">'
+                                    f'{src_name}'
+                                    f'{"&nbsp;·&nbsp;" + pub if pub else ""}'
+                                    f'{"&nbsp;·&nbsp;" + extra if extra else ""}'
+                                    f'</div>'
+                                    f'{"<div style=color:#333;font-size:0.82em;margin-top:3px;>" + snippet[:200] + "</div>" if snippet else ""}'
+                                    f'</div>',
+                                    unsafe_allow_html=True
+                                )
+                    else:
+                        st.markdown("""
+                        <div style="color:#333;font-size:0.75em;padding:12px 0;
+                             font-family:JetBrains Mono,monospace;line-height:1.8;">
+                            Source evidence saves automatically from the next signal cycle onward.<br>
+                            For each signal you will see the exact articles, data points, and<br>
+                            market feeds that triggered it — enabling manual verification.
+                        </div>
+                        """, unsafe_allow_html=True)
                 related = find_related_questions(description, region, questions, prob_shift)
                 if related:
                     with st.expander("▸  DIRECTLY RELEVANT PREDICTION MARKETS — CLICK TO BET"):

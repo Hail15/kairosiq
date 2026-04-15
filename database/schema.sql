@@ -167,6 +167,23 @@ CREATE TABLE IF NOT EXISTS agent_suppression_rules (
 
 -- 13. GPI Daily Snapshots
 -- Historical GPI scores for trend charting and publishing
+-- 14. Signal Sources
+-- Stores raw source evidence for every signal for frontend verification
+CREATE TABLE IF NOT EXISTS signal_sources (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    signal_id UUID NOT NULL,
+    source_type VARCHAR(50) NOT NULL,
+    title TEXT,
+    url TEXT,
+    source_name VARCHAR(200),
+    published_at TIMESTAMP,
+    relevance_score FLOAT,
+    snippet TEXT,
+    raw_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_signal_sources_signal_id ON signal_sources(signal_id);
+
 CREATE TABLE IF NOT EXISTS gpi_daily_snapshots (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     snapshot_date DATE NOT NULL UNIQUE,

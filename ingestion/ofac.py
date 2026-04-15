@@ -377,7 +377,8 @@ def save_news_signal(cur, entry):
             probability_before, probability_after, probability_shift,
             confidence_score, source_platform, signal_time,
             expires_at, is_active, checksum
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id;
     """, (
         description, region, category,
         0.0, 60.0, 60.0,
@@ -386,7 +387,8 @@ def save_news_signal(cur, entry):
         datetime.now(timezone.utc) + timedelta(hours=48),
         True, exact_checksum
     ))
-    return True
+    row = cur.fetchone()
+    return row[0] if row else True
 
 def run_ofac_ingestion():
     print("\n🔄 Starting news intelligence ingestion...")
@@ -401,8 +403,33 @@ def run_ofac_ingestion():
     saved = 0
     for entry in entries:
         try:
-            if save_news_signal(cur, entry):
+            signal_id = save_news_signal(cur, entry)
+            if signal_id:
                 saved += 1
+                # Save source evidence
+                try:
+                    from processing.signal_sources import save_signal_sources
+                    published = None
+                    try:
+                        import email.utils
+                        published = email.utils.parsedate_to_datetime(
+                            entry.get("published", "")
+                        )
+                    except Exception:
+                        pass
+                    sources = [{
+                        "source_type":     "article",
+                        "title":           (entry.get("title") or "")[:300],
+                        "url":             entry.get("link") or entry.get("url"),
+                        "source_name":     entry.get("source_name", ""),
+                        "published_at":    published,
+                        "snippet":         (entry.get("summary") or "")[:300],
+                        "relevance_score": 1.0,
+                    }]
+                    if signal_id is not True:
+                        save_signal_sources(signal_id, sources)
+                except Exception as se:
+                    pass
         except Exception as e:
             print(f"   ⚠️  Error saving entry: {e}")
             conn.rollback()

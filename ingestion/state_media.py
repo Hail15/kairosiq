@@ -178,9 +178,28 @@ def run_state_media_ingestion():
             continue
 
         sample_headlines = get_sample_headlines(feed_url)
-        save_state_media_signal(cur, source_name, escalation_count, deescalation_count, sample_headlines)
+        result = save_state_media_signal(cur, source_name, escalation_count, deescalation_count, sample_headlines)
         signals_saved += 1
         print(f"   🚨 Signal saved for {source_name}")
+
+        # Save source evidence
+        try:
+            if result:
+                from processing.signal_sources import save_signal_sources
+                sources = [{
+                    "source_type":     "state_media",
+                    "title":           h,
+                    "source_name":     source_name,
+                    "relevance_score": 0.85,
+                    "raw_data":        {
+                        "escalation_count":   escalation_count,
+                        "deescalation_count": deescalation_count,
+                        "net_score":          net_score,
+                    }
+                } for h in (sample_headlines or [])[:10]]
+                save_signal_sources(result, sources)
+        except Exception as se:
+            pass
 
     conn.commit()
     cur.close()
