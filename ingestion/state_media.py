@@ -199,7 +199,7 @@ def run_state_media_ingestion():
                 } for h in (sample_headlines or [])[:10]]
                 save_signal_sources(result, sources)
         except Exception as se:
-            pass
+            print(f"   ⚠️ state_media signal_sources error: {se}")
 
     conn.commit()
     cur.close()

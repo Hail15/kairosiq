@@ -429,7 +429,7 @@ def run_ofac_ingestion():
                     if signal_id is not True:
                         save_signal_sources(signal_id, sources)
                 except Exception as se:
-                    pass
+                    print(f"   ⚠️ signal_sources error: {se}")
         except Exception as e:
             print(f"   ⚠️  Error saving entry: {e}")
             conn.rollback()

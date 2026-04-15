@@ -443,7 +443,7 @@ def save_someone_knows_signal(alert):
                 } for stype in alert.get("source_types", [])]
                 save_signal_sources(row[0], sources)
             except Exception as se:
-                pass
+                print(f"   ⚠️ someone_knows signal_sources error: {se}")
 
     except Exception as e:
         print(f"   ⚠️ Someone knows save error: {e}")
