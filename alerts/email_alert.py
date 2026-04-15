@@ -306,7 +306,11 @@ def mark_signal_alerted(signal_id, event_category=None, region=None, source_plat
         conn.close()
         print(f"   ✅ Marked alerted: {str(signal_id)[:8]}")
     except Exception as e:
-        print(f"⚠️  mark_signal_alerted error: {e}")
+        # Handle the category+region+day uniqueness constraint silently
+        if "idx_alerts_cat_region_time" in str(e):
+            print(f"   ⏭ Already alerted today: {event_category} / {region}")
+        else:
+            print(f"⚠️  mark_signal_alerted error: {e}")
 
 
 def run_email_alerts():

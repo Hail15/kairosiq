@@ -255,9 +255,10 @@ def notify_signal(signal):
         if len(signal) > 12 and signal[12]:
             raw_brief = signal[12]
             import re
+            # Convert markdown bold to HTML bold
             raw_brief = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', raw_brief)
-            raw_brief = re.sub(r'<(?!/?(?:b|i|a)(?:\s[^>]*)?>)', '&lt;', raw_brief)
-            raw_brief = re.sub(r'>(?![^<]*<)', '&gt;', raw_brief)
+            # Strip ALL unsupported HTML tags entirely (keep only b, i, a)
+            raw_brief = re.sub(r'<(?!/?(?:b|i|a)(?:\s[^>]*)?>)[^>]+>', '', raw_brief)
             agent_brief = f"\n\n📋 <b>INTELLIGENCE BRIEF:</b>\n<i>{raw_brief}</i>"
     except Exception:
         pass

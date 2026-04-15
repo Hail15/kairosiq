@@ -486,6 +486,8 @@ def generate_trade_recommendation(signal):
         "IMPORTANT: If most pattern indicators are NOT CONFIRMED by live technicals, "
         "you MUST set conviction to LOW and sizing to minimal. "
         "Only set HIGH conviction when at least half the relevant assets are confirmed. "
+        "IMPORTANT: VIX is not a tradeable instrument. If recommending volatility exposure "
+        "always use VIXY (ProShares VIX Short-Term Futures ETF) instead of VIX. "
         "Frame everything as historical pattern analysis only, never as investment advice. "
         "Respond in this exact format:\n"
         "TICKER: [ticker]\n"
