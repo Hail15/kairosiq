@@ -529,6 +529,27 @@ Identify the single best historical pattern trade. Adjust conviction based on pa
     if not rec.get("TICKER"):
         return None
 
+    # Fix common wrong tickers the agent hallucinates
+    ticker_fixes = {
+        "MOSAIC": "MOS",
+        "$MOSAIC": "MOS",
+        "ARCH": "ARCH",  # ARCH Coal delisted — skip
+        "$ARCH": None,
+        "$VIX": "VIXY",
+        "VIX": "VIXY",
+        "GC=F": "GLD",   # Futures not tradeable — use ETF
+        "CL=F": "USO",
+        "BZ=F": "BNO",
+    }
+    ticker = rec.get("TICKER", "").strip().upper()
+    if ticker in ticker_fixes:
+        fixed = ticker_fixes[ticker]
+        if fixed is None:
+            print(f"   🚫 Skipping delisted ticker: {ticker}")
+            return None
+        rec["TICKER"] = fixed
+        print(f"   🔧 Ticker fix: {ticker} → {fixed}")
+
     # Store pattern confirmation rate for reference
     rec["PATTERN_RATE"] = f"{confirmed_count}/{total_assets} confirmed"
 
