@@ -312,10 +312,11 @@ def build_exit_html(ticker, side, mode, entry_price, current_price,
 # ── Alert Check Functions ─────────────────────────────────────────────────────
 
 def check_stop_loss(trade, tech_data):
-    """Fire if position down >8% OR momentum reversal with RSI divergence."""
+    """Fire if position hits stop loss — uses agent level if available, else -8% global."""
     tid, signal_id, ticker, side, notional, order_id, is_live, \
         entry_price, notes, created_at, description, expires_at, \
-        confidence, region, prob_shift, assets_json = trade
+        confidence, region, prob_shift, assets_json, \
+        agent_stop_loss, agent_take_profit, agent_conviction = trade
 
     if not tech_data or not entry_price:
         return False
@@ -329,25 +330,26 @@ def check_stop_loss(trade, tech_data):
     pct  = mult * (current_price - float(entry_price)) / float(entry_price)
     pnl  = round(pct * float(notional), 4)
 
+    # Use agent stop loss if available, otherwise global -8%
+    stop_threshold = float(agent_stop_loss) if agent_stop_loss else STOP_LOSS_PCT
+    stop_label     = f"{abs(stop_threshold)*100:.1f}% (agent)" if agent_stop_loss else f"{abs(STOP_LOSS_PCT)*100:.0f}% (global)"
+
     alert_type = None
     reason     = None
 
-    # Hard stop loss -8%
-    if pct <= STOP_LOSS_PCT:
+    if pct <= stop_threshold:
         alert_type = "stop_loss"
         reason = (f"{ticker} is down {abs(pct)*100:.1f}% from entry ${float(entry_price):.2f}. "
-                  f"Hard stop loss of {abs(STOP_LOSS_PCT)*100:.0f}% triggered. "
+                  f"Stop loss of {stop_label} triggered. "
                   f"RSI: {rsi} | Day change: {day_change*100:+.2f}% | MACD: {'Bullish' if macd_bullish else 'Bearish'}.")
 
-    # Extreme single-day move -8% regardless of other indicators
     elif side == "buy" and day_change <= -0.08:
         if not already_alerted(tid, "momentum_reversal"):
             alert_type = "momentum_reversal"
             reason = (f"{ticker} crashed {day_change*100:+.2f}% in a single session. "
-                      f"This is an extreme move suggesting a macro override of the original signal thesis. "
+                      f"Extreme move suggesting macro override of original signal thesis. "
                       f"Current P&L from entry: {pct*100:+.1f}%. Review position immediately.")
 
-    # Momentum exit — reversal + MACD turned bearish
     elif (side == "buy" and day_change <= MOMENTUM_REVERSAL and not macd_bullish and rsi < 45):
         if not already_alerted(tid, "momentum_reversal"):
             alert_type = "momentum_reversal"
@@ -355,7 +357,6 @@ def check_stop_loss(trade, tech_data):
                       f"RSI dropped to {rsi} (weakening), MACD turned bearish. "
                       f"Current P&L: {pct*100:+.1f}%. Consider exiting before further deterioration.")
 
-    # RSI overbought exit for longs
     elif side == "buy" and rsi >= RSI_OVERBOUGHT and pct > 0:
         if not already_alerted(tid, "rsi_overbought"):
             alert_type = "rsi_overbought"
@@ -374,11 +375,9 @@ def check_stop_loss(trade, tech_data):
                               notional, alert_type, reason, description,
                               region, expires_at, pnl, tech_data)
 
-    # Always mark alerted and fire Telegram — don't wait for email success
     mark_alerted(tid, alert_type)
-    print(f"🛑 Exit alert: {ticker} {alert_type} {pct*100:+.1f}%")
+    print(f"🛑 Exit alert: {ticker} {alert_type} {pct*100:+.1f}% (stop: {stop_label})")
 
-    # Fire Telegram immediately — works even if Resend quota exceeded
     try:
         if telegram_exit:
             telegram_exit(ticker, side, alert_type, pnl, current_price,
@@ -387,16 +386,16 @@ def check_stop_loss(trade, tech_data):
     except Exception as te:
         print(f"⚠️ Telegram exit error: {te}")
 
-    # Email is best-effort — quota may be exceeded
     send_exit_email(subject, html)
     return True
 
 
 def check_take_profit(trade, tech_data, avg_move_72h=None):
-    """Fire if position hits take profit target or RSI signals peak."""
+    """Fire if position hits take profit — uses agent level if available."""
     tid, signal_id, ticker, side, notional, order_id, is_live, \
         entry_price, notes, created_at, description, expires_at, \
-        confidence, region, prob_shift, assets_json = trade
+        confidence, region, prob_shift, assets_json, \
+        agent_stop_loss, agent_take_profit, agent_conviction = trade
 
     if not tech_data or not entry_price:
         return False
@@ -406,7 +405,17 @@ def check_take_profit(trade, tech_data, avg_move_72h=None):
     day_change    = tech_data["day_change_pct"]
     macd_bullish  = tech_data["macd_bullish"]
 
-    target_pct = (avg_move_72h / 100) if avg_move_72h else TAKE_PROFIT_PCT
+    # Use agent take profit if available, then avg_move, then global +5%
+    if agent_take_profit:
+        target_pct  = float(agent_take_profit)
+        target_label = f"{target_pct*100:.1f}% (agent)"
+    elif avg_move_72h:
+        target_pct  = avg_move_72h / 100
+        target_label = f"{target_pct*100:.1f}% (historical avg)"
+    else:
+        target_pct  = TAKE_PROFIT_PCT
+        target_label = f"{TAKE_PROFIT_PCT*100:.0f}% (global)"
+
     mult = 1 if side == "buy" else -1
     pct  = mult * (current_price - float(entry_price)) / float(entry_price)
     pnl  = round(pct * float(notional), 4)
@@ -414,14 +423,11 @@ def check_take_profit(trade, tech_data, avg_move_72h=None):
     alert_type = None
     reason     = None
 
-    # Hit historical avg move target
     if pct >= target_pct:
         alert_type = "take_profit"
-        reason = (f"{ticker} reached +{pct*100:.1f}% — matching historical avg move of "
-                  f"{target_pct*100:.1f}% for this signal type. "
-                  f"RSI: {rsi} | MACD: {'Bullish' if macd_bullish else 'Bearish — consider exiting'}.")
+        reason = (f"{ticker} reached +{pct*100:.1f}% — hitting target of {target_label}. "
+                  f"RSI: {rsi} | MACD: {'Bullish — consider trailing stop' if macd_bullish else 'Bearish — consider exiting'}.")
 
-    # RSI overbought + MACD divergence = take profits now
     elif side == "buy" and rsi >= RSI_OVERBOUGHT and not macd_bullish and pct > 0.02:
         alert_type = "take_profit"
         reason = (f"{ticker} up {pct*100:+.1f}% with RSI at {rsi} (overbought) "
@@ -440,7 +446,7 @@ def check_take_profit(trade, tech_data, avg_move_72h=None):
                               region, expires_at, pnl, tech_data)
 
     mark_alerted(tid, "take_profit")
-    print(f"✅ Take profit alert: {ticker} +{pct*100:.1f}%")
+    print(f"✅ Take profit alert: {ticker} +{pct*100:.1f}% (target: {target_label})")
     try:
         if telegram_exit:
             telegram_exit(ticker, side, "take_profit", pnl, current_price,
@@ -569,7 +575,7 @@ def check_counter_signal(trade):
 # ── Main Runner ───────────────────────────────────────────────────────────────
 
 def get_open_trades_full():
-    """Get all open trades with signal context where available."""
+    """Get all open trades with signal context and agent exit levels."""
     try:
         conn = get_db_connection()
         cur  = conn.cursor()
@@ -583,9 +589,13 @@ def get_open_trades_full():
                 COALESCE(s.confidence_score, 'medium') as confidence_score,
                 COALESCE(s.region, 'Global') as region,
                 s.probability_shift,
-                s.affected_assets
+                s.affected_assets,
+                pel.agent_stop_loss,
+                pel.agent_take_profit,
+                pel.agent_conviction
             FROM alpaca_trades t
             LEFT JOIN signals s ON s.id::text = t.signal_id
+            LEFT JOIN position_exit_levels pel ON pel.ticker = t.ticker
             WHERE t.closed_at IS NULL
             ORDER BY t.created_at DESC;
         """)
@@ -636,8 +646,10 @@ def run_exit_alerts():
     print(f"   Monitoring {len(trades)} open positions...")
 
     for trade in trades:
-        ticker      = trade[2]
-        assets_json = trade[15]
+        ticker          = trade[2]
+        assets_json     = trade[15]
+        agent_stop_loss = trade[16] if len(trade) > 16 else None
+        agent_take_profit = trade[17] if len(trade) > 17 else None
 
         # Get historical avg move for take profit target
         avg_move = None

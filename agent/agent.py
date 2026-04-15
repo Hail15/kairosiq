@@ -1024,6 +1024,49 @@ Write the pre-market brief now. 150 words maximum."""
         return None
 
 
+def update_position_exit_levels(signal, trade_rec, exit_levels):
+    """
+    Writes agent exit levels to position_exit_levels table.
+    Uses separate table to avoid ALTER TABLE timeout on alpaca_trades.
+    """
+    if not trade_rec or not exit_levels:
+        return
+
+    ticker     = trade_rec.get("TICKER", "")
+    conviction = trade_rec.get("CONVICTION", "")
+    sl_str     = exit_levels.get("STOP_LOSS", "")
+    tp_str     = exit_levels.get("TAKE_PROFIT", "")
+
+    if not ticker or not sl_str or not tp_str:
+        return
+
+    try:
+        sl_pct = float(sl_str.replace("%", "").replace(" ", "")) / 100
+        tp_pct = float(tp_str.replace("+", "").replace("%", "").replace(" ", "")) / 100
+    except Exception:
+        return
+
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            INSERT INTO position_exit_levels
+                (ticker, agent_stop_loss, agent_take_profit, agent_conviction, updated_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (ticker) DO UPDATE SET
+                agent_stop_loss   = EXCLUDED.agent_stop_loss,
+                agent_take_profit = EXCLUDED.agent_take_profit,
+                agent_conviction  = EXCLUDED.agent_conviction,
+                updated_at        = NOW();
+        """, (ticker, sl_pct, tp_pct, conviction))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"   🤖 Exit levels saved: {ticker} SL {sl_str} TP {tp_str} [{conviction}]")
+    except Exception as e:
+        print(f"   ⚠️ Could not save exit levels: {e}")
+
+
 def persist_agent_enrichment(signal_id, brief, assessment, trade_rec,
                               exit_levels, entry_timing, conv_sizing):
     """
@@ -1148,6 +1191,9 @@ def run_agent_triage(signals):
         exit_levels = None
         try:
             exit_levels = generate_exit_levels(signal, trade_rec)
+            # Write levels to open positions immediately
+            if exit_levels and trade_rec:
+                update_position_exit_levels(signal, trade_rec, exit_levels)
         except Exception:
             pass
 
