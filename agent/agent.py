@@ -240,7 +240,7 @@ Region: {region}
 Current macro regime: {regime}
 Static asset mappings: {', '.join(assets_summary)}
 Return JSON array only: [{{"ticker": "X", "direction": "up/down", "reasoning": "one sentence"}}]"""
-    result = call_agent(system, user, max_tokens=400)
+    result = call_agent_fast(system, user, max_tokens=400)
     if not result:
         return static_assets
     try:
@@ -344,7 +344,7 @@ Predicted direction: {direction_predicted}
 Outcome at 72h: {outcome_text}
 Price move at 72h: {move_text}
 Write 2-3 sentences for the track record."""
-    narrative = call_agent(system, user, max_tokens=200)
+    narrative = call_agent_fast(system, user, max_tokens=200)
     try:
         conn = get_db()
         cur  = conn.cursor()
@@ -393,7 +393,7 @@ Open positions:
 Current macro regime: {regime}
 Platform accuracy: {accuracy}
 Write the brief now. 200 words maximum."""
-    brief  = call_agent(system, user, max_tokens=400)
+    brief  = call_agent_fast(system, user, max_tokens=400)
     header = (
         f"☀️ <b>KairosIQ Morning Intelligence Brief</b>\n"
         f"📅 {today}\n"
@@ -642,7 +642,7 @@ Platform accuracy: {accuracy}
 
 Set dynamic stop loss and take profit levels based on historical patterns."""
 
-    result = call_agent(system, user, max_tokens=100)
+    result = call_agent_fast(system, user, max_tokens=100)
     if not result:
         return None
 
@@ -722,7 +722,7 @@ def detect_signal_conflicts(signals):
 
 For each, state which direction has stronger historical support and why."""
 
-    assessment = call_agent(system, user, max_tokens=200)
+    assessment = call_agent_fast(system, user, max_tokens=200)
     print(f"   🤖 Conflict detection: {len(conflicts)} conflicts found")
     return conflicts, assessment
 
@@ -771,7 +771,7 @@ Platform accuracy: {accuracy}
 
 Give convergence-based sizing guidance for this multi-source confirmation."""
 
-    guidance = call_agent(system, user, max_tokens=100)
+    guidance = call_agent_fast(system, user, max_tokens=100)
     print(f"   🤖 Convergence sizing: {len(confirming_sources)} sources confirm {ticker}")
     return {"sources": len(confirming_sources), "guidance": guidance}
 
@@ -837,7 +837,7 @@ Signal: {description[:150]}
 
 Is this a good entry point based on historical patterns?"""
 
-    result = call_agent(system, user, max_tokens=80)
+    result = call_agent_fast(system, user, max_tokens=80)
     if not result:
         return None
 
@@ -936,7 +936,7 @@ Signal accuracy by category:
 
 Write the review now. 200 words maximum."""
 
-        review = call_agent(system, user, max_tokens=400)
+        review = call_agent_fast(system, user, max_tokens=400)
 
         from datetime import datetime
         week_ending = datetime.now().strftime("%B %d, %Y")
@@ -1058,7 +1058,7 @@ Current macro regime: {regime}
 
 Write the pre-market brief now. 150 words maximum."""
 
-        brief   = call_agent(system, user, max_tokens=350)
+        brief   = call_agent_fast(system, user, max_tokens=350)
         message = (
             f"🔔 <b>KairosIQ Pre-Market Brief</b>\n"
             f"📅 {today} — US Market Open\n"
