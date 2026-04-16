@@ -361,7 +361,12 @@ def notify_signal(signal):
 
     # Signal ID for feedback — first 8 chars
     signal_id_short = str(signal[0])[:8] if signal[0] else ""
-    feedback_line   = f"\n<code>ID: {signal_id_short}</code> · /feedback {signal_id_short} noise · /feedback {signal_id_short} correct"
+    feedback_line   = (
+        f"\n<code>ID: {signal_id_short}</code> · "
+        f"/feedback {signal_id_short} noise · "
+        f"/feedback {signal_id_short} correct · "
+        f"/duplicate {signal_id_short}"
+    )
 
     message = (
         f"{conf_emoji} <b>KairosIQ {confidence} SIGNAL — {domain.upper()}</b>\n\n"

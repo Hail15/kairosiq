@@ -99,6 +99,11 @@ CREATE TABLE IF NOT EXISTS signal_briefs (
 CREATE TABLE IF NOT EXISTS signal_alerts_sent (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     signal_id UUID NOT NULL UNIQUE,
+    event_category VARCHAR(100),
+    region VARCHAR(100),
+    source_platform VARCHAR(50),
+    confidence_score VARCHAR(20),
+    probability_shift FLOAT,
     alerted_at TIMESTAMP DEFAULT NOW()
 );
 

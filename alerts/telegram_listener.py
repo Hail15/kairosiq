@@ -451,11 +451,91 @@ def handle_history(args, chat_id):
         send_reply(chat_id, f"⚠️ History error: {e}")
 
 
+def handle_duplicate(args, chat_id):
+    """
+    /duplicate [signal_id]
+    Marks a signal as a duplicate of a previously alerted signal.
+    - Records noise feedback so agent learns to suppress this pattern
+    - Marks signal as alerted so it never fires again
+    - Adds the signal description to suppression patterns
+    """
+    try:
+        if len(args) < 1:
+            send_reply(chat_id, "Usage: /duplicate [signal_id]")
+            return
+
+        signal_prefix = args[0]
+
+        conn = get_db()
+        cur  = conn.cursor()
+
+        # Find signal by prefix
+        cur.execute("""
+            SELECT id, event_description, region, event_category, source_platform,
+                   confidence_score, probability_shift
+            FROM signals
+            WHERE id::text LIKE %s
+            ORDER BY signal_time DESC
+            LIMIT 1;
+        """, (f"{signal_prefix}%",))
+        row = cur.fetchone()
+
+        if not row:
+            send_reply(chat_id, f"⚠️ No signal found matching: {signal_prefix}")
+            cur.close()
+            conn.close()
+            return
+
+        signal_id   = row[0]
+        description = row[1]
+        region      = row[2]
+        category    = row[3]
+        platform    = row[4]
+        confidence  = row[5]
+        prob_shift  = row[6]
+
+        # 1. Mark as alerted so it never fires again
+        cur.execute("""
+            INSERT INTO signal_alerts_sent
+                (signal_id, event_category, region, source_platform,
+                 confidence_score, probability_shift, alerted_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (signal_id) DO UPDATE SET alerted_at = NOW();
+        """, (str(signal_id), category or '', region or '',
+              platform or '', confidence or '', prob_shift or 0))
+
+        # 2. Record as noise feedback so agent learns the pattern
+        cur.execute("""
+            INSERT INTO agent_feedback (
+                signal_id, feedback_type, region, event_category,
+                source_platform, description_snippet, created_at
+            ) VALUES (%s, 'duplicate', %s, %s, %s, %s, NOW())
+            ON CONFLICT (signal_id) DO UPDATE SET
+                feedback_type = 'duplicate',
+                created_at    = NOW();
+        """, (str(signal_id), region, category, platform, description[:100]))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        send_reply(chat_id,
+            f"🔁 <b>Marked as duplicate</b>\n\n"
+            f"Signal: {description[:80]}...\n\n"
+            f"This signal will not fire again and the agent will learn "
+            f"to suppress similar patterns from <b>{region} / {platform}</b>."
+        )
+
+    except Exception as e:
+        send_reply(chat_id, f"⚠️ Duplicate command error: {e}")
+
+
 def handle_help(chat_id):
     send_reply(chat_id,
         "🤖 <b>KairosIQ Agent Commands</b>\n\n"
         "/ask [question] — ask the agent anything\n"
         "/feedback [signal_id] [noise/correct/wrong] — teach the agent\n"
+        "/duplicate [signal_id] — mark signal as duplicate, suppress forever\n"
         "/suppress [keyword] [hours] — suppress a signal topic\n"
         "/status — current signals and positions overview\n"
         "/positions — live P&L on all open positions\n"
@@ -488,6 +568,9 @@ def route_command(text, chat_id):
 
     elif command == "/feedback":
         handle_feedback(args, chat_id)
+
+    elif command == "/duplicate":
+        handle_duplicate(args, chat_id)
 
     elif command == "/suppress":
         handle_suppress(args, chat_id)

@@ -159,12 +159,22 @@ def triage_signal(signal):
             return "suppress"
 
     # Load recent operator feedback for context
-    feedback     = get_recent_feedback()
-    noise_count  = sum(1 for f in feedback
-                       if f[0] == "noise" and
-                       (f[2] == category or f[3] == platform))
+    feedback        = get_recent_feedback()
+    noise_count     = sum(1 for f in feedback
+                          if f[0] == "noise" and
+                          (f[2] == category or f[3] == platform))
+    duplicate_count = sum(1 for f in feedback
+                          if f[0] == "duplicate" and
+                          f[1] == region and f[2] == category)
     feedback_ctx = ""
-    if noise_count >= 2:
+    if duplicate_count >= 1:
+        feedback_ctx = (
+            f"NOTE: Operator has marked {duplicate_count} signal(s) from "
+            f"{region} / {category} as DUPLICATES in the last 30 days. "
+            f"This signal type is firing repeatedly for the same underlying event. "
+            f"Suppress unless there is a materially new development."
+        )
+    elif noise_count >= 2:
         feedback_ctx = (
             f"NOTE: Operator has marked {noise_count} similar signals "
             f"(same category/platform) as noise in the last 30 days. "

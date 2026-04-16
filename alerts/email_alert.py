@@ -186,16 +186,39 @@ def get_unalerted_signals():
         AND s.expires_at > NOW()
         AND s.confidence_score IN ('high', 'medium', 'extreme')
         AND s.signal_time >= NOW() - INTERVAL '48 hours'
-        AND NOT EXISTS (
-            SELECT 1 FROM signal_alerts_sent sas
-            WHERE sas.signal_id = s.id
+        AND (
+            -- Never alerted before for this signal_id
+            NOT EXISTS (
+                SELECT 1 FROM signal_alerts_sent sas
+                WHERE sas.signal_id = s.id
+            )
+            OR
+            -- Previously alerted but confidence tier upgraded
+            EXISTS (
+                SELECT 1 FROM signal_alerts_sent sas
+                WHERE sas.signal_id = s.id
+                AND (
+                    (sas.confidence_score = 'medium' AND s.confidence_score IN ('high', 'extreme'))
+                    OR (sas.confidence_score = 'high'  AND s.confidence_score = 'extreme')
+                )
+            )
+            OR
+            -- Previously alerted but probability shift increased by 15+ points
+            EXISTS (
+                SELECT 1 FROM signal_alerts_sent sas
+                WHERE sas.signal_id = s.id
+                AND s.probability_shift >= COALESCE(sas.probability_shift, 0) + 15
+            )
         )
         AND NOT EXISTS (
+            -- Same category/region/platform alerted in last 6 hours
+            -- (prevents different signal_ids for same event flooding)
             SELECT 1 FROM signal_alerts_sent sas
             WHERE sas.event_category = s.event_category
             AND sas.region = s.region
             AND sas.source_platform = s.source_platform
-            AND sas.alerted_at >= NOW() - INTERVAL '24 hours'
+            AND sas.alerted_at >= NOW() - INTERVAL '6 hours'
+            AND sas.signal_id != s.id
         )
         ORDER BY s.event_category, s.region, s.source_platform,
             CASE s.confidence_score WHEN 'extreme' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 END,
@@ -301,15 +324,22 @@ def get_unalerted_signals():
     return deduped
 
 
-def mark_signal_alerted(signal_id, event_category=None, region=None, source_platform=None):
+def mark_signal_alerted(signal_id, event_category=None, region=None,
+                        source_platform=None, confidence_score=None, probability_shift=None):
     try:
         conn = get_db_connection()
         cur  = conn.cursor()
         cur.execute("""
-            INSERT INTO signal_alerts_sent (signal_id, event_category, region, source_platform, alerted_at)
-            VALUES (%s, %s, %s, %s, NOW())
-            ON CONFLICT (signal_id) DO NOTHING;
-        """, (str(signal_id), event_category or '', region or '', source_platform or ''))
+            INSERT INTO signal_alerts_sent
+                (signal_id, event_category, region, source_platform,
+                 confidence_score, probability_shift, alerted_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (signal_id) DO UPDATE SET
+                confidence_score  = EXCLUDED.confidence_score,
+                probability_shift = EXCLUDED.probability_shift,
+                alerted_at        = NOW();
+        """, (str(signal_id), event_category or '', region or '',
+              source_platform or '', confidence_score or '', probability_shift or 0))
         conn.commit()
         cur.close()
         conn.close()
@@ -375,7 +405,8 @@ def run_email_alerts():
 
             # Always mark alerted to prevent duplicate sends
             try:
-                mark_signal_alerted(signal[0], category, region, signal[8])
+                mark_signal_alerted(signal[0], category, region,
+                                    signal[8], confidence, prob_shift)
             except Exception as me:
                 print(f"⚠️  mark_signal_alerted error: {me}")
 
