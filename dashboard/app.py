@@ -2109,7 +2109,67 @@ if _page == "RESEARCH":
 
         st.markdown('<hr class="kiq-divider" style="margin:16px 0;">', unsafe_allow_html=True)
 
-        # Log entries
+        # Post-mortem structured form
+        with st.expander("🔬 Structured Post-Mortem (for failed signals)", expanded=False):
+            st.markdown("""
+            <div style="font-size:0.7em;color:#555;font-family:JetBrains Mono,monospace;
+                 margin-bottom:12px;">
+                Use this form when a signal doesn't play out. Categorizing failures
+                helps the platform learn which error types to fix.
+            </div>""", unsafe_allow_html=True)
+
+            pm_signal_id = st.text_input("Signal ID", placeholder="8f0c7c2c",
+                key="pm_signal_id")
+            pm_ticker = st.text_input("Asset that failed", placeholder="USO",
+                key="pm_ticker")
+
+            pm_failure = st.selectbox("Failure type", [
+                "Correct event, wrong asset — event happened but different asset moved",
+                "Correct direction, wrong timing — move happened outside 72h window",
+                "Noise signal — underlying event didn't materialize",
+                "Concept drift — pattern used to work, doesn't anymore",
+                "Regime override — macro environment overrode the geopolitical signal",
+                "Partial correct — directionally right but magnitude was wrong",
+            ], key="pm_failure")
+
+            pm_notes = st.text_area("What actually happened",
+                placeholder="Describe what the market did vs what the signal predicted...",
+                height=100, key="pm_notes")
+
+            pm_lesson = st.text_area("Lesson / what to change",
+                placeholder="What should the platform do differently next time?",
+                height=80, key="pm_lesson")
+
+            if st.button("💾 Save Post-Mortem", key="save_pm", type="primary"):
+                if pm_signal_id and pm_failure:
+                    pm_body = (
+                        f"FAILURE TYPE: {pm_failure}\n\n"
+                        f"ASSET: {pm_ticker}\n\n"
+                        f"WHAT HAPPENED:\n{pm_notes}\n\n"
+                        f"LESSON:\n{pm_lesson}"
+                    )
+                    try:
+                        conn_pm = get_db()
+                        cur_pm  = conn_pm.cursor()
+                        cur_pm.execute("""
+                            INSERT INTO analyst_log
+                                (title, category, signal_id, body, created_at)
+                            VALUES (%s, 'Post-Mortem', %s, %s, NOW());
+                        """, (
+                            f"Post-Mortem — {pm_ticker} [{pm_signal_id}]",
+                            pm_signal_id.strip(),
+                            pm_body
+                        ))
+                        conn_pm.commit()
+                        cur_pm.close()
+                        conn_pm.close()
+                        st.success("Post-mortem saved.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Save error: {e}")
+                else:
+                    st.warning("Signal ID and failure type are required.")
         try:
             conn_log = get_db()
             cur_log  = conn_log.cursor()

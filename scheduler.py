@@ -59,6 +59,14 @@ def run_drift_check():
     except Exception as e:
         print(f"❌ Drift check error: {e}")
 
+def run_weekly_recalibration():
+    """Weekly asset mapping recalibration — runs Sunday 3pm ET."""
+    try:
+        from processing.recalibration import run_weekly_recalibration as _recal
+        _recal()
+    except Exception as e:
+        print(f"❌ Weekly recalibration error: {e}")
+
 def write_gpi_snapshot():
     """Write daily GPI snapshot to DB for historical tracking."""
     print("\n📊 Writing GPI daily snapshot...")
@@ -503,6 +511,20 @@ def run_full_cycle():
     except Exception as e:
         print(f"❌ Exit alert error: {e}")
 
+    # Thesis confirmation detector — fires when position reaches 70% of target
+    try:
+        from processing.recalibration import run_thesis_confirmation_detector
+        run_thesis_confirmation_detector()
+    except Exception as e:
+        print(f"❌ Thesis confirmation error: {e}")
+
+    # Signal stack analyzer — fires when 3+ signals converge in 2h window
+    try:
+        from processing.recalibration import run_signal_stack_analyzer
+        run_signal_stack_analyzer()
+    except Exception as e:
+        print(f"❌ Signal stack error: {e}")
+
     try:
         expire_old_signals()
     except Exception as e:
@@ -525,12 +547,13 @@ def run_validator_cycle():
 # Schedule
 schedule.every(15).minutes.do(run_full_cycle)
 schedule.every(1).hours.do(run_validator_cycle)
-schedule.every().day.at("14:00").do(run_morning_digest)    # 9am ET
-schedule.every().day.at("13:30").do(run_pre_market_brief)  # 8:30am ET
+schedule.every().day.at("14:00").do(run_morning_digest)        # 9am ET
+schedule.every().day.at("13:30").do(run_pre_market_brief)      # 8:30am ET
 schedule.every().sunday.at("12:00").do(run_weekly_performance_review)  # Sunday 8am ET
-schedule.every(30).seconds.do(run_telegram_listener)        # Listen for commands
-schedule.every().day.at("21:00").do(write_gpi_snapshot)     # 4pm ET daily GPI snapshot
-schedule.every().day.at("21:30").do(run_drift_check)        # 4:30pm ET daily drift check
+schedule.every(30).seconds.do(run_telegram_listener)            # Listen for commands
+schedule.every().day.at("21:00").do(write_gpi_snapshot)         # 4pm ET daily GPI snapshot
+schedule.every().day.at("21:30").do(run_drift_check)            # 4:30pm ET daily drift check
+schedule.every().sunday.at("20:00").do(run_weekly_recalibration) # Sunday 3pm ET recalibration
 
 if __name__ == "__main__":
     print("⚡ KairosIQ Scheduler Starting...")

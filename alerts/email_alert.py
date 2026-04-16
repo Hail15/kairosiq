@@ -384,6 +384,12 @@ def run_email_alerts():
         print(f"   ⚠️ Agent triage error: {e} — proceeding with all signals")
 
     print(f"   Found {len(signals)} signals to alert")
+
+    # Minimum conviction threshold — LOW conviction = dashboard only, no Telegram
+    # Signals need MEDIUM or HIGH conviction AND 3+ pattern indicators confirmed
+    CONVICTION_THRESHOLD = "medium"  # minimum to alert
+    CONFIRMATION_THRESHOLD = 2       # minimum pattern indicators confirmed
+
     for signal in signals:
         try:
             confidence = signal[7] or "unknown"
@@ -391,19 +397,68 @@ def run_email_alerts():
             region     = signal[2] or "Global"
             category   = signal[3] or ""
 
-            # Always fire Telegram first — works even when email quota exceeded
+            # Check agent conviction if enriched
+            agent_conviction = None
+            confirmed_count  = 0
+            try:
+                import json as _json
+                assets = signal[9]
+                if assets:
+                    asset_list = assets if isinstance(assets, list) else _json.loads(assets)
+                    confirmed_count = sum(
+                        1 for a in asset_list
+                        if a.get("pattern_confirmed") or a.get("confirmed")
+                    )
+            except Exception:
+                pass
+
+            # Check agent_enrichment for conviction
+            try:
+                from config import settings as _settings
+                import psycopg2 as _pg
+                _conn = _pg.connect(_settings.DATABASE_URL)
+                _cur  = _conn.cursor()
+                _cur.execute("""
+                    SELECT trade_conviction FROM agent_enrichment
+                    WHERE signal_id = %s LIMIT 1;
+                """, (str(signal[0]),))
+                _row = _cur.fetchone()
+                _cur.close()
+                _conn.close()
+                if _row:
+                    agent_conviction = (_row[0] or "").upper()
+            except Exception:
+                pass
+
+            # Filter: skip Telegram for LOW conviction signals
+            conviction_ok = (
+                agent_conviction in ("HIGH", "MEDIUM") or
+                confidence in ("extreme", "high") or
+                prob_shift >= 70
+            )
+
+            if not conviction_ok:
+                print(f"   ⏭ Low conviction — dashboard only: {region} {category} [{agent_conviction}]")
+                # Still mark as alerted so it doesn't keep trying
+                try:
+                    mark_signal_alerted(signal[0], category, region,
+                                        signal[8], confidence, prob_shift)
+                except Exception:
+                    pass
+                continue
+
+            # Always fire Telegram
             telegram_sent = False
             if telegram_notify:
                 try:
                     telegram_notify(signal)
                     telegram_sent = True
-                    print(f"📱 Telegram sent: {region} {category}")
+                    print(f"📱 Telegram sent: {region} {category} [{agent_conviction or confidence}]")
                 except Exception as te:
                     print(f"⚠️  Telegram error: {te}")
-                    telegram_sent = True  # mark as alerted even if Telegram errors
-                    # so we don't spam the same signal forever
+                    telegram_sent = True
 
-            # Always mark alerted to prevent duplicate sends
+            # Always mark alerted
             try:
                 mark_signal_alerted(signal[0], category, region,
                                     signal[8], confidence, prob_shift)
