@@ -462,7 +462,174 @@ def handle_history(args, chat_id):
         send_reply(chat_id, f"⚠️ History error: {e}")
 
 
-def handle_duplicate(args, chat_id):
+def handle_postmortem(args, chat_id):
+    """
+    /postmortem [signal_id] [failure_type_number] [notes]
+
+    Failure types:
+    1 = Correct event, wrong asset
+    2 = Correct direction, wrong timing
+    3 = Noise — event didn't materialize
+    4 = Concept drift — pattern no longer works
+    5 = Regime override — macro overrode geopolitical signal
+    6 = Partial correct — right direction, wrong magnitude
+
+    Example:
+    /postmortem 8f0c7c2c 5 Oil dropped despite Iran escalation — recession fears dominated
+    """
+    FAILURE_TYPES = {
+        "1": "Correct event, wrong asset — event happened but different asset moved",
+        "2": "Correct direction, wrong timing — move happened outside 72h window",
+        "3": "Noise signal — underlying event didn't materialize",
+        "4": "Concept drift — pattern used to work, doesn't anymore",
+        "5": "Regime override — macro environment overrode the geopolitical signal",
+        "6": "Partial correct — directionally right but magnitude was wrong",
+    }
+
+    try:
+        if len(args) < 2:
+            send_reply(chat_id,
+                "Usage: /postmortem [signal_id] [type] [notes]\n\n"
+                "Failure types:\n"
+                "1 — Correct event, wrong asset\n"
+                "2 — Correct direction, wrong timing\n"
+                "3 — Noise — event didn't happen\n"
+                "4 — Concept drift\n"
+                "5 — Regime override\n"
+                "6 — Partial correct\n\n"
+                "Example:\n"
+                "/postmortem 8f0c7c2c 5 Oil dropped despite Iran — recession fears dominated"
+            )
+            return
+
+        signal_prefix = args[0]
+        failure_num   = args[1]
+        notes         = " ".join(args[2:]) if len(args) > 2 else ""
+
+        if failure_num not in FAILURE_TYPES:
+            send_reply(chat_id,
+                f"⚠️ Invalid failure type: {failure_num}\n"
+                "Use a number 1-6. Send /postmortem for the full list."
+            )
+            return
+
+        failure_label = FAILURE_TYPES[failure_num]
+
+        # Look up signal
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT id, event_description, region, event_category, source_platform
+            FROM signals
+            WHERE id::text LIKE %s
+            ORDER BY signal_time DESC LIMIT 1;
+        """, (f"{signal_prefix}%",))
+        row = cur.fetchone()
+
+        signal_desc = ""
+        if row:
+            signal_desc = (row[1] or "")[:100]
+
+        # Save to analyst_log as Post-Mortem
+        body = (
+            f"FAILURE TYPE: {failure_label}\n\n"
+            f"SIGNAL: {signal_desc}\n\n"
+            f"NOTES:\n{notes}\n\n"
+            f"Logged via Telegram"
+        )
+
+        cur.execute("""
+            INSERT INTO analyst_log (title, category, signal_id, body, created_at)
+            VALUES (%s, 'Post-Mortem', %s, %s, NOW());
+        """, (
+            f"Post-Mortem — {signal_prefix} [{failure_num}]",
+            signal_prefix,
+            body
+        ))
+
+        # Also write feedback decay if regime override or concept drift
+        if failure_num in ("4", "5"):
+            try:
+                from processing.concept_drift import apply_feedback_decay
+                apply_feedback_decay(signal_prefix)
+            except Exception:
+                pass
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        send_reply(chat_id,
+            f"🔬 <b>Post-mortem logged</b>\n\n"
+            f"Signal: <code>{signal_prefix}</code>\n"
+            f"Type: <b>{failure_label[:50]}</b>\n"
+            f"{f'Notes: <i>{notes[:100]}</i>' if notes else ''}\n\n"
+            f"Saved to Analyst Log. "
+            f"{'Feedback decay applied to asset mappings.' if failure_num in ('4','5') else ''}"
+        )
+
+    except Exception as e:
+        send_reply(chat_id, f"⚠️ Post-mortem error: {e}")
+
+
+def handle_approve_version(args, chat_id):
+    """
+    /approve_version [version]
+    Activates a new WIF version after agent recommendation.
+    Requires the version string e.g. WIF-1.1
+    Kyle or Ian must send this manually — agent never auto-approves.
+    """
+    try:
+        if len(args) < 1:
+            send_reply(chat_id,
+                "Usage: /approve_version [version]\n"
+                "Example: /approve_version WIF-1.1\n\n"
+                "The agent will generate a description of what changed."
+            )
+            return
+
+        new_version = args[0].upper()
+        if not new_version.startswith("WIF-"):
+            new_version = f"WIF-{new_version}"
+
+        # Get agent to write the version description
+        description = f"Methodology recalibration — {new_version}"
+        changes = "Updated based on sustained concept drift detection and operator feedback."
+        try:
+            from agent.agent import call_agent_fast, get_recent_signal_accuracy
+            from processing.concept_drift import get_drift_alerts
+            alerts = get_drift_alerts()
+            drift_summary = ", ".join([
+                f"{r[1]}/{r[0]}" for r in alerts[:5]
+            ]) if alerts else "general recalibration"
+
+            system = (
+                "You are documenting a methodology version change for a geopolitical "
+                "intelligence framework. Write a 2-sentence description of what changed "
+                "and why. Plain text only."
+            )
+            user = f"""New version: {new_version}
+Drifting patterns that triggered this: {drift_summary}
+Write a professional version description for the track record."""
+            agent_desc = call_agent_fast(system, user, max_tokens=100)
+            if agent_desc:
+                description = agent_desc
+                changes = f"Drift patterns recalibrated: {drift_summary}"
+        except Exception:
+            pass
+
+        from processing.concept_drift import create_new_version
+        create_new_version(new_version, description, changes)
+
+        send_reply(chat_id,
+            f"✅ <b>Framework version activated: {new_version}</b>\n\n"
+            f"<i>{description}</i>\n\n"
+            f"All signals from this point forward will be stamped <code>{new_version}</code>.\n"
+            f"Previous signals retain their original version stamp for track record integrity."
+        )
+
+    except Exception as e:
+        send_reply(chat_id, f"⚠️ approve_version error: {e}")
     """
     /duplicate [signal_id]
     Marks a signal as a duplicate of a previously alerted signal.
@@ -547,11 +714,14 @@ def handle_help(chat_id):
         "/ask [question] — ask the agent anything\n"
         "/feedback [signal_id] [noise/correct/wrong] — teach the agent\n"
         "/duplicate [signal_id] — mark signal as duplicate, suppress forever\n"
+        "/postmortem [signal_id] [1-6] [notes] — log a failed signal\n"
+        "/approve_version [version] — activate new WIF version e.g. WIF-1.1\n"
         "/suppress [keyword] [hours] — suppress a signal topic\n"
         "/status — current signals and positions overview\n"
         "/positions — live P&L on all open positions\n"
         "/brief — on-demand intelligence brief\n"
         "/history [TICKER] — last 3 outcomes for a ticker\n\n"
+        "Post-mortem types: 1=wrong asset 2=wrong timing 3=noise 4=drift 5=regime 6=partial\n\n"
         "<i>Signal IDs are the first 8 characters shown in each alert.</i>"
     )
 
@@ -582,6 +752,12 @@ def route_command(text, chat_id):
 
     elif command == "/duplicate":
         handle_duplicate(args, chat_id)
+
+    elif command == "/postmortem":
+        handle_postmortem(args, chat_id)
+
+    elif command == "/approve_version":
+        handle_approve_version(args, chat_id)
 
     elif command == "/suppress":
         handle_suppress(args, chat_id)
