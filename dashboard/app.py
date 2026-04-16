@@ -1785,7 +1785,7 @@ elif _page == "PLAYBOOKS":
 # PAGE: RESEARCH  (was: Track Record accuracy + correlation)
 # ============================================================
 elif _page == "RESEARCH":
-    tab_r1, tab_r2, tab_r3 = st.tabs(["SIGNAL ACCURACY", "CORRELATION MONITOR", "CONGRESSIONAL TRADES"])
+    tab_r1, tab_r2, tab_r3, tab_r4 = st.tabs(["SIGNAL ACCURACY", "CORRELATION MONITOR", "CONGRESSIONAL TRADES", "ANALYST LOG"])
     # Research page — signal accuracy leaderboard, correlation data, congress trades
 
 # Dummy assignments to prevent NameError on unused tabs
@@ -2041,6 +2041,161 @@ if _page == "RESEARCH":
                 st.info("Congressional trade data loads on next 4-hour cycle.")
         except Exception as e:
             st.error(f"Congressional data error: {e}")
+
+    # ── ANALYST LOG TAB ────────────────────────────────────────────────────────
+    with tab_r4:
+        st.markdown("""
+        <div style="padding:16px 0 8px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4em;
+                 font-weight:700;letter-spacing:0.12em;color:#f0f0f4;">
+                ANALYST <span style="color:#cc2200;">LOG</span>
+            </div>
+            <div style="font-size:0.62em;color:var(--text-muted);letter-spacing:0.12em;
+                 text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                Signal writeups · Manual reviews · Intelligence notes
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown('<hr class="kiq-divider" style="margin:8px 0 16px;">', unsafe_allow_html=True)
+
+        # New entry form
+        with st.expander("✏️ New Log Entry", expanded=True):
+            col_a, col_b = st.columns([2, 1])
+            with col_a:
+                log_title = st.text_input("Title / Signal Reference",
+                    placeholder="e.g. Iran SOMEONE_KNOWS 8f0c7c2c — Manual Review",
+                    key="log_title")
+            with col_b:
+                log_category = st.selectbox("Category", [
+                    "Signal Review", "Trade Note", "Market Observation",
+                    "Framework Note", "Risk Assessment", "Post-Mortem"
+                ], key="log_category")
+
+            log_signal_id = st.text_input("Signal ID (optional)",
+                placeholder="8f0c7c2c",
+                key="log_signal_id")
+
+            log_body = st.text_area("Entry",
+                placeholder="Write your analysis here...\n\nWhat triggered this review? What did you observe? What was the outcome?",
+                height=200,
+                key="log_body")
+
+            col_submit, col_clear = st.columns([1, 4])
+            with col_submit:
+                if st.button("💾 Save Entry", key="save_log_entry", type="primary"):
+                    if log_title and log_body:
+                        try:
+                            conn_log = get_db()
+                            cur_log  = conn_log.cursor()
+                            cur_log.execute("""
+                                INSERT INTO analyst_log
+                                    (title, category, signal_id, body, created_at)
+                                VALUES (%s, %s, %s, %s, NOW());
+                            """, (
+                                log_title, log_category,
+                                log_signal_id.strip() if log_signal_id else None,
+                                log_body
+                            ))
+                            conn_log.commit()
+                            cur_log.close()
+                            conn_log.close()
+                            st.success("Entry saved.")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Save error: {e}")
+                    else:
+                        st.warning("Title and entry body are required.")
+
+        st.markdown('<hr class="kiq-divider" style="margin:16px 0;">', unsafe_allow_html=True)
+
+        # Log entries
+        try:
+            conn_log = get_db()
+            cur_log  = conn_log.cursor()
+            cur_log.execute("""
+                SELECT id, title, category, signal_id, body, created_at
+                FROM analyst_log
+                ORDER BY created_at DESC
+                LIMIT 50;
+            """)
+            log_entries = cur_log.fetchall()
+            cur_log.close()
+            conn_log.close()
+
+            if log_entries:
+                # Search filter
+                search = st.text_input("🔍 Search entries",
+                    placeholder="Search by title, content, or signal ID...",
+                    key="log_search")
+
+                cat_colors = {
+                    "Signal Review":      "#cc2200",
+                    "Trade Note":         "#2a9a4a",
+                    "Market Observation": "#e8b84b",
+                    "Framework Note":     "#4a9ac4",
+                    "Risk Assessment":    "#cc6600",
+                    "Post-Mortem":        "#888",
+                }
+
+                for entry in log_entries:
+                    eid, title, category, signal_id, body, created_at = entry
+
+                    # Apply search filter
+                    if search:
+                        search_lower = search.lower()
+                        if not any(search_lower in str(f).lower() for f in [title, body, signal_id]):
+                            continue
+
+                    cat_color  = cat_colors.get(category, "#555")
+                    date_str   = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "—"
+                    sig_badge  = (f'<code style="font-size:0.7em;color:#e8b84b;'
+                                  f'background:rgba(232,184,75,0.1);padding:1px 6px;'
+                                  f'border-radius:2px;">ID: {signal_id}</code> '
+                                  if signal_id else "")
+
+                    with st.expander(f"{title}  ·  {date_str}"):
+                        st.markdown(
+                            f'<div style="display:flex;gap:10px;align-items:center;'
+                            f'margin-bottom:12px;">'
+                            f'<span style="background:{cat_color};color:#fff;'
+                            f'font-size:0.62em;font-family:JetBrains Mono,monospace;'
+                            f'padding:2px 8px;border-radius:2px;text-transform:uppercase;'
+                            f'letter-spacing:0.08em;">{category}</span>'
+                            f'{sig_badge}'
+                            f'<span style="color:#555;font-size:0.65em;'
+                            f'font-family:JetBrains Mono,monospace;">{date_str}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            f'<div style="font-size:0.85em;color:#ccc;line-height:1.8;'
+                            f'white-space:pre-wrap;padding:8px 0;">{body}</div>',
+                            unsafe_allow_html=True
+                        )
+                        # Delete button
+                        if st.button(f"🗑️ Delete", key=f"del_log_{eid}"):
+                            try:
+                                conn_del = get_db()
+                                cur_del  = conn_del.cursor()
+                                cur_del.execute("DELETE FROM analyst_log WHERE id = %s;", (eid,))
+                                conn_del.commit()
+                                cur_del.close()
+                                conn_del.close()
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Delete error: {e}")
+            else:
+                st.markdown("""
+                <div style="color:#333;font-size:0.75em;padding:20px;text-align:center;
+                     font-family:JetBrains Mono,monospace;">
+                    No entries yet. Use the form above to log your first signal review.
+                </div>
+                """, unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Analyst log error: {e}")
 
 # ============================================================
 # TAB 1 — LIVE SIGNALS

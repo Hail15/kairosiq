@@ -31,80 +31,80 @@ CORRELATION_PAIRS = [
     {
         "asset_a": "GLD", "asset_b": "USO",
         "name": "Gold-Oil",
-        "expected": 0.6,   # Usually move together (both inflation hedges)
-        "threshold": 0.2,  # Alert if correlation drops below 0.2
+        "expected": 0.6,
+        "threshold": 0.2,
         "signal": "gold_oil_decoupling",
         "meaning": "Gold-Oil decoupling suggests geopolitical fear (gold up) without supply fear (oil flat/down), OR macro recession fear (oil down) overriding everything",
-        "category": "global_tariff_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "GLD", "asset_b": "SPY",
         "name": "Gold-Equity",
-        "expected": -0.3,  # Usually inverse (gold up = stocks down)
-        "threshold": 0.3,  # Alert if correlation goes above 0.3 (both rising = unusual)
+        "expected": -0.3,
+        "threshold": 0.3,
         "signal": "gold_equity_convergence",
         "meaning": "Gold and equities rising together = stagflation fear OR massive liquidity event. Very unusual regime.",
-        "category": "global_tariff_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "TLT", "asset_b": "SPY",
         "name": "Treasury-Equity",
-        "expected": -0.5,  # Classic inverse — stocks up, bonds down
-        "threshold": 0.1,  # Alert if correlation goes positive (both selling = crisis)
+        "expected": -0.5,
+        "threshold": 0.1,
         "signal": "bond_equity_correlation_break",
         "meaning": "Bonds and stocks selling together = 2022-style regime break. Traditional 60/40 portfolio is broken. Geopolitical signals unreliable.",
-        "category": "global_tariff_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "VIXY", "asset_b": "SPY",
         "name": "VIX-Equity",
-        "expected": -0.8,  # Strong inverse — VIX spikes when stocks fall
-        "threshold": -0.4, # Alert if correlation weakens (VIX not responding to selloffs)
+        "expected": -0.8,
+        "threshold": -0.4,
         "signal": "vix_suppression",
         "meaning": "VIX not spiking despite equity weakness = complacency or options market disfunction. Geopolitical signals may be underpricing risk.",
-        "category": "global_tariff_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "GLD", "asset_b": "TLT",
         "name": "Gold-Treasury",
-        "expected": 0.5,   # Both safe havens — usually move together
-        "threshold": 0.0,  # Alert if correlation goes negative
+        "expected": 0.5,
+        "threshold": 0.0,
         "signal": "safe_haven_divergence",
         "meaning": "Gold and treasuries diverging = inflation fear (gold up, bonds down) OR deflation fear (bonds up, gold down). Different safe haven regimes.",
-        "category": "global_tariff_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "USO", "asset_b": "EEM",
         "name": "Oil-Emerging Markets",
-        "expected": 0.5,   # EM benefits from oil (petro-states and growth proxy)
-        "threshold": 0.0,  # Alert if goes negative
+        "expected": 0.5,
+        "threshold": 0.0,
         "signal": "oil_em_decoupling",
         "meaning": "Oil rising but EM falling = geopolitical supply shock without growth. Classic Middle East escalation pattern.",
-        "category": "middle_east_military_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "LMT", "asset_b": "USO",
         "name": "Defense-Oil",
-        "expected": 0.4,   # Both rise on Middle East conflict
-        "threshold": -0.1, # Alert if defense rises but oil falls (or vice versa)
+        "expected": 0.4,
+        "threshold": -0.1,
         "signal": "defense_oil_divergence",
         "meaning": "Defense up but oil down = conflict risk priced in without supply disruption. Or tariff macro overriding oil signal.",
-        "category": "middle_east_military_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "UUP", "asset_b": "GLD",
         "name": "Dollar-Gold",
-        "expected": -0.6,  # Classic inverse — strong dollar = weak gold
-        "threshold": 0.0,  # Alert if both rising (extreme fear)
+        "expected": -0.6,
+        "threshold": 0.0,
         "signal": "dollar_gold_convergence",
         "meaning": "Dollar and gold rising together = extreme global fear. Both being bought as safe havens simultaneously.",
-        "category": "nuclear_wmd_escalation",
+        "category": "financial_market_intelligence",
     },
     {
         "asset_a": "EWT", "asset_b": "SMH",
         "name": "Taiwan-Semiconductors",
-        "expected": 0.8,   # Very tight correlation — TSMC dominates both
-        "threshold": 0.4,  # Alert if diverges (Taiwan-specific vs sector-wide)
+        "expected": 0.8,
+        "threshold": 0.4,
         "signal": "taiwan_semiconductor_divergence",
         "meaning": "Taiwan ETF diverging from semiconductors = Taiwan-specific geopolitical risk being priced in separately from sector fundamentals.",
         "category": "china_taiwan_tension",
@@ -112,11 +112,11 @@ CORRELATION_PAIRS = [
     {
         "asset_a": "VIXY", "asset_b": "GLD",
         "name": "VIX-Gold",
-        "expected": 0.6,   # Both rise on fear
-        "threshold": 0.1,  # Alert if diverge (different types of fear)
+        "expected": 0.6,
+        "threshold": 0.1,
         "signal": "vix_gold_divergence",
         "meaning": "VIX spiking without gold = short-term market fear, not geopolitical. Gold rising without VIX = slow-burn geopolitical risk building.",
-        "category": "middle_east_military_escalation",
+        "category": "financial_market_intelligence",
     },
 ]
 
