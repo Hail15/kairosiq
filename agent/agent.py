@@ -1103,8 +1103,11 @@ def update_position_exit_levels(signal, trade_rec, exit_levels):
         return
 
     try:
-        sl_pct = float(sl_str.replace("%", "").replace(" ", "")) / 100
-        tp_pct = float(tp_str.replace("+", "").replace("%", "").replace(" ", "")) / 100
+        # Always store stop loss as negative, take profit as positive
+        sl_raw = float(sl_str.replace("%", "").replace(" ", "").replace("+", ""))
+        tp_raw = float(tp_str.replace("%", "").replace(" ", "").replace("+", ""))
+        sl_pct = -abs(sl_raw) / 100   # always negative
+        tp_pct =  abs(tp_raw) / 100   # always positive
     except Exception:
         return
 

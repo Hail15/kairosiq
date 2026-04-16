@@ -331,8 +331,14 @@ def check_stop_loss(trade, tech_data):
     pnl  = round(pct * float(notional), 4)
 
     # Use agent stop loss if available, otherwise global -8%
-    stop_threshold = float(agent_stop_loss) if agent_stop_loss else STOP_LOSS_PCT
-    stop_label     = f"{abs(stop_threshold)*100:.1f}% (agent)" if agent_stop_loss else f"{abs(STOP_LOSS_PCT)*100:.0f}% (global)"
+    # Always ensure stop threshold is negative (it's a loss threshold)
+    raw_stop = float(agent_stop_loss) if agent_stop_loss else STOP_LOSS_PCT
+    stop_threshold = -abs(raw_stop)  # force negative
+    stop_label = f"{abs(stop_threshold)*100:.1f}% (agent)" if agent_stop_loss else f"{abs(STOP_LOSS_PCT)*100:.0f}% (global)"
+
+    # Safety: never fire stop loss if position is profitable
+    if pct > 0:
+        return False
 
     alert_type = None
     reason     = None
@@ -387,7 +393,8 @@ def check_stop_loss(trade, tech_data):
             "You are a portfolio risk manager. A stop loss just triggered. "
             "Give a 2-sentence assessment: (1) why the position likely moved against us, "
             "(2) whether to stay out or re-enter and under what conditions. "
-            "Be direct. Historical pattern analysis only."
+            "Be direct. Plain text only — no markdown, no headers, no bullet points. "
+            "Historical pattern analysis only."
         )
         user = f"""Stop loss triggered: {ticker} {side.upper()}
 Entry: ${float(entry_price or 0):.2f} → Now: ${current_price:.2f} ({pct*100:+.2f}%)
@@ -395,7 +402,15 @@ Stop level: {stop_label}
 Signal: {(description or '')[:150]}
 Regime: {regime}
 RSI: {rsi} | MACD: {'bullish' if macd_bullish else 'bearish'} | Day: {day_change*100:+.2f}%"""
-        agent_assessment = call_agent(system, user, max_tokens=120)
+        raw = call_agent(system, user, max_tokens=120)
+        if raw:
+            import re
+            raw = re.sub(r'\*\*(.+?)\*\*', r'\1', raw)
+            raw = re.sub(r'\*(.+?)\*', r'\1', raw)
+            raw = re.sub(r'#{1,6}\s+', '', raw)
+            raw = re.sub(r'-{3,}', '', raw)
+            raw = re.sub(r'\n{3,}', '\n', raw)
+            agent_assessment = raw.strip()
     except Exception:
         pass
 
