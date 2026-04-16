@@ -131,12 +131,20 @@ def count_by_country(articles):
 
 
 def detect_anomalies(current_counts):
-    baselines = {
-        "RUSSIA": 15, "UKRAINE": 18, "CHINA": 12, "TAIWAN": 8,
-        "IRAN": 10, "ISRAEL": 12, "NORTHKOREA": 5, "SYRIA": 8,
-        "VENEZUELA": 4, "PAKISTAN": 6, "INDIA": 8, "SAUDIARABIA": 6,
-        "TURKEY": 7, "IRAQ": 8, "AFGHANISTAN": 7
-    }
+    # Try dynamic baselines first — falls back to hardcoded if insufficient data
+    try:
+        from processing.concept_drift import get_dynamic_baselines, update_gdelt_baselines
+        baselines = get_dynamic_baselines()
+        # Update rolling baselines with current counts
+        update_gdelt_baselines(current_counts)
+    except Exception:
+        baselines = {
+            "RUSSIA": 15, "UKRAINE": 18, "CHINA": 12, "TAIWAN": 8,
+            "IRAN": 10, "ISRAEL": 12, "NORTHKOREA": 5, "SYRIA": 8,
+            "VENEZUELA": 4, "PAKISTAN": 6, "INDIA": 8, "SAUDIARABIA": 6,
+            "TURKEY": 7, "IRAQ": 8, "AFGHANISTAN": 7
+        }
+
     anomalies = []
     for country, count in current_counts.items():
         baseline = baselines.get(country, 5)
@@ -187,13 +195,21 @@ def save_gdelt_signal(cur, anomaly):
         f"({anomaly['ratio']}x above baseline of {anomaly['baseline']})"
     )
 
+    # Get current WIF version
+    wif_version = "WIF-1.0"
+    try:
+        from processing.concept_drift import get_current_wif_version
+        wif_version = get_current_wif_version()
+    except Exception:
+        pass
+
     cur.execute("""
         INSERT INTO signals (
             event_description, region, event_category,
             probability_before, probability_after, probability_shift,
             confidence_score, source_platform, signal_time,
-            expires_at, is_active, checksum
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
+            expires_at, is_active, checksum, wif_version
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s, %s)
         RETURNING id;
     """, (
         description,
@@ -206,7 +222,8 @@ def save_gdelt_signal(cur, anomaly):
         "gdelt",
         datetime.now() + timedelta(hours=settings.SIGNAL_DECAY_HOURS),
         True,
-        checksum
+        checksum,
+        wif_version
     ))
     return cur.fetchone()
 

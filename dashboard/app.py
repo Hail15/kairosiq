@@ -1213,6 +1213,71 @@ def fetch_signal_sources_bulk():
         return []
 
 @st.cache_data(ttl=300)
+def fetch_drift_alerts():
+    """Fetch active concept drift alerts."""
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT aw7.event_category, aw7.asset_ticker,
+                   aw7.accuracy_pct  AS acc_7d,
+                   aw30.accuracy_pct AS acc_30d,
+                   aw30.accuracy_pct - aw7.accuracy_pct AS drift_gap
+            FROM accuracy_windows aw7
+            JOIN accuracy_windows aw30
+                ON  aw7.event_category = aw30.event_category
+                AND aw7.asset_ticker   = aw30.asset_ticker
+                AND aw30.window_days   = 30
+            WHERE aw7.window_days = 7
+            AND   aw7.drift_alert = true
+            ORDER BY drift_gap DESC
+            LIMIT 10;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+@st.cache_data(ttl=300)
+def fetch_accuracy_windows():
+    """Fetch rolling accuracy windows for all categories."""
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT event_category, asset_ticker, window_days,
+                   accuracy_pct, correct_count, total_count, drift_alert
+            FROM accuracy_windows
+            WHERE total_count >= 3
+            ORDER BY event_category, asset_ticker, window_days;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return rows
+    except Exception:
+        return []
+
+@st.cache_data(ttl=300)
+def fetch_wif_version():
+    """Fetch current WIF version."""
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT version, activated_at FROM framework_versions
+            WHERE is_current = true LIMIT 1;
+        """)
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return row
+    except Exception:
+        return None
+
+@st.cache_data(ttl=300)
 def fetch_gpi_history():
     """Fetch historical GPI snapshots for trend chart."""
     try:
@@ -1325,6 +1390,8 @@ questions = fetch_questions()
 all_signals = fetch_all_signals()
 agent_enrichment = fetch_agent_enrichment()
 signal_sources_map = fetch_signal_sources_bulk()
+drift_alerts = fetch_drift_alerts()
+wif_version = fetch_wif_version()
 bets = fetch_bets()
 
 # --- Sidebar ---
@@ -1738,6 +1805,119 @@ if _page != "PLAYBOOKS":
 # ============================================================
 if _page == "RESEARCH":
     with tab_r1:
+
+        # ── WIF Version + Concept Drift Panel ────────────────────────────────
+        wif_v = wif_version
+        version_str = wif_v[0] if wif_v else "WIF-1.0"
+        activated_str = wif_v[1].strftime("%Y-%m-%d") if wif_v and wif_v[1] else "—"
+
+        st.markdown(f"""
+        <div style="display:flex;justify-content:space-between;align-items:center;
+             padding:10px 16px;background:var(--bg-card);border:1px solid var(--border);
+             border-radius:4px;margin-bottom:16px;">
+            <div style="font-family:JetBrains Mono,monospace;">
+                <span style="font-size:0.62em;color:#555;text-transform:uppercase;
+                     letter-spacing:0.1em;">Framework Version</span>
+                <span style="font-size:0.9em;font-weight:700;color:#e8b84b;
+                     margin-left:12px;">{version_str}</span>
+                <span style="font-size:0.65em;color:#555;margin-left:8px;">
+                     activated {activated_str}</span>
+            </div>
+            <div style="font-size:0.65em;color:#555;font-family:JetBrains Mono,monospace;">
+                The Worsley Intelligence Framework
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if drift_alerts:
+            st.markdown("""
+            <div style="padding:12px 16px;background:rgba(232,184,75,0.08);
+                 border:1px solid rgba(232,184,75,0.3);border-radius:4px;margin-bottom:16px;">
+                <div style="font-family:JetBrains Mono,monospace;font-size:0.65em;
+                     color:#e8b84b;text-transform:uppercase;letter-spacing:0.1em;
+                     margin-bottom:8px;">⚠️ CONCEPT DRIFT DETECTED</div>
+                <div style="font-size:0.78em;color:#aaa;margin-bottom:10px;">
+                    The following patterns show significantly lower accuracy in the
+                    last 7 days vs the 30-day baseline. Consider running
+                    <code>/feedback [id] wrong</code> on recent bad calls to help
+                    the framework recalibrate.
+                </div>
+            """, unsafe_allow_html=True)
+            for row in drift_alerts:
+                cat, ticker, acc_7d, acc_30d, gap = row
+                cat_clean = (cat or "unknown").replace("_", " ").upper()
+                st.markdown(
+                    f'<div style="display:flex;gap:16px;padding:6px 0;'
+                    f'border-bottom:1px solid #111;font-family:JetBrains Mono,monospace;">'
+                    f'<span style="color:#e0e0e0;font-weight:700;min-width:60px;">{ticker}</span>'
+                    f'<span style="color:#555;font-size:0.8em;flex:1;">{cat_clean}</span>'
+                    f'<span style="color:#e8b84b;font-size:0.8em;">7d: {acc_7d:.0f}%</span>'
+                    f'<span style="color:#888;font-size:0.8em;">30d: {acc_30d:.0f}%</span>'
+                    f'<span style="color:#cc2200;font-size:0.8em;font-weight:700;">'
+                    f'↓ {gap:.0f}pt drift</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;margin-top:20px;">ROLLING ACCURACY WINDOWS — 7 / 30 / 90 DAY</div>', unsafe_allow_html=True)
+
+        acc_windows = fetch_accuracy_windows()
+        if acc_windows:
+            # Group by category+ticker
+            from collections import defaultdict
+            grouped = defaultdict(dict)
+            drift_map = {}
+            for cat, ticker, days, acc, correct, total, drift in acc_windows:
+                key = (cat, ticker)
+                grouped[key][days] = acc
+                if drift:
+                    drift_map[key] = True
+
+            for (cat, ticker), windows in sorted(grouped.items()):
+                acc_7  = windows.get(7)
+                acc_30 = windows.get(30)
+                acc_90 = windows.get(90)
+                is_drifting = drift_map.get((cat, ticker), False)
+                cat_clean = (cat or "unknown").replace("_", " ").upper()
+
+                def acc_color(a):
+                    if a is None: return "#333"
+                    return "#2a9a4a" if a >= 60 else "#e8b84b" if a >= 50 else "#cc2200"
+
+                def acc_str(a):
+                    return f"{a:.0f}%" if a is not None else "—"
+
+                drift_badge = ' <span style="color:#e8b84b;font-size:0.7em;">⚠️ DRIFT</span>' if is_drifting else ""
+
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;'
+                    f'background:{"rgba(232,184,75,0.04)" if is_drifting else "var(--bg-card)"};'
+                    f'border:1px solid {"rgba(232,184,75,0.2)" if is_drifting else "var(--border)"};'
+                    f'border-radius:4px;margin:3px 0;font-family:JetBrains Mono,monospace;">'
+                    f'<span style="color:#e0e0e0;font-weight:700;min-width:55px;font-size:0.82em;">{ticker}</span>'
+                    f'<span style="color:#555;font-size:0.7em;flex:1;">{cat_clean[:30]}{drift_badge}</span>'
+                    f'<span style="font-size:0.72em;min-width:70px;text-align:center;">'
+                    f'<span style="color:#555;">7d </span>'
+                    f'<span style="color:{acc_color(acc_7)};font-weight:700;">{acc_str(acc_7)}</span></span>'
+                    f'<span style="font-size:0.72em;min-width:70px;text-align:center;">'
+                    f'<span style="color:#555;">30d </span>'
+                    f'<span style="color:{acc_color(acc_30)};font-weight:700;">{acc_str(acc_30)}</span></span>'
+                    f'<span style="font-size:0.72em;min-width:70px;text-align:center;">'
+                    f'<span style="color:#555;">90d </span>'
+                    f'<span style="color:{acc_color(acc_90)};font-weight:700;">{acc_str(acc_90)}</span></span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown("""
+            <div style="color:#333;font-size:0.75em;padding:12px;
+                 background:var(--bg-card);border:1px solid var(--border);border-radius:4px;">
+                Rolling accuracy windows compute daily at 4:30pm ET.
+                Requires at least 3 verified outcomes per category to display.
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown('<hr class="kiq-divider" style="margin:20px 0;">', unsafe_allow_html=True)
         st.markdown('<div style="font-size:0.62em;color:#555;text-transform:uppercase;letter-spacing:0.1em;font-family:JetBrains Mono,monospace;margin-bottom:12px;">SIGNAL ACCURACY LEADERBOARD — VERIFIED OUTCOMES</div>', unsafe_allow_html=True)
         try:
             conn_acc = get_db()

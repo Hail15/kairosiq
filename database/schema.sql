@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS signals (
     signal_time TIMESTAMP DEFAULT NOW(),
     expires_at TIMESTAMP,
     is_active BOOLEAN DEFAULT true,
-    checksum VARCHAR(64)
+    checksum VARCHAR(64),
+    wif_version VARCHAR(20) DEFAULT 'WIF-1.0'
 );
 
 -- 4. Bets
@@ -81,6 +82,7 @@ CREATE TABLE IF NOT EXISTS signal_outcomes (
     direction_correct_24h BOOLEAN,
     direction_correct_72h BOOLEAN,
     direction_correct_168h BOOLEAN,
+    agent_narrative TEXT,
     recorded_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -221,5 +223,52 @@ CREATE TABLE IF NOT EXISTS asset_mappings (
     directional_accuracy FLOAT,
     sample_size INTEGER,
     confidence_rating VARCHAR(20),
+    -- Concept drift fields
+    accuracy_7d FLOAT,
+    accuracy_30d FLOAT,
+    accuracy_90d FLOAT,
+    drift_score FLOAT DEFAULT 0,       -- 0=stable, 1=drifting, 2=severe
+    last_decay_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- GDELT dynamic baselines — rolling 30-day article counts per country
+CREATE TABLE IF NOT EXISTS gdelt_baselines (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    country VARCHAR(50) NOT NULL UNIQUE,
+    baseline_30d FLOAT NOT NULL,       -- rolling avg articles per cycle
+    baseline_7d FLOAT,                 -- recent 7-day avg
+    sample_cycles INTEGER DEFAULT 0,
+    last_updated TIMESTAMP DEFAULT NOW()
+);
+
+-- Accuracy windows — rolling 7/30/90 day signal accuracy per category
+CREATE TABLE IF NOT EXISTS accuracy_windows (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    event_category VARCHAR(100),
+    asset_ticker VARCHAR(20),
+    window_days INTEGER NOT NULL,      -- 7, 30, or 90
+    accuracy_pct FLOAT,
+    correct_count INTEGER DEFAULT 0,
+    total_count INTEGER DEFAULT 0,
+    drift_alert BOOLEAN DEFAULT false, -- true if 7d << 30d significantly
+    computed_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(event_category, asset_ticker, window_days)
+);
+
+-- Framework versions — every signal stamped with WIF version
+CREATE TABLE IF NOT EXISTS framework_versions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    version VARCHAR(20) NOT NULL UNIQUE,  -- e.g. 'WIF-1.0', 'WIF-1.1'
+    description TEXT,
+    changes TEXT,
+    activated_at TIMESTAMP DEFAULT NOW(),
+    is_current BOOLEAN DEFAULT false
+);
+
+-- Insert initial version
+INSERT INTO framework_versions (version, description, changes, is_current)
+VALUES ('WIF-1.0', 'Worsley Intelligence Framework — Initial Release',
+        'Base asset mappings, GDELT anomaly detection, prediction market signals',
+        true)
+ON CONFLICT (version) DO NOTHING;

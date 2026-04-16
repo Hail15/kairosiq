@@ -371,13 +371,20 @@ def save_news_signal(cur, entry):
     _, exact_checksum = make_headline_key(title)
     description = f"NEWS ALERT [{source}]: {title}. {summary}"
 
+    wif_version = "WIF-1.0"
+    try:
+        from processing.concept_drift import get_current_wif_version
+        wif_version = get_current_wif_version()
+    except Exception:
+        pass
+
     cur.execute("""
         INSERT INTO signals (
             event_description, region, event_category,
             probability_before, probability_after, probability_shift,
             confidence_score, source_platform, signal_time,
-            expires_at, is_active, checksum
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            expires_at, is_active, checksum, wif_version
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
     """, (
         description, region, category,
@@ -385,7 +392,7 @@ def save_news_signal(cur, entry):
         "medium", "news_intelligence",
         datetime.now(timezone.utc),
         datetime.now(timezone.utc) + timedelta(hours=48),
-        True, exact_checksum
+        True, exact_checksum, wif_version
     ))
     row = cur.fetchone()
     return row[0] if row else True

@@ -183,7 +183,18 @@ def handle_feedback(args, chat_id):
         cur.close()
         conn.close()
 
-        emoji = {"noise": "🚫", "correct": "✅", "wrong": "❌"}.get(feedback_type, "📝")
+        emoji = {"noise": "🚫", "correct": "✅", "wrong": "❌", "duplicate": "🔁"}.get(feedback_type, "📝")
+
+        # Apply concept drift feedback
+        try:
+            from processing.concept_drift import apply_feedback_decay, apply_feedback_correct
+            if feedback_type == "wrong":
+                apply_feedback_decay(str(signal_id))
+            elif feedback_type == "correct":
+                apply_feedback_correct(str(signal_id))
+        except Exception:
+            pass
+
         send_reply(chat_id,
             f"{emoji} <b>Feedback recorded</b>\n\n"
             f"Signal: {description[:80]}...\n"

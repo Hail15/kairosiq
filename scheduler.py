@@ -51,6 +51,14 @@ from agent.agent import (
 )
 from alerts.telegram_listener import run_telegram_listener
 
+def run_drift_check():
+    """Daily concept drift check — runs at 4:30pm ET."""
+    try:
+        from processing.concept_drift import run_daily_drift_check
+        run_daily_drift_check()
+    except Exception as e:
+        print(f"❌ Drift check error: {e}")
+
 def write_gpi_snapshot():
     """Write daily GPI snapshot to DB for historical tracking."""
     print("\n📊 Writing GPI daily snapshot...")
@@ -522,6 +530,7 @@ schedule.every().day.at("13:30").do(run_pre_market_brief)  # 8:30am ET
 schedule.every().sunday.at("12:00").do(run_weekly_performance_review)  # Sunday 8am ET
 schedule.every(30).seconds.do(run_telegram_listener)        # Listen for commands
 schedule.every().day.at("21:00").do(write_gpi_snapshot)     # 4pm ET daily GPI snapshot
+schedule.every().day.at("21:30").do(run_drift_check)        # 4:30pm ET daily drift check
 
 if __name__ == "__main__":
     print("⚡ KairosIQ Scheduler Starting...")
