@@ -23,6 +23,7 @@ def get_db():
     return psycopg2.connect(settings.DATABASE_URL)
 
 def call_agent(system_prompt, user_prompt, max_tokens=600):
+    """Full Sonnet call — for briefs, trade recs, assessments."""
     try:
         client = get_client()
         response = client.messages.create(
@@ -34,6 +35,21 @@ def call_agent(system_prompt, user_prompt, max_tokens=600):
         return response.content[0].text.strip()
     except Exception as e:
         print(f"   ⚠️ Agent call error: {e}")
+        return None
+
+def call_agent_fast(system_prompt, user_prompt, max_tokens=100):
+    """Haiku call — for cheap one-word triage decisions only."""
+    try:
+        client = get_client()
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+        return response.content[0].text.strip()
+    except Exception as e:
+        print(f"   ⚠️ Agent fast call error: {e}")
         return None
 
 def get_open_positions():
@@ -198,7 +214,7 @@ Current macro regime: {regime}
 Open positions: {', '.join(position_tickers) if position_tickers else 'None'}
 {feedback_ctx}
 Respond with exactly one word: alert, suppress, or watch."""
-    result   = call_agent(system, user, max_tokens=10)
+    result   = call_agent_fast(system, user, max_tokens=10)
     decision = (result or "watch").lower().strip()
     if decision not in ("alert", "suppress", "watch"):
         decision = "watch"
@@ -1198,6 +1214,23 @@ def run_agent_triage(signals):
         return []
     print(f"\n🤖 KairosIQ Agent — triaging {len(signals)} signals...")
 
+    # Load already-enriched signal IDs to skip redundant API calls
+    already_enriched = set()
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT signal_id FROM agent_enrichment
+            WHERE created_at >= NOW() - INTERVAL '4 hours';
+        """)
+        already_enriched = {str(r[0]) for r in cur.fetchall()}
+        cur.close()
+        conn.close()
+        if already_enriched:
+            print(f"   ⚡ Skipping enrichment for {len(already_enriched)} recently enriched signals")
+    except Exception:
+        pass
+
     # Check for cross-signal conflicts first
     try:
         conflicts = detect_signal_conflicts(signals)
@@ -1209,16 +1242,16 @@ def run_agent_triage(signals):
         pass
 
     approved      = []
-    seen_this_cycle = set()  # track region+platform already approved this cycle
+    seen_this_cycle = set()
 
     for signal in signals:
         description = signal[1] or ""
         region      = signal[2] or "Global"
         platform    = signal[8] or ""
         category    = signal[3] or ""
+        signal_id   = str(signal[0])
 
-        # Within-cycle dedup — same region + platform + category already approved
-        # Use first 40 chars of description to also catch truly identical signals
+        # Within-cycle dedup
         desc_key  = description[:40].lower().strip()
         cycle_key = f"{region.lower()}_{platform.lower()}_{category.lower()}"
         if cycle_key in seen_this_cycle or desc_key in seen_this_cycle:
@@ -1229,6 +1262,14 @@ def run_agent_triage(signals):
         if decision == "suppress":
             continue
 
+        # Skip full enrichment if already done recently — just use cached version
+        if signal_id in already_enriched:
+            print(f"   ⚡ Using cached enrichment for {signal_id[:8]}")
+            approved.append(signal)
+            seen_this_cycle.add(cycle_key)
+            seen_this_cycle.add(desc_key)
+            continue
+
         brief      = generate_brief(signal)
         assessment = portfolio_signal_assessment(signal)
         trade_rec  = generate_trade_recommendation(signal)
@@ -1237,7 +1278,6 @@ def run_agent_triage(signals):
         exit_levels = None
         try:
             exit_levels = generate_exit_levels(signal, trade_rec)
-            # Write levels to open positions immediately
             if exit_levels and trade_rec:
                 update_position_exit_levels(signal, trade_rec, exit_levels)
         except Exception:
@@ -1260,7 +1300,6 @@ def run_agent_triage(signals):
         enriched = signal + (brief, assessment, decision, trade_rec,
                              exit_levels, entry_timing, conv_sizing)
 
-        # Persist to DB so dashboard can display
         try:
             persist_agent_enrichment(
                 signal[0], brief, assessment, trade_rec,
