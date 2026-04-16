@@ -2154,6 +2154,21 @@ if _page == "RESEARCH":
                                   f'border-radius:2px;">ID: {signal_id}</code> '
                                   if signal_id else "")
 
+                    # Fetch followups for this entry
+                    followups = []
+                    try:
+                        conn_fu = get_db()
+                        cur_fu  = conn_fu.cursor()
+                        cur_fu.execute("""
+                            SELECT note, created_at FROM analyst_log_followups
+                            WHERE entry_id = %s ORDER BY created_at ASC;
+                        """, (eid,))
+                        followups = cur_fu.fetchall()
+                        cur_fu.close()
+                        conn_fu.close()
+                    except Exception:
+                        pass
+
                     with st.expander(f"{title}  ·  {date_str}"):
                         st.markdown(
                             f'<div style="display:flex;gap:10px;align-items:center;'
@@ -2165,27 +2180,82 @@ if _page == "RESEARCH":
                             f'{sig_badge}'
                             f'<span style="color:#555;font-size:0.65em;'
                             f'font-family:JetBrains Mono,monospace;">{date_str}</span>'
+                            f'<span style="color:#333;font-size:0.6em;'
+                            f'font-family:JetBrains Mono,monospace;margin-left:auto;">'
+                            f'🔒 original — immutable</span>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
+                        # Original body — immutable
                         st.markdown(
                             f'<div style="font-size:0.85em;color:#ccc;line-height:1.8;'
-                            f'white-space:pre-wrap;padding:8px 0;">{body}</div>',
+                            f'white-space:pre-wrap;padding:8px 12px;'
+                            f'background:#06060e;border-left:2px solid #1a1a2e;'
+                            f'border-radius:0 4px 4px 0;">{body}</div>',
                             unsafe_allow_html=True
                         )
-                        # Delete button
-                        if st.button(f"🗑️ Delete", key=f"del_log_{eid}"):
-                            try:
-                                conn_del = get_db()
-                                cur_del  = conn_del.cursor()
-                                cur_del.execute("DELETE FROM analyst_log WHERE id = %s;", (eid,))
-                                conn_del.commit()
-                                cur_del.close()
-                                conn_del.close()
-                                st.cache_data.clear()
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Delete error: {e}")
+
+                        # Followup notes — appended after the fact
+                        if followups:
+                            for fu_note, fu_date in followups:
+                                fu_date_str = fu_date.strftime("%Y-%m-%d %H:%M") if fu_date else "—"
+                                st.markdown(
+                                    f'<div style="margin-top:8px;padding:8px 12px;'
+                                    f'background:#0a0a14;border-left:2px solid #e8b84b;'
+                                    f'border-radius:0 4px 4px 0;">'
+                                    f'<div style="font-size:0.6em;color:#e8b84b;'
+                                    f'font-family:JetBrains Mono,monospace;'
+                                    f'text-transform:uppercase;letter-spacing:0.1em;'
+                                    f'margin-bottom:4px;">📎 Follow-up · {fu_date_str}</div>'
+                                    f'<div style="font-size:0.82em;color:#aaa;'
+                                    f'line-height:1.7;white-space:pre-wrap;">{fu_note}</div>'
+                                    f'</div>',
+                                    unsafe_allow_html=True
+                                )
+
+                        # Add follow-up
+                        fu_text = st.text_area(
+                            "Add follow-up note",
+                            placeholder="Outcome, post-mortem, updated thesis...",
+                            height=80,
+                            key=f"fu_text_{eid}",
+                            label_visibility="collapsed"
+                        )
+                        col_fu, col_del = st.columns([2, 1])
+                        with col_fu:
+                            if st.button(f"📎 Append Follow-up", key=f"fu_btn_{eid}"):
+                                if fu_text.strip():
+                                    try:
+                                        conn_fu = get_db()
+                                        cur_fu  = conn_fu.cursor()
+                                        cur_fu.execute("""
+                                            INSERT INTO analyst_log_followups
+                                                (entry_id, note, created_at)
+                                            VALUES (%s, %s, NOW());
+                                        """, (eid, fu_text.strip()))
+                                        conn_fu.commit()
+                                        cur_fu.close()
+                                        conn_fu.close()
+                                        st.cache_data.clear()
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Follow-up error: {e}")
+                                else:
+                                    st.warning("Enter a follow-up note first.")
+                        with col_del:
+                            if st.button(f"🗑️ Delete Entry", key=f"del_log_{eid}"):
+                                try:
+                                    conn_del = get_db()
+                                    cur_del  = conn_del.cursor()
+                                    cur_del.execute("DELETE FROM analyst_log_followups WHERE entry_id = %s;", (eid,))
+                                    cur_del.execute("DELETE FROM analyst_log WHERE id = %s;", (eid,))
+                                    conn_del.commit()
+                                    cur_del.close()
+                                    conn_del.close()
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Delete error: {e}")
             else:
                 st.markdown("""
                 <div style="color:#333;font-size:0.75em;padding:20px;text-align:center;
