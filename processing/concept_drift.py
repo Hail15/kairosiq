@@ -364,12 +364,76 @@ def create_new_version(version: str, description: str, changes: str):
 
 # ── 5. Daily Drift Report ──────────────────────────────────────────────────────
 
+def check_version_bump_needed() -> dict:
+    """
+    Checks if sustained drift warrants a version bump recommendation.
+    Returns dict with should_bump, suggested_version, reason.
+    """
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+
+        # Count how many drift alerts have been active for 7+ consecutive days
+        cur.execute("""
+            SELECT COUNT(DISTINCT event_category || '_' || asset_ticker)
+            FROM accuracy_windows
+            WHERE drift_alert = true
+            AND computed_at >= NOW() - INTERVAL '7 days';
+        """)
+        sustained_drifts = (cur.fetchone() or [0])[0]
+
+        # Count recent wrong feedbacks
+        cur.execute("""
+            SELECT COUNT(*) FROM agent_feedback
+            WHERE feedback_type = 'wrong'
+            AND created_at >= NOW() - INTERVAL '14 days';
+        """)
+        wrong_count = (cur.fetchone() or [0])[0]
+
+        # Get current version
+        cur.execute("SELECT version FROM framework_versions WHERE is_current = true;")
+        row = cur.fetchone()
+        current_version = row[0] if row else "WIF-1.0"
+
+        cur.close()
+        conn.close()
+
+        # Recommend bump if 3+ sustained drifts OR 5+ wrong feedbacks in 14 days
+        should_bump = sustained_drifts >= 3 or wrong_count >= 5
+
+        if should_bump:
+            # Auto-increment version
+            parts = current_version.replace("WIF-", "").split(".")
+            major = int(parts[0])
+            minor = int(parts[1]) if len(parts) > 1 else 0
+            suggested = f"WIF-{major}.{minor + 1}"
+            reason = []
+            if sustained_drifts >= 3:
+                reason.append(f"{sustained_drifts} patterns drifting for 7+ days")
+            if wrong_count >= 5:
+                reason.append(f"{wrong_count} wrong feedback signals in 14 days")
+            return {
+                "should_bump": True,
+                "current": current_version,
+                "suggested": suggested,
+                "reason": " · ".join(reason),
+                "sustained_drifts": sustained_drifts,
+                "wrong_count": wrong_count,
+            }
+        return {"should_bump": False}
+
+    except Exception as e:
+        print(f"   ⚠️ version_bump check error: {e}")
+        return {"should_bump": False}
+
+
 def run_daily_drift_check():
     """
     Master function — run daily alongside GPI snapshot.
     1. Computes accuracy windows
     2. Checks for drift alerts
-    3. Sends Telegram notification if drift detected
+    3. Agent analyzes whether a version bump is warranted
+    4. Sends Telegram with analysis and /approve_version command if needed
     """
     print("\n🧭 Running daily concept drift check...")
 
@@ -382,23 +446,65 @@ def run_daily_drift_check():
 
     print(f"   ⚠️ {len(alerts)} drift alerts detected")
 
-    # Build Telegram message
+    # Check if version bump is warranted
+    bump_check = check_version_bump_needed()
+
+    # Build drift summary lines
     lines = []
     for category, ticker, acc_7d, acc_30d, gap in alerts:
         cat_clean = (category or "unknown").replace("_", " ").upper()
         lines.append(
-            f"  {ticker} / {cat_clean}\n"
-            f"  7d: {acc_7d:.0f}% vs 30d: {acc_30d:.0f}% (gap: -{gap:.0f}pts)"
+            f"{ticker} / {cat_clean}\n"
+            f"  7d: {acc_7d:.0f}% vs 30d: {acc_30d:.0f}% (↓{gap:.0f}pts)"
         )
 
-    message = (
-        f"⚠️ <b>KairosIQ — Concept Drift Detected</b>\n\n"
-        f"The following signal patterns are showing reduced accuracy "
-        f"in the last 7 days vs historical 30-day baseline:\n\n"
-        f"<code>" + "\n\n".join(lines) + "</code>\n\n"
-        f"<i>Consider reviewing asset mappings or running /feedback on recent signals. "
-        f"The Worsley Intelligence Framework may need recalibration for these patterns.</i>"
-    )
+    # Get agent analysis of what's causing drift and what to do
+    agent_analysis = None
+    try:
+        from agent.agent import call_agent_fast
+        system = (
+            "You are analyzing concept drift in a geopolitical intelligence platform. "
+            "Given the drifting signal patterns, explain in 2-3 sentences: "
+            "(1) what is likely causing these patterns to break down, "
+            "(2) what methodology changes would help recalibrate. "
+            "Be specific. Plain text only, no markdown."
+        )
+        user = f"""Drifting patterns detected:
+{chr(10).join(lines)}
+
+These are signal types where 7-day accuracy is significantly below 30-day baseline.
+What is causing this drift and what should be recalibrated?"""
+        agent_analysis = call_agent_fast(system, user, max_tokens=150)
+    except Exception:
+        pass
+
+    # Build Telegram message
+    drift_block = "<code>" + "\n\n".join(lines) + "</code>"
+
+    if bump_check.get("should_bump"):
+        suggested = bump_check["suggested"]
+        reason    = bump_check["reason"]
+        message = (
+            f"🧭 <b>WIF VERSION REVIEW RECOMMENDED</b>\n\n"
+            f"The agent has detected sustained concept drift:\n\n"
+            f"{drift_block}\n\n"
+            f"<b>Reason:</b> {reason}\n\n"
+            f"{f'<b>Agent Analysis:</b> <i>{agent_analysis}</i>' + chr(10) + chr(10) if agent_analysis else ''}"
+            f"<b>Suggested action:</b> Bump to <code>{suggested}</code> "
+            f"with recalibrated correlations.\n\n"
+            f"To approve: <code>/approve_version {suggested}</code>\n"
+            f"To review: <code>/ask what changes should {suggested} include</code>\n\n"
+            f"<i>Kyle should review before approving any version change.</i>"
+        )
+    else:
+        message = (
+            f"⚠️ <b>KairosIQ — Concept Drift Detected</b>\n\n"
+            f"Signal patterns showing reduced 7-day accuracy:\n\n"
+            f"{drift_block}\n\n"
+            f"{f'<i>{agent_analysis}</i>' + chr(10) + chr(10) if agent_analysis else ''}"
+            f"Run <code>/feedback [id] wrong</code> on recent bad calls "
+            f"to help the framework recalibrate."
+        )
 
     try:
         from alerts.telegram_alert import send_telegram
