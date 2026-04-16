@@ -308,14 +308,13 @@ def mark_signal_alerted(signal_id, event_category=None, region=None, source_plat
         cur.execute("""
             INSERT INTO signal_alerts_sent (signal_id, event_category, region, source_platform, alerted_at)
             VALUES (%s, %s, %s, %s, NOW())
-            ON CONFLICT (signal_id) DO UPDATE SET alerted_at = NOW();
+            ON CONFLICT (signal_id) DO NOTHING;
         """, (str(signal_id), event_category or '', region or '', source_platform or ''))
         conn.commit()
         cur.close()
         conn.close()
         print(f"   ✅ Marked alerted: {str(signal_id)[:8]}")
     except Exception as e:
-        # Handle the category+region+day uniqueness constraint silently
         if "idx_alerts_cat_region_time" in str(e):
             print(f"   ⏭ Already alerted today: {event_category} / {region}")
         else:
