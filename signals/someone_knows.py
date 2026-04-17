@@ -390,15 +390,46 @@ def save_someone_knows_signal(alert):
             return
 
         source_list = " + ".join(alert["source_types"])
+
+        # Build evidence detail — pull actual signal data for context
+        evidence_lines = []
+        try:
+            ev_cur = conn.cursor() if hasattr(conn, 'cursor') else None
+            if ev_cur:
+                ev_cur.execute("""
+                    SELECT source_platform, probability_shift,
+                           LEFT(event_description, 120)
+                    FROM signals
+                    WHERE is_active = true
+                    AND region = %s
+                    AND signal_time >= NOW() - INTERVAL '6 hours'
+                    AND source_platform != 'SOMEONE_KNOWS'
+                    ORDER BY probability_shift DESC
+                    LIMIT 4;
+                """, (alert["region"],))
+                for plat, shift, desc in ev_cur.fetchall():
+                    evidence_lines.append(
+                        f"{plat}: {desc[:80].strip()}"
+                    )
+                ev_cur.close()
+        except Exception:
+            pass
+
+        evidence_text = (
+            " Evidence: " + " | ".join(evidence_lines)
+            if evidence_lines else ""
+        )
+
         desc = (
             f"🚨 SOMEONE KNOWS SOMETHING — {alert['region'].upper()}: "
             f"{alert['source_count']} independent intelligence sources "
             f"({source_list}) are converging simultaneously on the same "
-            f"geopolitical theme BEFORE any public news. "
+            f"geopolitical theme BEFORE any public news explains it. "
             f"Probability shift: {alert['probability_shift']:.0f}pts. "
+            f"Sources confirmed: {', '.join(alert['source_types'])}."
+            f"{evidence_text} "
             f"Historical pattern: this convergence precedes major market-moving "
-            f"events within 24-48 hours in 71% of historical instances. "
-            f"Smart money appears to be positioning ahead of an announcement."
+            f"events within 24-48 hours in 71% of historical instances."
         )
 
         cur.execute("""
