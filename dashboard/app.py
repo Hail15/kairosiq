@@ -4785,24 +4785,74 @@ if tab7 is not None:
                 mt_notional = st.number_input("Amount ($)", min_value=1.0, value=100.0, step=10.0, key="mt_notional_main")
                 mt_entry = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.01, key="mt_entry_main")
             with mt_col4:
-                mt_notes = st.text_area("Notes / Signal", height=80, key="mt_notes_main", placeholder="Which signal triggered this?")
+                # Auto-suggest signal ID based on ticker
+                mt_suggested = ""
+                final_ticker_check = mt_custom.upper().strip() if mt_custom.strip() else mt_ticker
+                if final_ticker_check:
+                    try:
+                        conn_mt = get_db()
+                        cur_mt  = conn_mt.cursor()
+                        cur_mt.execute("""
+                            SELECT id FROM signals
+                            WHERE affected_assets::text ILIKE %s
+                            AND is_active = true
+                            AND signal_time >= NOW() - INTERVAL '48 hours'
+                            ORDER BY probability_shift DESC
+                            LIMIT 1;
+                        """, (f'%"{final_ticker_check}"%',))
+                        mt_row = cur_mt.fetchone()
+                        if mt_row:
+                            mt_suggested = str(mt_row[0])[:8]
+                        cur_mt.close()
+                        conn_mt.close()
+                    except Exception:
+                        pass
+                mt_signal_id = st.text_input(
+                    "Signal ID ⚠️ Required for track record",
+                    placeholder=mt_suggested or "8-char signal ID from dashboard",
+                    value=mt_suggested,
+                    key="mt_signal_id_main",
+                    help="Find signal ID on any signal card. Links position to signal for post-mortems."
+                )
+                mt_notes = st.text_area("Notes", height=44, key="mt_notes_main",
+                                        placeholder="Why did you take this trade?")
 
             if st.button("✅ LOG TRADE", use_container_width=True, key="mt_submit_main", type="primary"):
                 final_ticker = mt_custom.upper().strip() if mt_custom.strip() else mt_ticker
                 if final_ticker:
                     try:
+                        # Resolve short signal ID to full UUID
+                        full_signal_id = None
+                        if mt_signal_id and mt_signal_id.strip():
+                            try:
+                                conn_res = get_db()
+                                cur_res  = conn_res.cursor()
+                                cur_res.execute("""
+                                    SELECT id FROM signals
+                                    WHERE id::text LIKE %s
+                                    ORDER BY signal_time DESC LIMIT 1;
+                                """, (f"{mt_signal_id.strip()[:8]}%",))
+                                res_row = cur_res.fetchone()
+                                if res_row:
+                                    full_signal_id = str(res_row[0])
+                                cur_res.close()
+                                conn_res.close()
+                            except Exception:
+                                pass
+
                         from bets.alpaca_trader import log_manual_trade
                         order_id = log_manual_trade(
-                            signal_id=None,
+                            signal_id=full_signal_id,
                             ticker=final_ticker,
                             side=mt_side,
                             notional_usd=mt_notional,
                             entry_price=mt_entry if mt_entry > 0 else None,
                             is_live=(mt_live == "Live"),
-                            notes=mt_notes,
+                            notes=mt_notes or f"Manual entry — {final_ticker}",
                         )
                         if order_id:
-                            st.success(f"✅ Trade logged: {mt_side.upper()} {final_ticker} ${mt_notional:,.0f} — ID: {order_id}")
+                            sig_linked = f" · Signal: {mt_signal_id.strip()[:8]}" if full_signal_id else " ⚠️ No signal linked"
+                            st.success(f"✅ Trade logged: {mt_side.upper()} {final_ticker} ${mt_notional:,.0f}{sig_linked}")
                             st.cache_data.clear()
                         else:
                             st.warning("Trade saved to DB but no Alpaca order ID returned.")
