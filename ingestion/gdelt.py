@@ -32,7 +32,12 @@ COUNTRY_NAMES = {
     "NORTHKOREA": "North Korea", "SYRIA": "Syria",
     "VENEZUELA": "Venezuela", "PAKISTAN": "Pakistan",
     "INDIA": "India", "SAUDIARABIA": "Saudi Arabia",
-    "TURKEY": "Turkey", "IRAQ": "Iraq", "AFGHANISTAN": "Afghanistan"
+    "TURKEY": "Turkey", "IRAQ": "Iraq", "AFGHANISTAN": "Afghanistan",
+    # Added — active conflict zones and key oil producers
+    "YEMEN": "Yemen", "LEBANON": "Lebanon", "LIBYA": "Libya",
+    "ETHIOPIA": "Ethiopia", "MYANMAR": "Myanmar", "SUDAN": "Sudan",
+    "NIGERIA": "Nigeria", "MALI": "Mali", "NIGER": "Niger",
+    "UAE": "UAE", "QATAR": "Qatar", "KUWAIT": "Kuwait",
 }
 
 ANOMALY_THRESHOLD = 2.5   # Raised from 2.0 — reduces low-ratio noise

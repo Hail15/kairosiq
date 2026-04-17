@@ -20,6 +20,12 @@ STATE_MEDIA_FEEDS = {
     "China - Global Times": "https://www.globaltimes.cn/rss/outbrain.xml",
     "Iran - PressTV": "https://www.presstv.ir/rss",
     "North Korea - KCNA": "https://kcnawatch.org/newstream/atom/",
+    # Added — key regional state/official media
+    "Israel - Times of Israel": "https://www.timesofisrael.com/feed/",
+    "Israel - Jerusalem Post": "https://www.jpost.com/rss/rssfeedsworld.aspx",
+    "Saudi - Arab News": "https://www.arabnews.com/rss.xml",
+    "Turkey - Daily Sabah": "https://www.dailysabah.com/rss",
+    "UAE - Gulf News": "https://gulfnews.com/rss",
 }
 
 # Keywords that signal escalation

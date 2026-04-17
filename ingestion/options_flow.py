@@ -32,16 +32,25 @@ MONITORED_TICKERS = {
     "BNO":  {"name": "Brent Crude",          "domain": "Energy & Trade",       "signal_type": "energy_options_unusual"},
     "XLE":  {"name": "Energy ETF",           "domain": "Energy & Trade",       "signal_type": "energy_options_unusual"},
     "UNG":  {"name": "Natural Gas",          "domain": "Energy & Trade",       "signal_type": "energy_options_unusual"},
+    "XOM":  {"name": "Exxon Mobil",          "domain": "Energy & Trade",       "signal_type": "energy_options_unusual"},
+    "CVX":  {"name": "Chevron",              "domain": "Energy & Trade",       "signal_type": "energy_options_unusual"},
+    # Airlines — inverse energy play
+    "JETS": {"name": "US Global Jets ETF",   "domain": "Energy & Trade",       "signal_type": "airline_options_unusual"},
     # Safe havens
     "GLD":  {"name": "Gold ETF",             "domain": "Financial",            "signal_type": "safe_haven_unusual"},
+    "SLV":  {"name": "Silver ETF",           "domain": "Financial",            "signal_type": "safe_haven_unusual"},
     "TLT":  {"name": "US Treasuries",        "domain": "Financial",            "signal_type": "safe_haven_unusual"},
     "VIXY": {"name": "VIX Futures",          "domain": "Financial",            "signal_type": "volatility_unusual"},
+    "GDX":  {"name": "Gold Miners ETF",      "domain": "Financial",            "signal_type": "safe_haven_unusual"},
     # Geopolitical ETFs
     "EEM":  {"name": "Emerging Markets",     "domain": "Political",            "signal_type": "em_options_unusual"},
     "EWT":  {"name": "Taiwan ETF",           "domain": "Military & Conflict",  "signal_type": "taiwan_options_unusual"},
     "FXI":  {"name": "China Large Cap",      "domain": "Political",            "signal_type": "china_options_unusual"},
+    "SMH":  {"name": "Semiconductor ETF",    "domain": "Military & Conflict",  "signal_type": "taiwan_options_unusual"},
+    "TSM":  {"name": "Taiwan Semiconductor", "domain": "Military & Conflict",  "signal_type": "taiwan_options_unusual"},
     # Shipping
     "ZIM":  {"name": "ZIM Shipping",         "domain": "Energy & Trade",       "signal_type": "shipping_options_unusual"},
+    "BDRY": {"name": "Baltic Dry ETF",       "domain": "Energy & Trade",       "signal_type": "shipping_options_unusual"},
 }
 
 # Thresholds for unusual activity
