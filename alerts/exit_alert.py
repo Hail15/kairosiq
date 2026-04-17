@@ -424,6 +424,12 @@ RSI: {rsi} | MACD: {'bullish' if macd_bullish else 'bearish'} | Day: {day_change
 
             side_label = "LONG" if side == "buy" else "SHORT"
             pnl_str = f"{pct*100:+.2f}% (${pnl:+.4f})" if pnl else f"{pct*100:+.2f}%"
+            sig_id_short = str(signal_id)[:8] if signal_id else None
+            sig_line = (
+                f"\n📎 Signal: <code>{sig_id_short}</code> · "
+                f"<code>/postmortem {sig_id_short} [1-6] [notes]</code>"
+                if sig_id_short else ""
+            )
             assessment_block = (
                 f"\n\n🤖 <b>Agent Assessment:</b>\n<i>{agent_assessment}</i>"
                 if agent_assessment else
@@ -434,6 +440,7 @@ RSI: {rsi} | MACD: {'bullish' if macd_bullish else 'bearish'} | Day: {day_change
                 f"📊 Entry: <b>${float(entry_price or 0):.2f}</b> → Now: <b>${current_price:.2f}</b>\n"
                 f"💰 P&L: <b>{pnl_str}</b>\n"
                 f"🛑 Stop: <b>{stop_label}</b>"
+                f"{sig_line}"
                 f"{assessment_block}\n\n"
                 f"<i>Historical pattern analysis only. Not investment advice.</i>\n\n"
                 f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard → Close Position</a>"
@@ -532,6 +539,12 @@ Regime: {regime}"""
             except ImportError:
                 from telegram_alert import send_telegram
             side_label = "LONG" if side == "buy" else "SHORT"
+            sig_id_short = str(signal_id)[:8] if signal_id else None
+            sig_line = (
+                f"\n📎 Signal: <code>{sig_id_short}</code> · "
+                f"<code>/feedback {sig_id_short} correct</code>"
+                if sig_id_short else ""
+            )
             assessment_block = (
                 f"\n\n🤖 <b>Agent Assessment:</b>\n<i>{agent_assessment}</i>"
                 if agent_assessment else
@@ -542,6 +555,7 @@ Regime: {regime}"""
                 f"📊 Entry: <b>${float(entry_price or 0):.2f}</b> → Now: <b>${current_price:.2f}</b>\n"
                 f"💰 P&L: <b>+{pct*100:.2f}%</b> (${pnl:+.4f})\n"
                 f"🎯 Target: <b>{target_label}</b>"
+                f"{sig_line}"
                 f"{assessment_block}\n\n"
                 f"<i>Historical pattern analysis only. Not investment advice.</i>\n\n"
                 f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard → Close Position</a>"
@@ -627,6 +641,12 @@ Assess: did the signal play out? Should we hold, reduce, or close?"""
 
         # Build Telegram message
         pnl_line = f"\n💰 P&L: <b>{pct_str}</b> (${pnl:+.4f})" if pnl is not None else ""
+        sig_id_short = str(signal_id)[:8] if signal_id else None
+        sig_line = (
+            f"\n📎 Signal: <code>{sig_id_short}</code> · "
+            f"<code>/postmortem {sig_id_short} [1-6] [notes]</code>"
+            if sig_id_short else ""
+        )
         assessment_block = (
             f"\n\n🤖 <b>Agent Assessment:</b>\n<i>{agent_assessment}</i>"
             if agent_assessment else
@@ -637,6 +657,7 @@ Assess: did the signal play out? Should we hold, reduce, or close?"""
             f"⏰ <b>KairosIQ SIGNAL EXPIRED — {ticker} {side_label}</b>\n\n"
             f"📊 Entry: <b>${float(entry_price or 0):.2f}</b> → Now: <b>${current_price:.2f}</b>"
             f"{pnl_line}"
+            f"{sig_line}"
             f"{assessment_block}\n\n"
             f"<i>Historical pattern analysis only. Not investment advice.</i>\n\n"
             f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard → Close Position</a>"
