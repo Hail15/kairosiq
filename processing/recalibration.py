@@ -346,8 +346,12 @@ def run_thesis_confirmation_detector():
                    at.notional_usd, s.event_description, s.event_category,
                    ae.trade_ticker, ae.take_profit
             FROM alpaca_trades at
-            LEFT JOIN signals s ON s.id = at.signal_id::uuid
-            LEFT JOIN agent_enrichment ae ON ae.signal_id = at.signal_id::uuid
+            LEFT JOIN signals s ON s.id = CASE 
+                WHEN at.signal_id IS NULL OR at.signal_id = 'None' THEN NULL
+                ELSE at.signal_id::uuid END
+            LEFT JOIN agent_enrichment ae ON ae.signal_id = CASE
+                WHEN at.signal_id IS NULL OR at.signal_id = 'None' THEN NULL
+                ELSE at.signal_id::uuid END
             WHERE at.closed_at IS NULL
             AND at.entry_price IS NOT NULL;
         """)
