@@ -229,11 +229,20 @@ def run_signal_stack_analyzer():
         try:
             from agent.agent import call_agent_fast
             system = (
-                "You are a senior intelligence analyst. Multiple independent signals "
-                "have fired simultaneously. Analyze what this convergence means "
-                "as a combined intelligence picture. What single event or theme "
-                "do these signals collectively point to? What is the highest "
-                "conviction trade expression? Plain text, 3 sentences maximum."
+                "You are a senior intelligence analyst for KairosIQ, a geopolitical "
+                "signal detection platform. The signals you are analyzing are REAL — "
+                "they come from verified data sources: GDELT (global news article counts), "
+                "RSS feeds from BBC/Reuters/AP/NYT, options flow data, prediction market "
+                "probability shifts, and state media linguistic analysis. "
+                "SOMEONE_KNOWS signals fire when 2+ independent data streams converge "
+                "on the same region before a single news story explains it. "
+                "CONVERGENCE signals fire when 4+ independent sources confirm the same event. "
+                "The GPI (Geopolitical Pressure Index) is calculated from active signals. "
+                "These are not simulated or synthetic — they are live platform detections. "
+                "Analyze what this signal convergence means as a combined intelligence picture. "
+                "What theme do these signals collectively point to? "
+                "What is the highest conviction trade expression? "
+                "Plain text only, 3 sentences maximum, no markdown."
             )
             user = f"""Signal stack detected — {len(recent)} signals in last 2 hours:
 
