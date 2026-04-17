@@ -189,13 +189,12 @@ def compute_pattern_signal(signal_direction, signal_strength,
     # Clamp score to 0-100
     score = max(0, min(100, score))
 
-    # Determine pattern and confidence
-    # For BUY signals: high score = YES, low score = NO
-    # For SELL signals: high score = NO, low score = YES
+    # Pattern confirmation threshold — 55 minimum to reduce false positives
+    # Previously 45 which was too close to random
     if buying:
-        pattern = "YES" if score >= 45 else "NO"
+        pattern = "YES" if score >= 55 else "NO"
     else:
-        pattern = "NO" if score >= 45 else "YES"
+        pattern = "NO" if score >= 55 else "YES"
 
     if score >= 70:
         confidence = "HIGH"

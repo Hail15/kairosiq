@@ -35,7 +35,8 @@ COUNTRY_NAMES = {
     "TURKEY": "Turkey", "IRAQ": "Iraq", "AFGHANISTAN": "Afghanistan"
 }
 
-ANOMALY_THRESHOLD = 2.0
+ANOMALY_THRESHOLD = 2.5   # Raised from 2.0 — reduces low-ratio noise
+MIN_ARTICLE_COUNT = 5     # Must have at least 5 articles — prevents 3x baseline of 1 = 3 articles firing
 
 # GDELT RSS feeds — not rate limited
 GDELT_RSS_FEEDS = [
@@ -149,7 +150,10 @@ def detect_anomalies(current_counts):
     for country, count in current_counts.items():
         baseline = baselines.get(country, 5)
         ratio = count / baseline if baseline > 0 else 0
-        if ratio >= ANOMALY_THRESHOLD:
+
+        # Require BOTH minimum ratio AND minimum article count
+        # Prevents "3x baseline of 1 = 3 articles" from firing
+        if ratio >= ANOMALY_THRESHOLD and count >= MIN_ARTICLE_COUNT:
             anomalies.append({
                 "country":       country,
                 "country_name":  COUNTRY_NAMES.get(country, country),

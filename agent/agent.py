@@ -533,8 +533,9 @@ def generate_trade_recommendation(signal):
     accuracy         = get_recent_signal_accuracy()
 
     # ── Check live pattern indicators for each asset ──────────────────────────
-    confirmed_assets = []
+    confirmed_assets   = []
     unconfirmed_assets = []
+    confirmed_weighted = 0  # weighted count — HIGH=1.0, MEDIUM=0.6, LOW=0.3
     try:
         from processing.technical_analysis import get_combined_indicator
         for a in assets[:6]:
@@ -544,9 +545,15 @@ def generate_trade_recommendation(signal):
             strength  = 70
             try:
                 ind = get_combined_indicator(ticker, direction, strength, acc)
-                pattern = ind.get("pattern") if ind else None
+                pattern    = ind.get("pattern") if ind else None
+                conf_level = (ind.get("confidence") or "LOW") if ind else "LOW"
                 if pattern == "YES":
                     confirmed_assets.append(ticker)
+                    # Weight by confidence level
+                    weight = {"HIGH": 1.0, "MEDIUM": 0.6, "LOW": 0.3}.get(
+                        conf_level, 0.3
+                    )
+                    confirmed_weighted += weight
                 else:
                     unconfirmed_assets.append(ticker)
             except Exception:
@@ -556,14 +563,15 @@ def generate_trade_recommendation(signal):
 
     total_assets     = len(confirmed_assets) + len(unconfirmed_assets)
     confirmed_count  = len(confirmed_assets)
-    pattern_rate     = confirmed_count / total_assets if total_assets > 0 else 0
+    pattern_rate     = confirmed_weighted / total_assets if total_assets > 0 else 0
 
     # Pattern confirmation context for the agent
     pattern_context = (
-        f"Pattern indicators: {confirmed_count}/{total_assets} assets confirmed by live technicals. "
+        f"Pattern indicators: {confirmed_count}/{total_assets} assets confirmed by live technicals "
+        f"(weighted confidence score: {confirmed_weighted:.1f}/{total_assets}). "
         f"Confirmed: {', '.join(confirmed_assets) or 'none'}. "
         f"Not confirmed: {', '.join(unconfirmed_assets) or 'none'}. "
-        f"If fewer than half are confirmed, conviction should be LOW or MEDIUM only."
+        f"If fewer than half are confirmed OR weighted score < 0.5, conviction should be LOW or MEDIUM only."
     )
 
     assets_text = "\n".join([

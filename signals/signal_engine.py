@@ -188,41 +188,18 @@ def save_signal(cur, question, prob_before, prob_after, shift,
 
 def map_to_event_category(question_text):
     """
-    Map question text to one of our event categories
-    so we can look up the right asset mappings.
+    Delegate to canonical asset_mapper category function.
+    Keeps all category logic in one place.
     """
-    text = question_text.lower()
-
-    if any(w in text for w in ["north korea", "dprk", "kim jong", "kim ju", "pyongyang", "icbm"]):
-        return "nuclear_wmd_escalation"
-    elif any(w in text for w in ["nuclear", "nuke", "wmd", "warhead", "ballistic missile"]):
-        return "nuclear_wmd_escalation"
-    elif any(w in text for w in ["taiwan", "strait", "cross-strait"]):
-        return "china_taiwan_tension"
-    elif any(w in text for w in ["kharg", "restrike", "u.s. strikes iran", "us strikes iran"]):
-        return "iran_israel_strike"
-    elif any(w in text for w in ["houthi", "red sea", "hormuz", "ship", "canal", "blockade", "shipping"]):
-        return "shipping_lane_disruption"
-    elif any(w in text for w in ["russia", "ukraine", "nato", "kremlin", "putin", "moscow"]):
-        return "russia_eastern_europe_conflict"
-    elif any(w in text for w in ["iran", "israel", "gaza", "middle east", "hezbollah", "hamas"]):
-        return "middle_east_military_escalation"
-    elif any(w in text for w in ["opec", "petroleum", "crude", "oil cut", "production cut"]):
-        return "opec_production_decision"
-    elif any(w in text for w in ["china", "trade war", "tariff", "xi jinping", "beijing"]):
-        return "us_china_trade_escalation"
-    elif any(w in text for w in ["sanction", "embargo"]):
-        return "us_sanctions_announcement"
-    elif any(w in text for w in ["coup", "junta", "military takeover"]):
-        return "coup_risk"
-    elif any(w in text for w in ["cyber", "hack", "ransomware", "malware", "internet disruption", "connectivity disruption"]):
-        return "cyber_attack_infrastructure"
-    elif any(w in text for w in ["outbreak", "pandemic", "disease", "virus", "ebola"]):
-        return "pandemic_outbreak"
-    elif any(w in text for w in ["election", "vote", "referendum", "ballot"]):
-        return "election_outcome_surprise"
-    else:
-        return "emerging_market_political_crisis"
+    try:
+        from processing.asset_mapper import map_event_to_category
+        return map_event_to_category(question_text)
+    except ImportError:
+        try:
+            from asset_mapper import map_event_to_category
+            return map_event_to_category(question_text)
+        except ImportError:
+            return "emerging_market_political_crisis"
 
 def run_signal_engine():
     """
