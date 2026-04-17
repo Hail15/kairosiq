@@ -174,6 +174,29 @@ def triage_signal(signal):
             print(f"   🔇 Suppressed by rule [{keyword}]: {description[:60]}")
             return "suppress"
 
+    # Pre-triage noise filter — suppress obvious human interest before API call
+    NOISE_PATTERNS = [
+        # Entertainment / culture
+        "cinemacon", "avengers", "top gun", "hollywood", "box office",
+        "oscar", "grammy", "emmy", "bafta", "film festival", "movie trailer",
+        "album release", "concert tour", "celebrity", "singer", "actor",
+        # Sports
+        "nfl", "nba", "nhl", "mlb", "fifa", "premier league", "champions league",
+        "super bowl", "world cup", "olympic", "footballer", "soccer player",
+        # Human interest / local crime
+        "school shooting", "mass shooting local", "domestic violence",
+        "car crash", "weather forecast", "avalanche",
+        # Analyst notes
+        "upgrades to", "downgrades to", "price target", "initiates coverage",
+        "reiterates", "analyst note", "ubs upgrades", "goldman upgrades",
+        # Misc noise
+        "asylum after football", "national anthem during",
+        "years out of college", "cultural war with europe diplomat",
+    ]
+    if any(p in desc_lower for p in NOISE_PATTERNS):
+        print(f"   🔇 Pre-triage noise filter: {description[:60]}")
+        return "suppress"
+
     # Load recent operator feedback for context
     feedback        = get_recent_feedback()
     noise_count     = sum(1 for f in feedback
@@ -207,10 +230,32 @@ def triage_signal(signal):
         "converge on the same region simultaneously. "
         "CONVERGENCE signals are real — 4+ independent sources confirmed the same event. "
         "The GPI is a real index calculated from active signals. "
-        "Do NOT dismiss signals as synthetic, hallucinated, or placeholder text — "
-        "they are live database records from real data ingestion. "
-        "Evaluate whether this signal is worth alerting to the portfolio team. "
-        "Be skeptical of noise but trust the data sources. "
+        "Do NOT dismiss signals as synthetic, hallucinated, or placeholder text. "
+        "\n\n"
+        "MANDATORY SUPPRESS — immediately return 'suppress' for ANY of these:\n"
+        "- Movies, TV shows, streaming, Hollywood, cinema, box office, CinemaCon, "
+        "  film festivals, entertainment awards (Oscars, Grammys, Emmys, BAFTAs)\n"
+        "- Sports: football, soccer, basketball, baseball, tennis, golf, F1, "
+        "  Olympics, World Cup, league results, player transfers, injuries\n"
+        "- Celebrity news, personal profiles, human interest, lifestyle stories\n"
+        "- Individual stock analyst upgrades/downgrades with no geopolitical angle\n"
+        "- School shootings, domestic crime, local incidents without geopolitical impact\n"
+        "- Weather, natural disasters under magnitude 7.0 with no infrastructure impact\n"
+        "- Obituaries, retirement announcements, minor political appointments\n"
+        "- Academic research, scientific studies, health/medical news without outbreak\n"
+        "- Religious events, cultural festivals, tourism news\n"
+        "- Asylum seekers, immigration individual cases (not policy changes)\n"
+        "- Corporate earnings, product launches, tech announcements without geopolitical angle\n"
+        "- Real estate, housing market, consumer spending without macro signal\n"
+        "\n"
+        "ALERT for: military conflict, sanctions, trade wars, energy supply disruptions, "
+        "shipping lane threats, nuclear escalation, regime change, major diplomatic shifts, "
+        "central bank emergency actions, sovereign debt crises, pandemic outbreaks, "
+        "critical infrastructure attacks, unusual options flow on geopolitical assets.\n"
+        "\n"
+        "WATCH for: diplomatic tensions, political uncertainty, economic data surprises, "
+        "protest movements, election outcomes in major economies.\n"
+        "\n"
         "Respond with exactly one word: alert, suppress, or watch. Nothing else."
     )
     user = f"""Signal to evaluate:

@@ -148,35 +148,59 @@ SIGNAL_KEYWORDS = [
 
 # Stories that match keywords but are noise — filter these out
 NOISE_KEYWORDS = [
-    # Celebrity / entertainment
-    "pope", "easter", "moon", "artemis", "astronaut",
-    "taylor swift", "beyonce", "celebrity", "grammy", "oscar", "academy award",
-    "kanye", "west festival", "wireless festival", "music festival",
-    "love song", "singing", "singer", "musician", "dancer", "artist", "painter",
-    "jailed for", "persecuted for performing", "romantic music",
-    "emmy award", "bafta", "golden globe",
-    # Health / domestic
-    "minimum wage", "arson", "ambulance", "lobster", "salmonella",
-    "listeria", "food recall", "supplement", "nhs", "school curriculum",
-    "student loan", "plan 2", "postgraduate loan", "cost of living benefit",
-    "mortgage rates uk", "uk energy bill",
-    # Immigration (non-geopolitical)
-    "ice detention", "newlywed", "undocumented immigrant personal",
-    "freed by ice", "immigration arrest personal", "visa overstay",
-    "soldier freed by ice", "military base detention",
-    # Nature / wildlife
-    "trees are key", "wildlife cameraman", "nature photographer",
-    "spring offensive vegetation", "drone warfare concealment",
-    "blue planet", "attenborough",
-    # Misc noise
-    "rehab center", "mourning the", "rift over personal",
-    "general caine", "kim ju-ae tank", "succession talk",
-    "drives a tank parade", "obituary", "died peacefully",
-    "wedding", "married", "divorce", "pregnant", "baby born",
-    "recipe", "restaurant review", "food critic",
-    "sports result", "football score", "nba game", "nfl game",
-    "chipmaking step", "packaging capacity advanced",
-    "next bottleneck for ai chips",
+    # Entertainment / Film / TV
+    "cinemacon", "box office", "hollywood", "movie", "film festival",
+    "avengers", "top gun", "marvel", "dc comics", "pixar", "disney film",
+    "netflix series", "streaming", "tv show", "television series",
+    "emmy award", "bafta", "golden globe", "sundance", "cannes film",
+    "oscar", "academy award", "grammy", "brit award",
+    "concert tour", "music festival", "album release", "song debut",
+    "taylor swift", "beyonce", "kanye", "rihanna", "celebrity",
+    "singer", "musician", "dancer", "pop star", "rapper",
+    # Sports
+    "football score", "soccer match", "nba game", "nfl game", "mlb game",
+    "nhl game", "premier league", "champions league", "world cup qualifier",
+    "olympic trials", "tennis tournament", "golf tournament", "f1 race",
+    "player transfer", "player injury", "coach fired", "sports result",
+    "match result", "league table", "championship final",
+    # Celebrity / Human interest
+    "pope", "easter celebration", "wedding", "married", "divorce",
+    "pregnant", "baby born", "royal family", "prince william", "kate middleton",
+    "obituary", "died peacefully", "in memoriam", "tribute to",
+    "reality tv", "tiktok trend", "viral video", "social media star",
+    # Health / domestic (non-outbreak)
+    "minimum wage", "cost of living benefit", "student loan", "plan 2",
+    "postgraduate loan", "mortgage rates uk", "uk energy bill",
+    "nhs waiting list", "school curriculum", "teacher strike",
+    "salmonella", "listeria", "food recall", "restaurant review",
+    "food critic", "recipe", "diet advice", "weight loss",
+    "fitness trend", "gym membership", "wellness",
+    # Nature / wildlife (non-disaster)
+    "blue planet", "attenborough", "wildlife cameraman",
+    "nature photographer", "animal rescue", "endangered species study",
+    # Crime (non-geopolitical)
+    "arson", "local murder", "robbery", "shoplifting", "drug bust local",
+    "school shooting", "domestic violence", "serial killer",
+    # Misc
+    "rehab center", "astronaut personal", "moon tourism",
+    "artemis personal", "west festival", "wireless festival",
+    "recipe book", "travel guide", "tourism tips",
+    "analyst upgrade", "analyst downgrade", "price target raised",
+    "earnings beat", "earnings miss", "quarterly results",
+    "aslyum seeker personal", "immigration arrest personal",
+    "visa overstay", "newlywed", "mourning the",
+]
+
+# Hard noise — these headlines NEVER have geopolitical value
+HARD_NOISE_PHRASES = [
+    "reassemble", "flies back", "preview their new movies",
+    "hotly anticipated", "cinemacon", "box office",
+    "footballer", "seeks asylum after", "national anthem",
+    "school shooting", "new trauma", "nation mourns",
+    "27-year-old", "five years out of college",
+    "cultural war with europe",  # profile piece not geopolitical signal
+    "upgrades.*to.*neutral", "upgrades.*to.*buy", "upgrades.*to.*sell",
+    "cuts price target", "raises price target",
 ]
 
 # Map keywords to signal categories
@@ -216,9 +240,22 @@ def get_db_connection():
 
 def is_market_moving(title, summary):
     text = (f"{title} {summary}").lower()
+
+    # Hard noise phrases — instant reject, no exceptions
+    import re
+    for phrase in HARD_NOISE_PHRASES:
+        if re.search(phrase, text, re.IGNORECASE):
+            return False
+
+    # Standard noise keywords
     if any(kw in text for kw in NOISE_KEYWORDS):
         return False
-    return any(kw in text for kw in SIGNAL_KEYWORDS)
+
+    # Must match at least one signal keyword
+    if not any(kw in text for kw in SIGNAL_KEYWORDS):
+        return False
+
+    return True
 
 def detect_category(title, summary):
     text = (f"{title} {summary}").lower()
