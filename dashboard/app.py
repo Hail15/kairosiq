@@ -2943,7 +2943,7 @@ if tab1 is not None:
                     Historical data analysis only. Not investment advice.
                     </div>""", unsafe_allow_html=True)
 
-                # Agent Trade Recommendation
+                # Platform Recommended Trade
                 if enrichment.get("trade_ticker"):
                     conviction = enrichment.get("trade_conviction", "LOW")
                     action     = enrichment.get("trade_action", "BUY")
@@ -2957,11 +2957,19 @@ if tab1 is not None:
                     conv_src   = enrichment.get("conv_sources")
                     conv_guide = enrichment.get("conv_guidance", "")
 
+                    # Strip any HTML tags the agent may have returned
+                    import re as _re
+                    def strip_html(t):
+                        return _re.sub(r'<[^>]+>', '', str(t or "")).strip()
+                    reason     = strip_html(reason)
+                    sizing     = strip_html(sizing)
+                    conv_guide = strip_html(conv_guide)
+
                     conviction_color = {"HIGH": "#cc2200", "MEDIUM": "#e8b84b", "LOW": "#2a9a4a"}.get(conviction, "#555")
                     action_arrow = "▲" if action == "BUY" else "▼"
                     timing_emoji = {"NOW": "✅", "WAIT": "⏳", "DIP": "📉"}.get(timing, "")
 
-                    with st.expander("▸  AGENT TRADE RECOMMENDATION"):
+                    with st.expander("▸  PLATFORM RECOMMENDED TRADE"):
                         st.markdown(f"""
                         <div style="background:#0a0a14;border:1px solid {conviction_color};
                              border-radius:4px;padding:16px;margin-bottom:8px;">
@@ -2991,7 +2999,7 @@ if tab1 is not None:
                         <div class="disclaimer">Historical pattern analysis only. Not investment advice.</div>
                         """, unsafe_allow_html=True)
 
-                # Agent Portfolio Assessment
+                # Portfolio Assessment
                 if enrichment.get("portfolio"):
                     with st.expander("▸  PORTFOLIO ASSESSMENT"):
                         st.markdown(f"""
@@ -2999,7 +3007,7 @@ if tab1 is not None:
                              border-radius:4px;padding:16px;">
                             <div style="font-family:JetBrains Mono,monospace;font-size:0.7em;
                                  color:#555;text-transform:uppercase;letter-spacing:0.12em;
-                                 margin-bottom:10px;">Agent Position Assessment</div>
+                                 margin-bottom:10px;">Position Impact Assessment</div>
                             <div style="font-size:0.85em;color:#ccc;line-height:1.7;
                                  white-space:pre-wrap;">{enrichment.get("portfolio", "")}</div>
                         </div>
