@@ -453,13 +453,21 @@ def run_thesis_confirmation_detector():
             )
             send_telegram(message)
 
-            # Mark as alerted — use NULL signal_id, identify by ticker + platform
+            # Mark as alerted — use ticker-based UUID as signal_id placeholder
+            import hashlib
+            placeholder_id = hashlib.md5(
+                f"thesis_confirm_{ticker}_{datetime.now().date()}".encode()
+            ).hexdigest()
+            # Convert to UUID format
+            ph = placeholder_id
+            uuid_str = f"{ph[:8]}-{ph[8:12]}-{ph[12:16]}-{ph[16:20]}-{ph[20:32]}"
             cur.execute("""
                 INSERT INTO signal_alerts_sent
-                    (event_category, region, source_platform,
+                    (signal_id, event_category, region, source_platform,
                      confidence_score, alerted_at)
-                VALUES ('thesis_confirmation', %s, 'THESIS_CONFIRM', 'medium', NOW());
-            """, (ticker,))
+                VALUES (%s::uuid, 'thesis_confirmation', %s, 'THESIS_CONFIRM', 'medium', NOW())
+                ON CONFLICT DO NOTHING;
+            """, (uuid_str, ticker))
 
             print(f"   📱 Thesis confirmation sent: {ticker} {pct:+.1f}%")
 
