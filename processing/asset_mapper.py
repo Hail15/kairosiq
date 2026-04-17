@@ -13,7 +13,7 @@ from config import settings
 def get_db_connection():
     return psycopg2.connect(settings.DATABASE_URL)
 
-def get_asset_mappings(event_type, region=None):
+def get_asset_mappings(event_type, region=None, description=None):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -59,6 +59,13 @@ def get_asset_mappings(event_type, region=None):
             "sample_size": row[8],
             "confidence": row[9]
         })
+
+    # Auto-apply de-escalation direction flip if description provided
+    if description and detect_de_escalation(description):
+        assets = flip_directions_for_de_escalation(assets, description)
+        print(f"   🕊️ De-escalation detected — asset directions flipped")
+
+    return assets
     return assets
 
 def calculate_signal_strength(prob_shift, confidence_score,
@@ -93,6 +100,15 @@ def detect_de_escalation(description):
         "bridge for peace", "opposition leader visits", "opposition leader makes first",
         "first visit since", "peace visit", "diplomatic visit",
         "gladly accepted", "hopes to be a bridge",
+        # Hormuz / shipping specific
+        "summit on reopening", "reopening strait", "reopen strait",
+        "strait reopening", "hormuz summit", "hormuz reopen",
+        "shipping summit", "blockade lifted", "blockade ends",
+        "diplomacy mission", "diplomatic resolution",
+        # General de-escalation
+        "withdrawal begins", "troops withdraw", "forces withdraw",
+        "hostages released", "prisoner exchange", "sanctions relief",
+        "nuclear deal signed", "jcpoa restored",
     ])
 
 
@@ -317,10 +333,16 @@ def get_signal_metadata(assets, prob_shift, confidence_score, source_platform):
         time_to_peak = "168h"
     else:
         time_to_peak = "72h"
-    if confidence_score == "high" and strength >= 75:
+
+    # Convergence tier requires BOTH source count/confidence AND minimum strength
+    # Prevents EXTREME label on weak signals with many sources
+    if confidence_score == "extreme" and strength >= 75:
         tier = 3
         tier_label = "FULL CONVERGENCE"
-    elif confidence_score in ["high", "medium"] and strength >= 50:
+    elif confidence_score == "high" and strength >= 70:
+        tier = 3
+        tier_label = "FULL CONVERGENCE"
+    elif confidence_score in ["high", "medium"] and strength >= 55:
         tier = 2
         tier_label = "DUAL CONFIRMATION"
     else:
@@ -338,40 +360,87 @@ def get_signal_metadata(assets, prob_shift, confidence_score, source_platform):
 
 def map_event_to_category(event_description):
     text = (event_description or "").lower()
-    if any(w in text for w in ["north korea", "dprk", "kim jong", "kim ju", "pyongyang", "icbm"]):
-        return "nuclear_wmd_escalation"
-    elif any(w in text for w in ["nuclear", "nuke", "wmd", "ballistic missile"]):
-        return "nuclear_wmd_escalation"
-    elif any(w in text for w in ["reciprocal tariff", "trade war", "tariff escalation", "import duty", "tariff hike", "tariff increase", "blanket tariff"]):
-        return "global_tariff_escalation"
-    elif any(w in text for w in ["oil", "opec", "petroleum", "crude"]):
-        return "opec_production_decision"
-    elif any(w in text for w in ["taiwan", "strait"]):
-        return "china_taiwan_tension"
-    elif any(w in text for w in ["russia", "ukraine", "nato", "kremlin", "putin", "moscow"]):
-        return "russia_eastern_europe_conflict"
-    elif any(w in text for w in ["kharg", "restrike", "u.s. strikes iran", "us strikes iran"]):
-        return "iran_israel_strike"
-    elif any(w in text for w in ["iran", "israel", "gaza", "middle east", "hezbollah", "hamas"]):
-        return "middle_east_military_escalation"
-    elif any(w in text for w in ["china", "xi", "beijing", "trade war", "tariff"]):
+
+    # Export controls — check before generic China/trade
+    if any(w in text for w in ["entity list", "export control", "chip ban",
+                                "semiconductor export", "huawei ban", "nvidia ban",
+                                "foundry restriction", "fab restriction",
+                                "advanced chip", "ai chip export"]):
         return "us_china_trade_escalation"
-    elif any(w in text for w in ["sanction", "embargo"]):
-        return "us_sanctions_announcement"
-    elif any(w in text for w in ["houthi", "red sea", "hormuz", "ship", "canal", "blockade"]):
+
+    # Nuclear — check before regional conflicts
+    if any(w in text for w in ["north korea", "dprk", "kim jong", "kim ju",
+                                "pyongyang", "icbm"]):
+        return "nuclear_wmd_escalation"
+    if any(w in text for w in ["nuclear", "nuke", "wmd", "ballistic missile"]):
+        return "nuclear_wmd_escalation"
+
+    # Iran direct strike — check before general Iran
+    if any(w in text for w in ["kharg", "restrike", "u.s. strikes iran",
+                                "us strikes iran"]):
+        return "iran_israel_strike"
+
+    # Shipping lane disruption — check before oil/Iran
+    if any(w in text for w in ["houthi", "red sea", "hormuz", "suez canal",
+                                "canal blockade", "shipping lane", "blockade"]):
         return "shipping_lane_disruption"
-    elif any(w in text for w in ["pakistan", "islamabad", "imran khan"]):
+
+    # Taiwan — check before generic China
+    if any(w in text for w in ["taiwan", "strait", "cross-strait", "tsmc"]):
+        return "china_taiwan_tension"
+
+    # Russia/Ukraine — check before NATO
+    if any(w in text for w in ["russia", "ukraine", "kremlin", "putin",
+                                "moscow", "zelensky", "donbas"]):
+        return "russia_eastern_europe_conflict"
+
+    # Middle East — Iran/Israel/Gaza BEFORE oil check
+    if any(w in text for w in ["iran", "israel", "gaza", "middle east",
+                                "hezbollah", "hamas", "irgc", "tehran"]):
+        return "middle_east_military_escalation"
+
+    # Tariffs — check before generic China
+    if any(w in text for w in ["reciprocal tariff", "trade war", "tariff escalation",
+                                "import duty", "tariff hike", "tariff increase",
+                                "blanket tariff", "tariff"]):
+        return "global_tariff_escalation"
+
+    # Oil/energy — AFTER Iran/Middle East check
+    if any(w in text for w in ["opec", "oil cut", "production cut",
+                                "oil supply", "oil embargo"]):
+        return "opec_production_decision"
+
+    # China general — after Taiwan and export controls
+    if any(w in text for w in ["china", "xi jinping", "beijing", "ccp"]):
+        return "us_china_trade_escalation"
+
+    # Sanctions
+    if any(w in text for w in ["sanction", "embargo", "ofac", "asset freeze"]):
+        return "us_sanctions_announcement"
+
+    # EM political
+    if any(w in text for w in ["pakistan", "islamabad", "imran khan",
+                                "venezuela", "maduro", "argentina", "peso"]):
         return "emerging_market_political_crisis"
-    elif any(w in text for w in ["coup", "junta", "military takeover"]):
+
+    if any(w in text for w in ["coup", "junta", "military takeover"]):
         return "coup_risk"
-    elif any(w in text for w in ["election", "vote", "president", "prime minister"]):
+
+    if any(w in text for w in ["election", "referendum"]):
         return "election_outcome_surprise"
-    elif any(w in text for w in ["cyber", "hack", "ransomware", "malware", "internet disruption", "connectivity disruption"]):
+
+    if any(w in text for w in ["cyber", "hack", "ransomware", "malware",
+                                "internet disruption"]):
         return "cyber_attack_infrastructure"
-    elif any(w in text for w in ["outbreak", "disease", "pandemic", "virus", "who alert", "epidemic"]):
+
+    if any(w in text for w in ["outbreak", "disease", "pandemic", "virus",
+                                "who alert", "epidemic"]):
         return "pandemic_outbreak"
-    else:
-        return "emerging_market_political_crisis"
+
+    if any(w in text for w in ["nato", "military alliance", "article 5"]):
+        return "russia_eastern_europe_conflict"
+
+    return "emerging_market_political_crisis"
 
 def predict_question_outcome(question_text, signal_description, signal_direction, prob_shift, region):
     """
@@ -642,7 +711,8 @@ def update_signal_assets(signal_id, event_description,
                          region=None, confidence_score=None,
                          prob_shift=None, source_platform=None):
     event_type = map_event_to_category(event_description)
-    assets = get_asset_mappings(event_type, region)
+    # Pass description so de-escalation direction flip auto-applies
+    assets = get_asset_mappings(event_type, region, description=event_description)
     if not assets:
         return False
     conn = get_db_connection()
