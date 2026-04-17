@@ -117,6 +117,22 @@ NEWS_FEEDS = [
         "name": "Investing.com",
         "credibility": 0.85
     },
+    # Export controls / US trade policy — geopolitical US signals only
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+%22entity+list%22+OR+%22export+control%22+OR+%22chip+ban%22+OR+%22semiconductor+export%22&ceid=US:en&hl=en-US&gl=US",
+        "name": "Export Controls",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+%22commerce+department%22+%22china%22+OR+%22huawei%22+OR+%22nvidia%22+ban&ceid=US:en&hl=en-US&gl=US",
+        "name": "US China Tech Controls",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+%22executive+order%22+%22sanctions%22+OR+%22defense%22+OR+%22national+security%22&ceid=US:en&hl=en-US&gl=US",
+        "name": "US Executive Actions",
+        "credibility": 0.95
+    },
 ]
 
 # High-impact keywords that move markets
@@ -130,6 +146,11 @@ SIGNAL_KEYWORDS = [
     "asset freeze", "blocked", "restricted", "blacklist",
     "designated", "ofac", "reciprocal tariff", "trade deficit",
     "import duty", "customs duty", "trade deal", "trade agreement",
+    # Export controls — semiconductor / tech specific
+    "entity list", "export control", "chip ban", "semiconductor export",
+    "technology transfer", "license required", "delistment",
+    "huawei ban", "nvidia ban", "advanced chips", "ai chip",
+    "foundry restriction", "fab restriction",
     # Political shock
     "coup", "assassination", "president resign", "prime minister resign",
     "government collapse", "emergency declared", "martial law",
@@ -222,6 +243,17 @@ CATEGORY_MAP = {
     "sanction": "us_sanctions_announcement",
     "embargo": "us_sanctions_announcement",
     "export ban": "us_sanctions_announcement",
+    # Export controls — map to china_taiwan_tension for correct asset mapping
+    # (SMH, TSM, EWT, FXI are all in that category)
+    "entity list": "us_china_trade_escalation",
+    "export control": "us_china_trade_escalation",
+    "chip ban": "us_china_trade_escalation",
+    "semiconductor export": "us_china_trade_escalation",
+    "huawei ban": "us_china_trade_escalation",
+    "nvidia ban": "us_china_trade_escalation",
+    "advanced chips": "us_china_trade_escalation",
+    "foundry restriction": "china_taiwan_tension",
+    "fab restriction": "china_taiwan_tension",
     "opec": "opec_production_decision",
     "oil": "opec_production_decision",
     "hormuz": "shipping_lane_disruption",
