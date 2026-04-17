@@ -683,295 +683,170 @@ def conf_badge(c):
     return f'<span class="badge-{c}">{c}</span>'
 
 @st.cache_data(ttl=3600)
+@st.cache_data(ttl=21600)  # Cache 6 hours — same signal shouldn't re-query
 def fetch_similar_historical_event(event_category, region, description):
-    """Find the most similar historical event from Kyle's database."""
+    """
+    Find the most similar historical event using Haiku.
+    If no good match exists, automatically creates a new event record.
+    Database grows organically from real signals the platform sees.
+    """
     try:
         conn = get_db()
-        cur = conn.cursor()
+        cur  = conn.cursor()
 
-        region_lower = (region or "").lower()
-        desc_lower   = (description or "").lower()
+        desc_lower = (description or "").lower()
 
-        # ── Signals that have no meaningful historical precedent ──────────
+        # Skip obvious noise
         noise_keywords = [
             "student loan", "minimum wage", "mortgage", "nhs", "school",
-            "election uk", "budget", "inflation cap", "interest rate cap",
-            "plan 2", "postgraduate", "salmonella", "listeria", "oscar",
-            "grammy", "pope", "artemis", "moon", "climate summit",
+            "election uk", "budget", "inflation cap", "salmonella",
+            "listeria", "oscar", "grammy", "pope", "artemis", "moon",
         ]
         if any(k in desc_lower for k in noise_keywords):
+            cur.close()
+            conn.close()
             return None
 
-        # ── Precise event matching — 65 historical events ────────────────
-        specific_event_id = None
+        # Get all historical events from DB
+        cur.execute("""
+            SELECT id, event_name, date_start, domain, severity
+            FROM historical_gpi_events
+            ORDER BY id;
+        """)
+        all_events = cur.fetchall()
+        cur.close()
+        conn.close()
 
-        # Taiwan / Cross-strait
-        if "taiwan" in region_lower or "taiwan" in desc_lower:
-            specific_event_id = "EVT_008"
-        # China trade/tech/minerals
-        elif "china" in region_lower and any(k in desc_lower for k in ["trade", "tariff", "mineral", "semiconductor", "export", "rare earth", "huawei", "tech ban"]):
-            specific_event_id = "EVT_012"
-        # South China Sea
-        elif any(k in desc_lower for k in ["south china sea", "fonop", "spratlys", "paracel"]):
-            specific_event_id = "EVT_029"
-        # China general
-        elif ("china" in region_lower or "us-china" in desc_lower) and "taiwan" not in desc_lower:
-            specific_event_id = "EVT_006"
-        # Iran direct strike / US strikes Iran
-        elif any(k in desc_lower for k in ["iran strike", "israel strikes iran", "iran retaliat", "ballistic missile iran", "u.s. strikes", "us strikes", "kharg", "strike iran", "strikes iran", "restrike"]):
-            specific_event_id = "EVT_016"
-        # Soleimani
-        elif any(k in desc_lower for k in ["soleimani", "assassination", "killed general"]):
-            specific_event_id = "EVT_032"
-        # Iran general
-        elif "iran" in region_lower or "iran" in desc_lower:
-            specific_event_id = "EVT_007"
-        # Houthi / Red Sea / Hormuz
-        elif any(k in desc_lower for k in ["houthi", "red sea", "strait of hormuz", "hormuz", "shipping lane"]):
-            specific_event_id = "EVT_004"
-        # Saudi oil attack
-        elif any(k in desc_lower for k in ["saudi", "abqaiq", "aramco", "saudi attack"]):
-            specific_event_id = "EVT_017"
-        # Yemen
-        elif any(k in desc_lower for k in ["yemen", "sanaa"]):
-            specific_event_id = "EVT_019"
-        # Nord Stream / pipelines
-        elif any(k in desc_lower for k in ["nord stream", "pipeline sabotage", "pipeline explosion"]):
-            specific_event_id = "EVT_021"
-        # Russia / Ukraine / TASS / RT — always EVT_002
-        elif any(k in region_lower for k in ["russia", "tass", "rt", "kremlin"]) or any(k in desc_lower for k in ["russia", "kremlin", "putin", "moscow", "ukraine", "russian"]):
-            specific_event_id = "EVT_002"
-        elif any(k in desc_lower for k in ["ukraine", "russia", "moscow", "kremlin", "putin", "zelensky", "donbas"]):
-            specific_event_id = "EVT_002"
-        # Belarus
-        elif any(k in desc_lower for k in ["belarus", "lukashenko", "minsk"]):
-            specific_event_id = "EVT_023"
-        # Israel / Gaza / Hamas / Hezbollah
-        elif any(k in desc_lower for k in ["israel", "gaza", "hamas", "hezbollah", "west bank", "idf"]):
-            specific_event_id = "EVT_003"
-        # Lebanon
-        elif any(k in desc_lower for k in ["lebanon", "beirut"]):
-            specific_event_id = "EVT_020"
-        # Arab Spring / MENA protests
-        elif any(k in desc_lower for k in ["arab spring", "tahrir", "tunisia", "egypt protest", "mena protest"]):
-            specific_event_id = "EVT_018"
-        # North Korea
-        elif "north korea" in region_lower or any(k in desc_lower for k in ["north korea", "dprk", "icbm", "pyongyang", "kim jong", "nuclear test", "kim ju", "north korean", "succession"]):
-            specific_event_id = "EVT_030"
-        # OPEC
-        elif any(k in desc_lower for k in ["opec", "oil cut", "production cut"]) and "saudi" not in desc_lower:
-            specific_event_id = "EVT_009"
-        # European energy
-        elif any(k in desc_lower for k in ["european energy", "eu energy", "energy crisis europe", "german energy", "ttf gas"]):
-            specific_event_id = "EVT_036"
-        # Brexit / UK political
-        elif any(k in desc_lower for k in ["brexit", "uk referendum", "british pound crash"]):
-            specific_event_id = "EVT_038"
-        # Fed / central bank
-        elif any(k in desc_lower for k in ["federal reserve", "fed rate", "rate hike", "central bank hike", "boe rate", "ecb rate"]):
-            specific_event_id = "EVT_033"
-        # SVB / bank collapse
-        elif any(k in desc_lower for k in ["bank collapse", "silicon valley bank", "svb", "credit suisse", "banking crisis"]):
-            specific_event_id = "EVT_035"
-        # Debt ceiling / sovereign debt
-        elif any(k in desc_lower for k in ["debt ceiling", "us debt", "debt default", "debt crisis"]):
-            specific_event_id = "EVT_034"
-        # Argentina / peso / EM currency
-        elif any(k in desc_lower for k in ["argentina", "peso crash", "imf bailout", "currency crisis", "devaluation"]):
-            specific_event_id = "EVT_051"
-        # Venezuela / sanctions
-        elif any(k in desc_lower for k in ["venezuela", "maduro", "caracas"]):
-            specific_event_id = "EVT_052"
-        # Brazil
-        elif any(k in desc_lower for k in ["brazil", "bolsonaro", "lula", "real crash"]):
-            specific_event_id = "EVT_054"
-        # Panama Canal
-        elif any(k in desc_lower for k in ["panama canal", "canal transit", "canal restriction"]):
-            specific_event_id = "EVT_055"
-        # Myanmar / coup
-        elif any(k in desc_lower for k in ["myanmar", "burma", "coup", "military takeover", "junta"]):
-            specific_event_id = "EVT_048"
-        # Pakistan
-        elif any(k in desc_lower for k in ["pakistan", "imran khan", "islamabad"]):
-            specific_event_id = "EVT_046"
-        # India-China
-        elif any(k in desc_lower for k in ["india china", "galwan", "himalayas border", "lac border"]):
-            specific_event_id = "EVT_047"
-        # Sri Lanka / EM collapse
-        elif any(k in desc_lower for k in ["sri lanka", "colombo", "default emerging"]):
-            specific_event_id = "EVT_049"
-        # Africa coups / Mali / Sahel
-        elif any(k in desc_lower for k in ["mali", "sahel", "niger coup", "burkina", "guinea coup", "gabon coup"]):
-            specific_event_id = "EVT_042"
-        # South Africa
-        elif any(k in desc_lower for k in ["south africa", "zuma", "johannesburg riots", "load shedding"]):
-            specific_event_id = "EVT_043"
-        # Ethiopia / Sudan / Africa conflict
-        elif any(k in desc_lower for k in ["ethiopia", "tigray", "sudan", "khartoum", "darfur"]):
-            specific_event_id = "EVT_041"
-        # Colonial Pipeline / infrastructure cyberattack
-        elif any(k in desc_lower for k in ["colonial pipeline", "pipeline hack", "infrastructure attack", "ransomware pipeline"]):
-            specific_event_id = "EVT_056"
-        # CrowdStrike / IT outage
-        elif any(k in desc_lower for k in ["crowdstrike", "it outage", "global outage", "bsod"]):
-            specific_event_id = "EVT_058"
-        # Cyber / hack general
-        elif any(k in desc_lower for k in ["cyber", "hack", "ransomware", "malware", "solarwinds", "cii", "internet disruption"]):
-            specific_event_id = "EVT_013"
-        # Semiconductor shortage
-        elif any(k in desc_lower for k in ["semiconductor shortage", "chip shortage", "tsmc delay", "fab shortage"]):
-            specific_event_id = "EVT_062"
-        # Food crisis
-        elif any(k in desc_lower for k in ["food crisis", "wheat shortage", "food insecurity", "famine", "grain"]):
-            specific_event_id = "EVT_064"
-        # Shipping container / port congestion
-        elif any(k in desc_lower for k in ["port congestion", "container shortage", "shipping crisis", "freight rate"]):
-            specific_event_id = "EVT_061"
-        # Outbreak / disease
-        elif any(k in desc_lower for k in ["outbreak", "disease", "pandemic", "virus", "ebola", "mpox", "cholera"]):
-            specific_event_id = "EVT_001"
-        # Category fallbacks
-        elif event_category == "shipping_lane_disruption":
-            specific_event_id = "EVT_004"
-        elif event_category == "opec_production_decision":
-            specific_event_id = "EVT_009"
-        elif event_category == "us_china_trade_escalation":
-            specific_event_id = "EVT_006"
-        elif event_category == "china_taiwan_tension":
-            specific_event_id = "EVT_008"
-        elif event_category == "nuclear_wmd_escalation":
-            specific_event_id = "EVT_010"
-        elif event_category == "russia_eastern_europe_conflict":
-            specific_event_id = "EVT_002"
-        elif event_category == "middle_east_military_escalation":
-            specific_event_id = "EVT_007"
-        elif event_category == "pandemic_outbreak":
-            specific_event_id = "EVT_001"
-        elif event_category == "emerging_market_political_crisis":
-            specific_event_id = "EVT_051"
-        elif event_category == "election_outcome_surprise":
-            specific_event_id = "EVT_038"
-        elif event_category == "us_sanctions_announcement":
-            specific_event_id = "EVT_006"
-        else:
-            # No good match — don't show a wrong precedent
+        if not all_events:
             return None
 
+        # Build event list for Haiku
+        event_list = "\n".join([
+            f"{e[0]}: {e[1]} ({e[2][:7] if e[2] else 'unknown'}) [{e[3]}] [{e[4]}]"
+            for e in all_events
+        ])
+
+        import anthropic
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+        # Ask Haiku to pick best match OR flag as new event needed
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=30,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Signal: {description[:200]}\n"
+                    f"Region: {region}\n"
+                    f"Category: {event_category}\n\n"
+                    f"Pick the single most similar historical event ID from this list.\n"
+                    f"Consider the actual nature of the event, not just keywords.\n"
+                    f"If no event is a reasonably close match, reply with NEW.\n"
+                    f"Reply with ONLY the event ID (e.g. EVT_007) or NEW. Nothing else.\n\n"
+                    f"{event_list}"
+                )
+            }]
+        )
+        event_id = resp.content[0].text.strip().upper()
+
+        # If Haiku says no good match — auto-create a new event
+        if event_id == "NEW" or event_id not in {e[0] for e in all_events}:
+            return _auto_create_historical_event(
+                description, region, event_category, all_events, client
+            )
+
+        # Fetch the matched event
+        conn = get_db()
+        cur  = conn.cursor()
         cur.execute("""
             SELECT id, event_name, date_start, domain, severity,
                    geographic_scope, indicators_triggered
             FROM historical_gpi_events
             WHERE id = %s;
-        """, (specific_event_id,))
-
+        """, (event_id,))
         event = cur.fetchone()
         cur.close()
+        conn.close()
+        return event
 
-        if not event:
-            return None
-
-        evt_id, evt_name, evt_date, evt_domain, evt_severity, evt_scope, evt_indicators = event
-
-        evt_type_map = {
-            'EVT_001': 'disease_outbreak',
-            'EVT_002': 'russia_eastern_europe_conflict',
-            'EVT_003': 'middle_east_military_escalation',
-            'EVT_004': 'shipping_lane_disruption',
-            'EVT_005': 'russia_eastern_europe_conflict',
-            'EVT_006': 'us_china_trade_escalation',
-            'EVT_007': 'middle_east_military_escalation',
-            'EVT_008': 'china_taiwan_tension',
-            'EVT_009': 'opec_production_decision',
-            'EVT_010': 'nuclear_wmd_escalation',
-            'EVT_011': 'emerging_market_political_crisis',
-            'EVT_012': 'us_china_trade_escalation',
-            'EVT_013': 'cyber_attack',
-            'EVT_014': 'us_china_trade_escalation',
-            'EVT_015': 'russia_eastern_europe_conflict',
-            'EVT_016': 'iran_israel_strike',
-            'EVT_017': 'saudi_oil_attack',
-            'EVT_018': 'election_outcome_surprise',
-            'EVT_019': 'middle_east_military_escalation',
-            'EVT_020': 'emerging_market_political_crisis',
-            'EVT_021': 'pipelines_disruption',
-            'EVT_022': 'us_sanctions_announcement',
-            'EVT_023': 'emerging_market_political_crisis',
-            'EVT_024': 'russia_eastern_europe_conflict',
-            'EVT_025': 'russia_eastern_europe_conflict',
-            'EVT_026': 'disease_outbreak',
-            'EVT_027': 'emerging_market_political_crisis',
-            'EVT_028': 'us_china_trade_escalation',
-            'EVT_029': 'china_taiwan_tension',
-            'EVT_030': 'nuclear_wmd_escalation',
-            'EVT_031': 'election_outcome_surprise',
-            'EVT_032': 'soleimani_assassination',
-            'EVT_033': 'central_bank_policy',
-            'EVT_034': 'emerging_market_political_crisis',
-            'EVT_035': 'bank_collapse',
-            'EVT_036': 'european_energy_crisis',
-            'EVT_037': 'emerging_market_political_crisis',
-            'EVT_038': 'election_outcome_surprise',
-            'EVT_039': 'emerging_market_political_crisis',
-            'EVT_040': 'european_energy_crisis',
-            'EVT_041': 'russia_eastern_europe_conflict',
-            'EVT_042': 'coup_risk',
-            'EVT_043': 'emerging_market_political_crisis',
-            'EVT_044': 'emerging_market_political_crisis',
-            'EVT_045': 'middle_east_military_escalation',
-            'EVT_046': 'nuclear_wmd_escalation',
-            'EVT_047': 'china_taiwan_tension',
-            'EVT_048': 'coup_risk',
-            'EVT_049': 'emerging_market_political_crisis',
-            'EVT_050': 'emerging_market_political_crisis',
-            'EVT_051': 'currency_crisis',
-            'EVT_052': 'us_sanctions_announcement',
-            'EVT_053': 'emerging_market_political_crisis',
-            'EVT_054': 'election_outcome_surprise',
-            'EVT_055': 'canal_disruption',
-            'EVT_056': 'pipeline_cyberattack',
-            'EVT_057': 'cyber_attack',
-            'EVT_058': 'cyber_attack',
-            'EVT_059': 'us_china_trade_escalation',
-            'EVT_060': 'us_china_trade_escalation',
-            'EVT_061': 'shipping_lane_disruption',
-            'EVT_062': 'semiconductor_shortage',
-            'EVT_063': 'semiconductor_shortage',
-            'EVT_064': 'food_crisis',
-            'EVT_065': 'opec_production_decision',
-        }
-
-        # Handle tariff category override
-        if event_category == 'global_tariff_escalation':
-            mapped_type = 'global_tariff_escalation'
-
-        mapped_type = evt_type_map.get(evt_id, event_category)
-
-        conn2 = get_db()
-        cur2 = conn2.cursor()
-        cur2.execute("""
-            SELECT asset_ticker, asset_name, historical_direction,
-                   avg_move_72h, directional_accuracy, confidence_rating
-            FROM asset_mappings
-            WHERE event_type = %s
-            AND transmission_channel = 'historical_verified'
-            AND confidence_rating IN ('high', 'medium')
-            ORDER BY ABS(avg_move_72h) DESC
-            LIMIT 4;
-        """, (mapped_type,))
-
-        top_assets = cur2.fetchall()
-        cur2.close()
-
-        return {
-            "id":         evt_id,
-            "name":       evt_name,
-            "date":       evt_date.strftime("%b %Y") if evt_date else "—",
-            "domain":     evt_domain,
-            "severity":   evt_severity,
-            "top_assets": top_assets,
-        }
     except Exception as e:
+        print(f"Historical event lookup error: {e}")
         return None
+
+
+def _auto_create_historical_event(description, region, event_category,
+                                   existing_events, client):
+    """
+    Auto-generates and saves a new historical event record when Haiku
+    determines no existing event is a close enough match.
+    Costs ~$0.001 per new event created — rare operation.
+    """
+    try:
+        # Generate next event ID
+        existing_ids = [e[0] for e in existing_events if e[0].startswith("EVT_")]
+        max_num = max(
+            (int(eid.split("_")[1]) for eid in existing_ids if eid.split("_")[1].isdigit()),
+            default=65
+        )
+        new_id = f"EVT_{max_num + 1:03d}"
+
+        # Ask Haiku to generate the event record
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=120,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Create a historical event record for this signal.\n"
+                    f"Signal: {description[:200]}\n"
+                    f"Region: {region}\n\n"
+                    f"Reply with EXACTLY this format, one field per line:\n"
+                    f"NAME: [short event name, max 8 words]\n"
+                    f"DOMAIN: [one of: Armed Conflict & Military / Economic & Financial Intelligence / Energy & Resource Security / Diplomatic & Political / Maritime & Trade Flows / Cyber & Infrastructure]\n"
+                    f"SEVERITY: [one of: LOW / MEDIUM / HIGH / EXTREME]\n"
+                    f"SCOPE: [one of: Regional / Global / Bilateral]\n"
+                    f"DATE: [YYYY-MM]\n"
+                    f"Nothing else."
+                )
+            }]
+        )
+
+        # Parse response
+        lines = resp.content[0].text.strip().split("\n")
+        fields = {}
+        for line in lines:
+            if ":" in line:
+                k, v = line.split(":", 1)
+                fields[k.strip().upper()] = v.strip()
+
+        event_name = fields.get("NAME", description[:50])
+        domain     = fields.get("DOMAIN", "Diplomatic & Political")
+        severity   = fields.get("SEVERITY", "MEDIUM")
+        scope      = fields.get("SCOPE", "Regional")
+        date_str   = fields.get("DATE", "2024-01")
+
+        # Save to DB using existing schema — no new columns needed
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            INSERT INTO historical_gpi_events
+                (id, event_name, date_start, domain, severity, geographic_scope)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING;
+        """, (new_id, event_name, date_str, domain, severity, scope))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print(f"   📚 Auto-created historical event: {new_id} — {event_name}")
+
+        # Return in same format as fetch
+        return (new_id, event_name, date_str, domain, severity, scope, None)
+
+    except Exception as e:
+        print(f"   ⚠️ Auto-create event error: {e}")
+        return None
+
 
 # --- Data Fetching ---
 @st.cache_data(ttl=60)
