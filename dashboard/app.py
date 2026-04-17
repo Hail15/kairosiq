@@ -654,7 +654,27 @@ def time_remaining(expires_at):
 def format_assets(assets_json):
     if not assets_json: return []
     try:
-        return assets_json if isinstance(assets_json, list) else json.loads(assets_json)
+        assets = assets_json if isinstance(assets_json, list) else json.loads(assets_json)
+        # Replace non-investable futures tickers with tradeable ETF equivalents
+        TICKER_ALIASES = {
+            "GC=F":  "GLD",    # Gold futures → SPDR Gold ETF
+            "CL=F":  "USO",    # WTI crude futures → USO ETF
+            "BZ=F":  "BNO",    # Brent crude futures → BNO ETF
+            "^VIX":  "VIXY",   # VIX index → VIXY ETF
+            "SI=F":  "SLV",    # Silver futures → SLV ETF
+            "NG=F":  "UNG",    # Natural gas futures → UNG ETF
+            "HG=F":  "COPX",   # Copper futures → COPX ETF
+            "ZW=F":  "WEAT",   # Wheat futures → WEAT ETF
+            "ZC=F":  "CORN",   # Corn futures → CORN ETF
+        }
+        for asset in assets:
+            t = asset.get("ticker", "")
+            if t in TICKER_ALIASES:
+                asset["ticker"] = TICKER_ALIASES[t]
+                # Update name if it's just the raw ticker
+                if asset.get("name") in (t, "", None):
+                    asset["name"] = TICKER_ALIASES[t]
+        return assets
     except: return []
 
 def conf_badge(c):
