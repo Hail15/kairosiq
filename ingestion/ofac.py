@@ -133,23 +133,52 @@ NEWS_FEEDS = [
         "name": "US Executive Actions",
         "credibility": 0.95
     },
+    # De-escalation / diplomatic resolution feeds — catches what the platform was missing
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+%22ceasefire%22+OR+%22peace+deal%22+OR+%22strait+reopen%22+OR+%22blockade+lifted%22&ceid=US:en&hl=en-US&gl=US",
+        "name": "De-escalation Events",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+%22hormuz%22+OR+%22strait+of+hormuz%22+OR+%22red+sea+shipping%22&ceid=US:en&hl=en-US&gl=US",
+        "name": "Hormuz Red Sea Monitor",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+%22sanctions+lifted%22+OR+%22sanctions+relief%22+OR+%22nuclear+deal%22+OR+%22diplomatic+breakthrough%22&ceid=US:en&hl=en-US&gl=US",
+        "name": "Diplomatic Resolutions",
+        "credibility": 0.95
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=when:24h+%22peace+summit%22+OR+%22peace+talks%22+OR+%22negotiations+succeed%22+OR+%22deal+reached%22+%22iran%22+OR+%22russia%22+OR+%22israel%22&ceid=US:en&hl=en-US&gl=US",
+        "name": "Peace Negotiations",
+        "credibility": 0.95
+    },
 ]
 
 # High-impact keywords that move markets
 SIGNAL_KEYWORDS = [
-    # Conflict
+    # Conflict — escalation
     "war", "airstrike", "missile strike", "invasion", "military operation",
-    "ceasefire", "attack", "bombing", "troops deployed", "naval",
+    "attack", "bombing", "troops deployed", "naval",
     "nuclear", "ballistic", "drone strike", "escalation",
+    # Conflict — de-escalation (these are equally market-moving)
+    "ceasefire", "cease fire", "peace deal", "peace agreement",
+    "strait reopens", "strait reopen", "hormuz reopen", "hormuz open",
+    "blockade lifted", "blockade ends", "shipping resumes",
+    "sanctions lifted", "sanctions relief", "sanctions removed",
+    "nuclear deal", "jcpoa", "diplomatic breakthrough",
+    "troops withdraw", "withdrawal begins", "forces withdraw",
+    "hostages released", "prisoner exchange",
+    "summit concludes", "deal signed", "agreement signed",
     # Sanctions & Trade
     "sanction", "embargo", "tariff", "trade war", "export ban",
     "asset freeze", "blocked", "restricted", "blacklist",
     "designated", "ofac", "reciprocal tariff", "trade deficit",
     "import duty", "customs duty", "trade deal", "trade agreement",
-    # Export controls — semiconductor / tech specific
+    # Export controls
     "entity list", "export control", "chip ban", "semiconductor export",
-    "technology transfer", "license required", "delistment",
-    "huawei ban", "nvidia ban", "advanced chips", "ai chip",
+    "technology transfer", "huawei ban", "nvidia ban", "advanced chips",
     "foundry restriction", "fab restriction",
     # Political shock
     "coup", "assassination", "president resign", "prime minister resign",
@@ -158,6 +187,10 @@ SIGNAL_KEYWORDS = [
     # Energy
     "oil supply", "opec", "pipeline attack", "energy crisis",
     "oil embargo", "gas supply", "strait of hormuz", "suez",
+    "refinery attack", "oil field", "lng terminal",
+    # Shipping specifically
+    "shipping lane", "tanker seized", "tanker attacked",
+    "port blockade", "maritime disruption", "red sea",
     # Financial
     "central bank", "interest rate", "federal reserve", "inflation surge",
     "currency crisis", "debt default", "bank collapse", "market crash",
@@ -165,6 +198,7 @@ SIGNAL_KEYWORDS = [
     # Countries
     "iran", "russia", "ukraine", "china", "taiwan", "israel",
     "gaza", "north korea", "venezuela", "saudi arabia",
+    "pakistan", "india", "turkey", "egypt", "syria",
 ]
 
 # Stories that match keywords but are noise — filter these out
@@ -182,8 +216,10 @@ NOISE_KEYWORDS = [
     "football score", "soccer match", "nba game", "nfl game", "mlb game",
     "nhl game", "premier league", "champions league", "world cup qualifier",
     "olympic trials", "tennis tournament", "golf tournament", "f1 race",
-    "player transfer", "player injury", "coach fired", "sports result",
-    "match result", "league table", "championship final",
+    "player transfer", "player injury", "coach fired", "coach sacked",
+    "sack coach", "sacked coach", "manager sacked", "manager fired",
+    "sports result", "match result", "league table", "championship final",
+    "world cup 2026", "world cup squad", "world cup qualification",
     # Celebrity / Human interest
     "pope", "easter celebration", "wedding", "married", "divorce",
     "pregnant", "baby born", "royal family", "prince william", "kate middleton",
@@ -243,8 +279,7 @@ CATEGORY_MAP = {
     "sanction": "us_sanctions_announcement",
     "embargo": "us_sanctions_announcement",
     "export ban": "us_sanctions_announcement",
-    # Export controls — map to china_taiwan_tension for correct asset mapping
-    # (SMH, TSM, EWT, FXI are all in that category)
+    # Export controls
     "entity list": "us_china_trade_escalation",
     "export control": "us_china_trade_escalation",
     "chip ban": "us_china_trade_escalation",
@@ -254,10 +289,25 @@ CATEGORY_MAP = {
     "advanced chips": "us_china_trade_escalation",
     "foundry restriction": "china_taiwan_tension",
     "fab restriction": "china_taiwan_tension",
+    # De-escalation — maps to shipping_lane_disruption so asset mapper
+    # can apply de-escalation direction flip (USO down, JETS up)
+    "ceasefire": "shipping_lane_disruption",
+    "cease fire": "shipping_lane_disruption",
+    "strait reopen": "shipping_lane_disruption",
+    "hormuz reopen": "shipping_lane_disruption",
+    "blockade lifted": "shipping_lane_disruption",
+    "blockade ends": "shipping_lane_disruption",
+    "shipping resumes": "shipping_lane_disruption",
+    "sanctions lifted": "us_sanctions_announcement",
+    "sanctions relief": "us_sanctions_announcement",
+    "nuclear deal": "middle_east_military_escalation",
+    "peace deal": "middle_east_military_escalation",
+    "peace agreement": "middle_east_military_escalation",
     "opec": "opec_production_decision",
     "oil": "opec_production_decision",
     "hormuz": "shipping_lane_disruption",
     "suez": "shipping_lane_disruption",
+    "red sea": "shipping_lane_disruption",
     "venezuela": "emerging_market_political_crisis",
     "saudi": "opec_production_decision",
     "federal reserve": "central_bank_policy",
