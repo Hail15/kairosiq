@@ -4996,9 +4996,38 @@ if tab7 is not None:
                                                     value=1.00, step=0.01,
                                                     key="manual_amount")
                 with col_c:
-                    manual_signal = st.text_input("Signal ID (optional)",
-                                                  placeholder="Leave blank if not signal-driven",
-                                                  key="manual_signal")
+                    # Auto-suggest signal ID for the entered ticker
+                    suggested_signal_id = ""
+                    if manual_ticker:
+                        try:
+                            conn_sig = get_db()
+                            cur_sig  = conn_sig.cursor()
+                            cur_sig.execute("""
+                                SELECT id FROM signals
+                                WHERE affected_assets::text ILIKE %s
+                                AND is_active = true
+                                AND signal_time >= NOW() - INTERVAL '48 hours'
+                                ORDER BY probability_shift DESC
+                                LIMIT 1;
+                            """, (f'%"{manual_ticker.upper().strip()}"%',))
+                            sig_row = cur_sig.fetchone()
+                            if sig_row:
+                                suggested_signal_id = str(sig_row[0])[:8]
+                            cur_sig.close()
+                            conn_sig.close()
+                        except Exception:
+                            pass
+
+                    manual_signal = st.text_input(
+                        "Signal ID ⚠️ Required for track record",
+                        placeholder=suggested_signal_id or "8-char signal ID from dashboard",
+                        value=suggested_signal_id,
+                        key="manual_signal",
+                        help="Find signal ID on the dashboard signal card. Required to trace outcomes."
+                    )
+                    if not manual_signal and manual_ticker:
+                        st.warning("⚠️ No signal ID — position won't be traceable for post-mortems")
+
                     manual_notes  = st.text_area("Notes", height=80,
                                                  placeholder="Why did you take this trade?",
                                                  key="manual_notes")
@@ -5014,6 +5043,25 @@ if tab7 is not None:
                                 .encode()
                             ).hexdigest()[:32]
 
+                            # Resolve short signal ID to full UUID
+                            full_signal_id = None
+                            if manual_signal and manual_signal.strip():
+                                try:
+                                    conn_res = get_db()
+                                    cur_res  = conn_res.cursor()
+                                    cur_res.execute("""
+                                        SELECT id FROM signals
+                                        WHERE id::text LIKE %s
+                                        ORDER BY signal_time DESC LIMIT 1;
+                                    """, (f"{manual_signal.strip()[:8]}%",))
+                                    res_row = cur_res.fetchone()
+                                    if res_row:
+                                        full_signal_id = str(res_row[0])
+                                    cur_res.close()
+                                    conn_res.close()
+                                except Exception:
+                                    pass
+
                             conn = get_db()
                             cur  = conn.cursor()
                             cur.execute("""
@@ -5023,7 +5071,7 @@ if tab7 is not None:
                                 VALUES (%s, %s, %s, %s, %s, 'manual', %s, %s, %s, NOW())
                                 ON CONFLICT (order_id) DO NOTHING;
                             """, (
-                                manual_signal.strip() or None,
+                                full_signal_id,
                                 manual_ticker.upper().strip(),
                                 manual_side,
                                 manual_amount,
@@ -5034,9 +5082,10 @@ if tab7 is not None:
                             ))
                             conn.commit()
                             cur.close()
+                            sig_linked = f" · Signal: {manual_signal.strip()[:8]}" if full_signal_id else " ⚠️ No signal linked"
                             st.success(f"✅ Trade logged: {manual_side.upper()} "
                                        f"{manual_ticker.upper()} @ ${manual_price:.2f} "
-                                       f"(${manual_amount:.2f} {manual_account})")
+                                       f"(${manual_amount:.2f} {manual_account}){sig_linked}")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error logging trade: {e}")
