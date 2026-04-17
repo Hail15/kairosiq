@@ -683,7 +683,6 @@ def conf_badge(c):
     return f'<span class="badge-{c}">{c}</span>'
 
 @st.cache_data(ttl=3600)
-@st.cache_data(ttl=21600)  # Cache 6 hours — same signal shouldn't re-query
 def fetch_similar_historical_event(event_category, region, description):
     """
     Find the most similar historical event using Haiku.
