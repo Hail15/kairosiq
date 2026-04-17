@@ -931,6 +931,7 @@ def fetch_active_signals():
     """)
     rows = cur.fetchall()
     cur.close()
+    conn.close()
     return rows
 
 @st.cache_data(ttl=60)
@@ -946,6 +947,7 @@ def fetch_all_signals():
     """)
     rows = cur.fetchall()
     cur.close()
+    conn.close()
     return rows
 
 @st.cache_data(ttl=60)
@@ -960,6 +962,7 @@ def fetch_bets():
     """)
     rows = cur.fetchall()
     cur.close()
+    conn.close()
     return rows
 
 @st.cache_data(ttl=60)
@@ -975,6 +978,7 @@ def fetch_questions():
     """)
     rows = cur.fetchall()
     cur.close()
+    conn.close()
     return rows
 
 @st.cache_data(ttl=60)
@@ -989,6 +993,7 @@ def fetch_probability_history(question_id):
     """, (str(question_id),))
     rows = cur.fetchall()
     cur.close()
+    conn.close()
     return rows
 
 @st.cache_data(ttl=60)
@@ -1007,6 +1012,7 @@ def fetch_outcomes():
     """)
     rows = cur.fetchall()
     cur.close()
+    conn.close()
     return rows
 
 @st.cache_data(ttl=60)
