@@ -297,7 +297,7 @@ Historically correlated assets: {', '.join(top_assets)}
 Current macro regime: {regime}
 Platform accuracy: {accuracy}
 Write the brief now. Exactly 120 words. End on a complete sentence."""
-    brief = call_agent(system, user, max_tokens=400)
+    brief = call_agent(system, user, max_tokens=250)
     print(f"   🤖 Brief generated: {len(brief or '')} chars")
     return brief
 
@@ -327,7 +327,7 @@ Current macro regime: {regime}
 Open positions:
 {positions_text}
 Assess each relevant position. HOLD / WATCH / EXIT and one sentence why."""
-    assessment = call_agent(system, user, max_tokens=300)
+    assessment = call_agent(system, user, max_tokens=200)
     print(f"   🤖 Portfolio assessment complete")
     return assessment
 
@@ -1234,7 +1234,7 @@ def run_agent_triage(signals):
         cur  = conn.cursor()
         cur.execute("""
             SELECT signal_id FROM agent_enrichment
-            WHERE created_at >= NOW() - INTERVAL '4 hours';
+            WHERE created_at >= NOW() - INTERVAL '12 hours';
         """)
         already_enriched = {str(r[0]) for r in cur.fetchall()}
         cur.close()
@@ -1271,16 +1271,16 @@ def run_agent_triage(signals):
             print(f"   🔁 Cycle dedup — already approved {region} [{platform}] {category} this cycle")
             continue
 
-        decision = triage_signal(signal)
-        if decision == "suppress":
-            continue
-
-        # Skip full enrichment if already done recently — just use cached version
+        # Skip triage entirely for already-alerted signals — just use cached result
         if signal_id in already_enriched:
             print(f"   ⚡ Using cached enrichment for {signal_id[:8]}")
             approved.append(signal)
             seen_this_cycle.add(cycle_key)
             seen_this_cycle.add(desc_key)
+            continue
+
+        decision = triage_signal(signal)
+        if decision == "suppress":
             continue
 
         brief      = generate_brief(signal)
