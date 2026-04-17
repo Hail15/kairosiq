@@ -382,12 +382,13 @@ def run_thesis_confirmation_detector():
                 threshold = (tp_pct * 0.70) if tp_pct else 3.0
 
                 if pct >= threshold:
-                    # Check not already alerted today
+                    # Check not already alerted today using ticker + platform
                     cur.execute("""
                         SELECT COUNT(*) FROM signal_alerts_sent
-                        WHERE signal_id::text = %s
+                        WHERE source_platform = 'THESIS_CONFIRM'
+                        AND region = %s
                         AND alerted_at >= NOW() - INTERVAL '24 hours';
-                    """, (f"thesis_confirm_{order_id}",))
+                    """, (ticker,))
                     already = cur.fetchone()[0]
                     if already:
                         continue
@@ -452,14 +453,13 @@ def run_thesis_confirmation_detector():
             )
             send_telegram(message)
 
-            # Mark as alerted
+            # Mark as alerted — use NULL signal_id, identify by ticker + platform
             cur.execute("""
                 INSERT INTO signal_alerts_sent
-                    (signal_id, event_category, region, source_platform,
+                    (event_category, region, source_platform,
                      confidence_score, alerted_at)
-                VALUES (%s, 'thesis_confirmation', %s, 'THESIS_CONFIRM', 'medium', NOW())
-                ON CONFLICT DO NOTHING;
-            """, (f"thesis_confirm_{pos['order_id']}", ticker))
+                VALUES ('thesis_confirmation', %s, 'THESIS_CONFIRM', 'medium', NOW());
+            """, (ticker,))
 
             print(f"   📱 Thesis confirmation sent: {ticker} {pct:+.1f}%")
 
