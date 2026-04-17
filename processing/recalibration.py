@@ -166,53 +166,79 @@ def run_signal_stack_analyzer():
     Detects when 3+ signals fire within the same 2-hour window
     across different sources and categories.
     Generates a combined intelligence brief via Haiku.
-    Fires at most once per 6 hours.
+    Only fires when stack composition materially changes — not just
+    because the same signals keep getting re-evaluated.
     """
     print("\n🔥 Running signal stack analyzer...")
     try:
+        import hashlib
         conn = get_db()
         cur  = conn.cursor()
 
-        # Check cooldown — don't fire more than once per 6 hours
-        cur.execute("""
-            SELECT COUNT(*) FROM signals
-            WHERE source_platform = 'SIGNAL_STACK'
-            AND signal_time >= NOW() - INTERVAL '6 hours';
-        """)
-        if cur.fetchone()[0] > 0:
-            print("   ⏭ Signal stack — cooldown active")
-            cur.close()
-            conn.close()
-            return
-
-        # Find signals from last 2 hours across different sources
+        # Find signals from last 6 hours across different sources
+        # Using 6h window so we capture the full active stack
         cur.execute("""
             SELECT id, event_description, region, event_category,
                    confidence_score, source_platform, probability_shift
             FROM signals
             WHERE is_active = true
-            AND signal_time >= NOW() - INTERVAL '2 hours'
+            AND signal_time >= NOW() - INTERVAL '6 hours'
             AND confidence_score IN ('high', 'extreme')
             AND source_platform NOT IN ('SIGNAL_STACK', 'CORRELATION_MONITOR')
             ORDER BY probability_shift DESC;
         """)
         recent = cur.fetchall()
-        cur.close()
-        conn.close()
 
         if len(recent) < 3:
             print(f"   ✅ Signal stack — only {len(recent)} recent signals, no stack detected")
+            cur.close()
+            conn.close()
             return
 
         # Check diversity — need at least 2 different source platforms
-        platforms = set(r[5] for r in recent)
+        platforms  = set(r[5] for r in recent)
         categories = set(r[3] for r in recent)
         if len(platforms) < 2:
             print("   ✅ Signal stack — insufficient source diversity")
+            cur.close()
+            conn.close()
             return
 
+        # Build composition hash from sorted signal IDs
+        # Only fire if composition is materially different from last alert
+        signal_ids = sorted([str(r[0]) for r in recent[:6]])
+        stack_hash = hashlib.md5(",".join(signal_ids).encode()).hexdigest()[:12]
+
+        # Check if same composition already alerted in last 12 hours
+        cur.execute("""
+            SELECT COUNT(*) FROM signals
+            WHERE source_platform = 'SIGNAL_STACK'
+            AND event_description LIKE %s
+            AND signal_time >= NOW() - INTERVAL '12 hours';
+        """, (f"%{stack_hash}%",))
+        if cur.fetchone()[0] > 0:
+            print(f"   ⏭ Signal stack — same composition [{stack_hash}] already alerted")
+            cur.close()
+            conn.close()
+            return
+
+        # Also check hard cooldown — never fire more than once per 2 hours regardless
+        cur.execute("""
+            SELECT COUNT(*) FROM signals
+            WHERE source_platform = 'SIGNAL_STACK'
+            AND signal_time >= NOW() - INTERVAL '2 hours';
+        """)
+        if cur.fetchone()[0] > 0:
+            print("   ⏭ Signal stack — hard cooldown active (2h)")
+            cur.close()
+            conn.close()
+            return
+
+        cur.close()
+        conn.close()
+
         print(f"   🚨 Signal stack detected: {len(recent)} signals, "
-              f"{len(platforms)} platforms, {len(categories)} categories")
+              f"{len(platforms)} platforms [{stack_hash}]")
 
         # Build stack summary
         stack_lines = []
@@ -269,6 +295,30 @@ What does this convergence mean? What single trade expresses this most cleanly?"
             )
             send_telegram(message)
             print("   📱 Signal stack alert sent")
+
+            # Save to signals table so cooldown check works
+            try:
+                conn_save = get_db()
+                cur_save  = conn_save.cursor()
+                cur_save.execute("""
+                    INSERT INTO signals (
+                        event_description, region, event_category,
+                        probability_before, probability_after, probability_shift,
+                        confidence_score, source_platform,
+                        signal_time, expires_at, is_active
+                    ) VALUES (%s, 'Global', 'financial_market_intelligence',
+                              0, 80, 80, 'high', 'SIGNAL_STACK',
+                              NOW(), NOW() + INTERVAL '6 hours', true);
+                """, (
+                    f"SIGNAL STACK [{stack_hash}]: {len(recent)} signals converging — "
+                    f"{platform_list}. {(stack_brief or '')[:200]}",
+                ))
+                conn_save.commit()
+                cur_save.close()
+                conn_save.close()
+            except Exception as se:
+                print(f"   ⚠️ Stack save error: {se}")
+
         except Exception as e:
             print(f"   ⚠️ Stack alert send error: {e}")
 
