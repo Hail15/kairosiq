@@ -3179,11 +3179,12 @@ if tab1 is not None:
                                     )
 
                                     # Pattern confidence based on signal strength
-                                    if strength >= 75 and region_match:
+                                    sig_strength = metadata.get("signal_strength", 50) if 'metadata' in dir() else 50
+                                    if sig_strength >= 75 and region_match:
                                         pattern_yes = shift_up
                                         pattern_confidence = "HIGH"
                                         pattern_conf_color = "#e8b84b"
-                                    elif strength >= 50:
+                                    elif sig_strength >= 50:
                                         pattern_yes = shift_up
                                         pattern_confidence = "MEDIUM"
                                         pattern_conf_color = "#666"
