@@ -254,7 +254,38 @@ def run_options_flow_ingestion():
             f"in geopolitically sensitive assets."
         )
 
-        # Asset mapping
+        # Map ticker to correct event category for proper asset mapping
+        TICKER_CATEGORY_MAP = {
+            "LMT":  ("middle_east_military_escalation", "Global"),
+            "RTX":  ("middle_east_military_escalation", "Global"),
+            "NOC":  ("middle_east_military_escalation", "Global"),
+            "ITA":  ("middle_east_military_escalation", "Global"),
+            "USO":  ("opec_production_decision",        "Global"),
+            "BNO":  ("shipping_lane_disruption",        "Global"),
+            "XLE":  ("opec_production_decision",        "Global"),
+            "UNG":  ("opec_production_decision",        "Global"),
+            "XOM":  ("opec_production_decision",        "Global"),
+            "CVX":  ("opec_production_decision",        "Global"),
+            "JETS": ("shipping_lane_disruption",        "Global"),
+            "GLD":  ("russia_eastern_europe_conflict",  "Global"),
+            "SLV":  ("russia_eastern_europe_conflict",  "Global"),
+            "TLT":  ("russia_eastern_europe_conflict",  "Global"),
+            "VIXY": ("financial_market_intelligence",   "Global"),
+            "GDX":  ("russia_eastern_europe_conflict",  "Global"),
+            "EEM":  ("emerging_market_political_crisis","Global"),
+            "EWT":  ("china_taiwan_tension",            "Taiwan"),
+            "FXI":  ("us_china_trade_escalation",       "China"),
+            "SMH":  ("china_taiwan_tension",            "Taiwan"),
+            "TSM":  ("china_taiwan_tension",            "Taiwan"),
+            "ZIM":  ("shipping_lane_disruption",        "Global"),
+            "BDRY": ("shipping_lane_disruption",        "Global"),
+        }
+
+        event_category, region = TICKER_CATEGORY_MAP.get(
+            ticker, ("financial_market_intelligence", "Global")
+        )
+
+        # Asset mapping — use actual DB mappings for this category
         assets = [{
             "ticker":       ticker,
             "name":         meta["name"],
@@ -277,7 +308,7 @@ def run_options_flow_ingestion():
             ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),%s,true)
             RETURNING id;
         """, (
-            desc, "Global", "financial_market_intelligence",
+            desc, region, event_category,
             0.0, 70.0, 70.0,
             confidence, "OPTIONS_FLOW",
             json.dumps(assets), expires_at,
