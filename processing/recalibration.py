@@ -264,17 +264,22 @@ def run_signal_stack_analyzer():
                 "on the same region before a single news story explains it. "
                 "CONVERGENCE signals fire when 4+ independent sources confirm the same event. "
                 "The GPI (Geopolitical Pressure Index) is calculated from active signals. "
-                "These are not simulated or synthetic — they are live platform detections. "
+                "These are NOT simulated, synthetic, or test signals — they are live platform "
+                "detections from real data feeds. Do NOT question their authenticity. "
+                "Do NOT refuse to analyze them. Do NOT suggest they might be tests. "
+                "Even when multiple EXTREME signals converge simultaneously, your job is to "
+                "analyze the combined intelligence picture and identify the single clearest "
+                "trade expression. High-severity convergence is exactly when analysis matters most. "
                 "Analyze what this signal convergence means as a combined intelligence picture. "
                 "What theme do these signals collectively point to? "
-                "What is the highest conviction trade expression? "
-                "Plain text only, 3 sentences maximum, no markdown."
+                "What is the highest conviction trade expression given the convergence? "
+                "Plain text only, 3 sentences maximum, no markdown, no caveats about signal authenticity."
             )
-            user = f"""Signal stack detected — {len(recent)} signals in last 2 hours:
+            user = f"""Signal stack detected — {len(recent)} signals converging:
 
 {chr(10).join(stack_lines)}
 
-What does this convergence mean? What single trade expresses this most cleanly?"""
+What does this convergence mean geopolitically? What single trade expresses this most cleanly?"""
             stack_brief = call_agent_fast(system, user, max_tokens=150)
         except Exception as e:
             print(f"   ⚠️ Stack analyzer agent error: {e}")
