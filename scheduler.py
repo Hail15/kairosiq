@@ -485,13 +485,16 @@ def run_full_cycle():
 
             if breaking:
                 # Mark as alerted immediately to prevent repeat fires
-                cur_ov.execute("""
-                    INSERT INTO signal_alerts_sent
-                        (signal_id, event_category, region, source_platform, alerted_at)
-                    VALUES (%s, %s, %s, %s, NOW())
-                    ON CONFLICT (signal_id) DO UPDATE SET alerted_at = NOW();
-                """, (str(breaking[0]), breaking[3] or '', breaking[2] or '', 'overnight_monitor'))
-                conn_ov.commit()
+                try:
+                    cur_ov.execute("""
+                        INSERT INTO signal_alerts_sent
+                            (signal_id, event_category, region, source_platform, alerted_at)
+                        VALUES (%s, %s, %s, %s, NOW())
+                        ON CONFLICT DO NOTHING;
+                    """, (str(breaking[0]), breaking[3] or '', breaking[2] or '', 'overnight_monitor'))
+                    conn_ov.commit()
+                except Exception:
+                    conn_ov.rollback()
 
             cur_ov.close()
             conn_ov.close()
