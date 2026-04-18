@@ -342,7 +342,7 @@ Historically correlated assets: {', '.join(top_assets)}
 Current macro regime: {regime}
 Platform accuracy: {accuracy}
 Write the brief now. Exactly 120 words. End on a complete sentence."""
-    brief = call_agent(system, user, max_tokens=250)
+    brief = call_agent_fast(system, user, max_tokens=250)
     print(f"   🤖 Brief generated: {len(brief or '')} chars")
     return brief
 
@@ -372,7 +372,7 @@ Current macro regime: {regime}
 Open positions:
 {positions_text}
 Assess each relevant position. HOLD / WATCH / EXIT and one sentence why."""
-    assessment = call_agent(system, user, max_tokens=200)
+    assessment = call_agent_fast(system, user, max_tokens=200)
     print(f"   🤖 Portfolio assessment complete")
     return assessment
 
@@ -1336,32 +1336,51 @@ def run_agent_triage(signals):
         if decision == "suppress":
             continue
 
-        brief      = generate_brief(signal)
-        assessment = portfolio_signal_assessment(signal)
-        trade_rec  = generate_trade_recommendation(signal)
+        confidence = signal[7] or "medium"
 
-        # Exit levels
-        exit_levels = None
-        try:
-            exit_levels = generate_exit_levels(signal, trade_rec)
-            if exit_levels and trade_rec:
-                update_position_exit_levels(signal, trade_rec, exit_levels)
-        except Exception:
-            pass
+        # Skip expensive enrichment for MEDIUM/LOW signals that are CORRELATION_MONITOR
+        # or UNPRICED_RISK — these fire constantly and rarely need fresh briefs
+        platform = signal[8] or ""
+        skip_full_enrichment = (
+            confidence in ("medium", "low") and
+            platform in ("CORRELATION_MONITOR", "UNPRICED_RISK")
+        )
 
-        # Entry timing
-        entry_timing = None
-        try:
-            entry_timing = assess_entry_timing(signal, trade_rec)
-        except Exception:
-            pass
+        if skip_full_enrichment:
+            brief      = None
+            assessment = None
+            trade_rec  = None
+            exit_levels = None
+            entry_timing = None
+            conv_sizing  = None
+            print(f"   💰 Skipping full enrichment for {platform} {confidence} signal — cost reduction")
+        else:
+            brief      = generate_brief(signal)
+            assessment = portfolio_signal_assessment(signal)
+            trade_rec  = generate_trade_recommendation(signal)
 
-        # Convergence sizing
-        conv_sizing = None
-        try:
-            conv_sizing = convergence_sizing_guidance(signals, trade_rec)
-        except Exception:
-            pass
+            # Exit levels
+            exit_levels = None
+            try:
+                exit_levels = generate_exit_levels(signal, trade_rec)
+                if exit_levels and trade_rec:
+                    update_position_exit_levels(signal, trade_rec, exit_levels)
+            except Exception:
+                pass
+
+            # Entry timing
+            entry_timing = None
+            try:
+                entry_timing = assess_entry_timing(signal, trade_rec)
+            except Exception:
+                pass
+
+            # Convergence sizing
+            conv_sizing = None
+            try:
+                conv_sizing = convergence_sizing_guidance(signals, trade_rec)
+            except Exception:
+                pass
 
         enriched = signal + (brief, assessment, decision, trade_rec,
                              exit_levels, entry_timing, conv_sizing)
