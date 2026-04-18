@@ -161,10 +161,13 @@ def notify_signal(signal):
     acc_min    = 0
     acc_max    = 0
     peak_time  = "72h"
+    event_type = category  # fallback
 
     try:
-        from processing.asset_mapper import get_signal_metadata
-        meta       = get_signal_metadata(assets, prob_shift, confidence.lower(), platform.lower())
+        from processing.asset_mapper import get_signal_metadata, map_event_to_category
+        event_type = map_event_to_category(description)
+        # Problem 4 + 6 fix — pass event_category for signal-specific accuracy and timing
+        meta       = get_signal_metadata(assets, prob_shift, confidence.lower(), platform.lower(), event_type)
         strength   = meta.get("signal_strength", 0)
         tier       = meta.get("convergence_tier", 1)
         tier_label = meta.get("convergence_label", "SINGLE SOURCE")
@@ -389,6 +392,64 @@ def notify_signal(signal):
     # Telegram hard limit is 4096 chars — trim if needed
     if len(message) > 4000:
         message = message[:3950] + "...\n\n🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
+
+    # Pre-distribution consistency check (Kyle's fixes)
+    try:
+        from processing.asset_mapper import run_pre_distribution_consistency_check
+        trade_rec_direction = None
+        narrative_text = None
+        confirmed_count = 0
+        total_asset_count = len(assets)
+
+        # Extract trade rec direction from signal tuple if available
+        if len(signal) > 13 and signal[13]:
+            try:
+                rec = signal[13]
+                if isinstance(rec, dict):
+                    trade_rec_direction = f"{rec.get('ACTION', '')} {rec.get('TICKER', '')}"
+                elif isinstance(rec, str):
+                    trade_rec_direction = rec
+            except Exception:
+                pass
+
+        # Extract narrative from signal tuple if available
+        if len(signal) > 12 and signal[12]:
+            narrative_text = str(signal[12])[:500]
+
+        # Count confirmed assets from YES/NO indicators
+        for a in assets:
+            try:
+                pat, _, _ = get_technical_indicator(
+                    a.get("ticker", ""), a.get("direction", "up"), strength, a.get("accuracy", 0.6)
+                )
+                if pat == "YES":
+                    confirmed_count += 1
+            except Exception:
+                pass
+
+        check = run_pre_distribution_consistency_check(
+            signal_description=description,
+            event_category=event_type,
+            source_platform=platform,
+            assets=assets,
+            trade_rec_direction=trade_rec_direction,
+            narrative=narrative_text,
+            confirmed_count=confirmed_count,
+            total_assets=total_asset_count,
+            confidence_score=confidence.lower(),
+            platform_accuracy=f"{acc_min:.0f}%"
+        )
+
+        # If issues found — append warning to message
+        if not check["passed"]:
+            issues_text = " | ".join(check["issues"][:2])  # max 2 issues shown
+            message = message.replace(
+                "🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>",
+                f"⚠️ <i>QC flags: {issues_text}</i>\n\n"
+                f"🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
+            )
+    except Exception as e:
+        print(f"   ⚠️ Consistency check error: {e}")
 
     return send_telegram(message)
 
