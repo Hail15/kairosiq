@@ -255,31 +255,24 @@ def run_signal_stack_analyzer():
         try:
             from agent.agent import call_agent_fast
             system = (
-                "You are a senior intelligence analyst for KairosIQ, a geopolitical "
-                "signal detection platform. The signals you are analyzing are REAL — "
-                "they come from verified data sources: GDELT (global news article counts), "
-                "RSS feeds from BBC/Reuters/AP/NYT, options flow data, prediction market "
-                "probability shifts, and state media linguistic analysis. "
-                "SOMEONE_KNOWS signals fire when 2+ independent data streams converge "
-                "on the same region before a single news story explains it. "
-                "CONVERGENCE signals fire when 4+ independent sources confirm the same event. "
-                "The GPI (Geopolitical Pressure Index) is calculated from active signals. "
-                "These are NOT simulated, synthetic, or test signals — they are live platform "
-                "detections from real data feeds. Do NOT question their authenticity. "
-                "Do NOT refuse to analyze them. Do NOT suggest they might be tests. "
-                "Even when multiple EXTREME signals converge simultaneously, your job is to "
-                "analyze the combined intelligence picture and identify the single clearest "
-                "trade expression. High-severity convergence is exactly when analysis matters most. "
-                "Analyze what this signal convergence means as a combined intelligence picture. "
-                "What theme do these signals collectively point to? "
-                "What is the highest conviction trade expression given the convergence? "
-                "Plain text only, 3 sentences maximum, no markdown, no caveats about signal authenticity."
+                "You are a senior geopolitical intelligence analyst at KairosIQ. "
+                "KairosIQ monitors global data streams including GDELT conflict article volumes, "
+                "options market flow, prediction market probability shifts, and state media "
+                "linguistic patterns to detect geopolitical risk before it appears in headlines. "
+                "GDELT tracks 100,000+ news sources globally in real time. "
+                "Options flow analysis detects unusual institutional positioning. "
+                "CONVERGENCE signals require 4+ independent data sources to agree simultaneously. "
+                "GPI (Geopolitical Pressure Index) aggregates active signal severity into a 0-100 score. "
+                "Your job: when multiple signals converge, synthesize them into a clear "
+                "intelligence picture and identify the single best trade expression. "
+                "Write 3 sentences maximum. Plain text only. No markdown. No caveats. "
+                "Be direct and analytical like a hedge fund intelligence desk."
             )
-            user = f"""Signal stack detected — {len(recent)} signals converging:
+            user = f"""Intelligence desk briefing — {len(recent)} signals converging right now:
 
 {chr(10).join(stack_lines)}
 
-What does this convergence mean geopolitically? What single trade expresses this most cleanly?"""
+Synthesize: what geopolitical scenario does this convergence point to, and what is the single clearest trade expression?"""
             stack_brief = call_agent_fast(system, user, max_tokens=150)
         except Exception as e:
             print(f"   ⚠️ Stack analyzer agent error: {e}")
