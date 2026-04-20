@@ -427,6 +427,18 @@ def notify_signal(signal):
             except Exception:
                 pass
 
+        # QC flag fix — use AVG accuracy, not MIN
+        # acc_min is the minimum of the accuracy *range* (for display), which can
+        # be 0% when an asset_mapping row has 0 directional_accuracy. Passing that
+        # as "platform_accuracy" falsely fires the <50% floor warning. The AVG is
+        # the correct scalar for a floor check and matches what the narrative uses.
+        try:
+            from processing.asset_mapper import get_signal_specific_accuracy
+            acc_data = get_signal_specific_accuracy(event_type, platform)
+            qc_accuracy = f"{acc_data.get('avg', 0):.0f}%"
+        except Exception:
+            qc_accuracy = f"{acc_min:.0f}%"  # fallback to old behavior
+
         check = run_pre_distribution_consistency_check(
             signal_description=description,
             event_category=event_type,
@@ -437,7 +449,7 @@ def notify_signal(signal):
             confirmed_count=confirmed_count,
             total_assets=total_asset_count,
             confidence_score=confidence.lower(),
-            platform_accuracy=f"{acc_min:.0f}%"
+            platform_accuracy=qc_accuracy
         )
 
         # If issues found — append warning to message
