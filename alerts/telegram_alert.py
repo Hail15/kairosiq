@@ -449,7 +449,8 @@ def notify_signal(signal):
             confirmed_count=confirmed_count,
             total_assets=total_asset_count,
             confidence_score=confidence.lower(),
-            platform_accuracy=qc_accuracy
+            platform_accuracy=qc_accuracy,
+            tier_label=tier_label
         )
 
         # If issues found — append warning to message

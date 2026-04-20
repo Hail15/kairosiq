@@ -828,7 +828,8 @@ def get_signal_specific_peak_move(event_category, assets):
 def run_pre_distribution_consistency_check(
     signal_description, event_category, source_platform,
     assets, trade_rec_direction, narrative, confirmed_count,
-    total_assets, confidence_score, platform_accuracy
+    total_assets, confidence_score, platform_accuracy,
+    tier_label=None
 ):
     """
     Kyle's pre-distribution consistency checker.
@@ -898,11 +899,24 @@ def run_pre_distribution_consistency_check(
                     break
 
     # Check 3 — FULL CONVERGENCE gating (Problem 5 from Kyle)
-    if confidence_score in ("high", "extreme") and total_assets > 0:
+    # Only fire if the ACTUAL displayed label is FULL CONVERGENCE or
+    # DUAL CONFIRMATION — not based on confidence_score alone, because
+    # the displayed label also depends on signal_strength thresholds.
+    # Fall back to confidence_score only if tier_label wasn't passed
+    # (backward compat for older callers).
+    label_upper = str(tier_label or "").upper()
+    if tier_label is not None:
+        is_convergence_label = "CONVERGENCE" in label_upper or "CONFIRMATION" in label_upper
+    else:
+        # Legacy behavior — use confidence_score as proxy
+        is_convergence_label = confidence_score in ("high", "extreme")
+
+    if is_convergence_label and total_assets > 0:
         confirmation_rate = confirmed_count / total_assets if total_assets > 0 else 0
         if confirmation_rate < 0.5 and confirmed_count == 0:
+            displayed_label = tier_label if tier_label else "FULL CONVERGENCE"
             issues.append(
-                f"CONVERGENCE MISMATCH: FULL CONVERGENCE label but "
+                f"CONVERGENCE MISMATCH: {displayed_label} label but "
                 f"{confirmed_count}/{total_assets} assets confirmed — "
                 f"consider downgrading to DUAL CONFIRMATION or SINGLE SOURCE"
             )
