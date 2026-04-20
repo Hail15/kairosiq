@@ -611,9 +611,9 @@ def generate_signal_summary(event_description, region, prob_before,
         for a in assets[:4]:
             asset_text += (
                 f"- {a.get('ticker')}: historically {a.get('direction')} "
-                f"avg {a.get('avg_move_72h', 0):.1f}% in 72h, "
-                f"{(a.get('accuracy', 0) or 0)*100:.0f}% accuracy, "
-                f"{a.get('sample_size', 0)} instances\n"
+                f"avg {(a.get('avg_move_72h') or 0):.1f}% in 72h, "
+                f"{(a.get('accuracy') or 0)*100:.0f}% accuracy, "
+                f"{a.get('sample_size') or 0} instances\n"
             )
         prompt = f"""You are a geopolitical market intelligence analyst. Write a concise 2-sentence intelligence brief.
 
