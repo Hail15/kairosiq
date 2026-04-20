@@ -74,8 +74,9 @@ def calculate_signal_strength(prob_shift, confidence_score,
         score += min(prob_shift * 1.3, 35)
     conf_scores = {"high": 25, "medium": 15, "low": 5}
     score += conf_scores.get(confidence_score or "low", 5)
-    if assets:
-        avg_acc = sum(a.get("accuracy", 0) for a in assets) / len(assets)
+    if assets and len(assets) > 0:
+        acc_values = [a.get("accuracy") or 0 for a in assets]
+        avg_acc = sum(acc_values) / len(acc_values) if acc_values else 0
         score += avg_acc * 25
     source_scores = {
         "polymarket": 15, "kalshi": 15, "metaculus": 12,
