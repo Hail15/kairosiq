@@ -94,6 +94,13 @@ def recalibrate_asset_mappings():
     Recalculates avg_move_72h and directional_accuracy from the last 90 days.
     Only updates rows with 5+ outcome samples.
     Run weekly.
+
+    Polarity fix: Only counts outcomes where expected_direction matches the
+    asset_mapping's canonical historical_direction. This prevents de-escalation
+    signals (which flip USO/LMT/etc. to opposite directions) from polluting
+    the escalation-direction accuracy measurement. Outcomes with flipped
+    direction still get stored for audit, they just don't feed back into
+    the canonical mapping's accuracy.
     """
     print("\n🔧 Recalibrating asset mappings from live data...")
     try:
@@ -115,9 +122,14 @@ def recalibrate_asset_mappings():
                           THEN 1.0 ELSE 0.0 END)::numeric, 4)                   AS dir_acc
             FROM signal_outcomes so
             JOIN signals s ON s.id = so.signal_id
+            JOIN asset_mappings am
+              ON am.event_type   = s.event_category
+             AND am.asset_ticker = so.asset_ticker
             WHERE so.recorded_at >= NOW() - INTERVAL '90 days'
             AND so.price_at_72h IS NOT NULL
             AND so.direction_correct_72h IS NOT NULL
+            AND so.expected_direction IS NOT NULL
+            AND so.expected_direction = am.historical_direction
             GROUP BY s.event_category, so.asset_ticker
             HAVING COUNT(*) >= 5;
         """)

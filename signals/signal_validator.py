@@ -101,6 +101,10 @@ def record_initial_price(signal_id, asset_ticker, price_at_signal, direction):
     """
     Pass 1 — insert a new outcome row with just price_at_signal.
     24/72/168h prices are filled in later by update_outcome_prices().
+
+    Saves expected_direction so recalibration can distinguish between
+    escalation (canonical direction) and de-escalation (flipped direction)
+    outcomes for the same event_category.
     """
     conn = get_db_connection()
     cur = conn.cursor()
@@ -109,10 +113,10 @@ def record_initial_price(signal_id, asset_ticker, price_at_signal, direction):
             signal_id, asset_ticker, price_at_signal,
             price_at_24h, price_at_72h, price_at_168h,
             direction_correct_24h, direction_correct_72h,
-            direction_correct_168h, recorded_at
-        ) VALUES (%s, %s, %s, NULL, NULL, NULL, NULL, NULL, NULL, NOW())
+            direction_correct_168h, expected_direction, recorded_at
+        ) VALUES (%s, %s, %s, NULL, NULL, NULL, NULL, NULL, NULL, %s, NOW())
         ON CONFLICT DO NOTHING;
-    """, (str(signal_id), asset_ticker, price_at_signal))
+    """, (str(signal_id), asset_ticker, price_at_signal, direction))
     conn.commit()
     cur.close()
     conn.close()
@@ -146,6 +150,11 @@ def update_outcome_prices(outcome_id, price_at_signal, direction,
         values.append(price_168h)
         updates.append("direction_correct_168h = %s")
         values.append(check_direction(price_at_signal, price_168h, direction))
+
+    # Backfill expected_direction if somehow missing (e.g. outcomes created
+    # before the polarity migration). Safe no-op if already set.
+    updates.append("expected_direction = COALESCE(expected_direction, %s)")
+    values.append(direction)
 
     if not updates:
         conn.close()
