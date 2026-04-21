@@ -5238,12 +5238,12 @@ if tab7 is not None:
                         continue
 
                     # Keep only the highest strength rec per ticker
-                    if ticker not in seen_tickers or strength > seen_tickers[ticker]["signal_strength"]:
+                    if ticker not in seen_tickers or (strength or 0) > (seen_tickers[ticker]["signal_strength"] or 0):
                         seen_tickers[ticker] = rec
 
-                # Sort by signal strength descending
+                # Sort by signal strength descending — guard against None values
                 unique_recs = sorted(seen_tickers.values(),
-                                     key=lambda x: x["signal_strength"], reverse=True)
+                                     key=lambda x: x["signal_strength"] or 0, reverse=True)
 
                 for rec in unique_recs[:8]:
                     sig_id      = rec["signal_id"]
