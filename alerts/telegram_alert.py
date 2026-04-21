@@ -391,7 +391,13 @@ def notify_signal(signal):
 
     # Telegram hard limit is 4096 chars — trim if needed
     if len(message) > 4000:
-        message = message[:3950] + "...\n\n🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
+        truncated = message[:3950]
+        # Close any HTML tags sliced open by truncation — Telegram 400s on unclosed tags
+        for tag in ["</i>", "</b>"]:
+            open_tag = tag.replace("/", "")
+            if truncated.count(open_tag) > truncated.count(tag):
+                truncated += tag
+        message = truncated + "...\n\n🔗 <a href='https://kairosiq.streamlit.app'>Open Dashboard</a>"
 
     # Pre-distribution consistency check (Kyle's fixes)
     try:
@@ -427,17 +433,13 @@ def notify_signal(signal):
             except Exception:
                 pass
 
-        # QC flag fix — use AVG accuracy, not MIN
-        # acc_min is the minimum of the accuracy *range* (for display), which can
-        # be 0% when an asset_mapping row has 0 directional_accuracy. Passing that
-        # as "platform_accuracy" falsely fires the <50% floor warning. The AVG is
-        # the correct scalar for a floor check and matches what the narrative uses.
+        # QC flag fix — use AVG accuracy not MIN, and pass actual tier_label
         try:
             from processing.asset_mapper import get_signal_specific_accuracy
             acc_data = get_signal_specific_accuracy(event_type, platform)
             qc_accuracy = f"{acc_data.get('avg', 0):.0f}%"
         except Exception:
-            qc_accuracy = f"{acc_min:.0f}%"  # fallback to old behavior
+            qc_accuracy = f"{acc_min:.0f}%"
 
         check = run_pre_distribution_consistency_check(
             signal_description=description,

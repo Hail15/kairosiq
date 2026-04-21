@@ -73,7 +73,6 @@ def write_gpi_snapshot():
     try:
         import psycopg2
         from config import settings
-        from signals.unpriced_risk import calculate_gpi_components
 
         conn = psycopg2.connect(settings.DATABASE_URL)
         cur  = conn.cursor()

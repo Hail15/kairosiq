@@ -900,16 +900,13 @@ def run_pre_distribution_consistency_check(
                     break
 
     # Check 3 — FULL CONVERGENCE gating (Problem 5 from Kyle)
-    # Only fire if the ACTUAL displayed label is FULL CONVERGENCE or
-    # DUAL CONFIRMATION — not based on confidence_score alone, because
-    # the displayed label also depends on signal_strength thresholds.
-    # Fall back to confidence_score only if tier_label wasn't passed
-    # (backward compat for older callers).
+    # Use actual displayed tier_label not confidence_score — the label depends
+    # on both confidence AND signal strength, so confidence alone can fire this
+    # incorrectly on SINGLE SOURCE signals.
     label_upper = str(tier_label or "").upper()
     if tier_label is not None:
         is_convergence_label = "CONVERGENCE" in label_upper or "CONFIRMATION" in label_upper
     else:
-        # Legacy behavior — use confidence_score as proxy
         is_convergence_label = confidence_score in ("high", "extreme")
 
     if is_convergence_label and total_assets > 0:
