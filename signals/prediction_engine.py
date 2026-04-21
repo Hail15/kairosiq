@@ -117,7 +117,7 @@ def calculate_kiq_score(ticker, signals, regime, options_signals):
         for asset in (assets_json or []):
             if asset.get("ticker") == ticker:
                 direction = asset.get("direction", "up")
-                accuracy  = float(asset.get("accuracy", 0.6))
+                accuracy  = float(asset.get("accuracy") or 0.6)
                 conf      = sig.get("confidence_score", "medium")
                 conf_mult = {"extreme": 1.5, "high": 1.2, "medium": 1.0, "low": 0.7}.get(conf, 1.0)
 

@@ -630,6 +630,9 @@ Write a professional version description for the track record."""
 
     except Exception as e:
         send_reply(chat_id, f"⚠️ approve_version error: {e}")
+
+
+def handle_duplicate(args, chat_id):
     """
     /duplicate [signal_id]
     Marks a signal as a duplicate of a previously alerted signal.
