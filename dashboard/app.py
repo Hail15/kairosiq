@@ -5247,12 +5247,12 @@ if tab7 is not None:
 
                 for rec in unique_recs[:8]:
                     sig_id      = rec["signal_id"]
-                    strength    = rec["signal_strength"]
-                    tier        = rec["convergence_tier"]
+                    strength    = rec["signal_strength"] or 0
+                    tier        = rec["convergence_tier"] or 0
                     side        = rec["side"]
                     ticker      = rec["ticker"]
-                    acc         = rec["directional_acc"]
-                    avg72       = rec["avg_move_72h"]
+                    acc         = rec["directional_acc"] or 0
+                    avg72       = rec["avg_move_72h"] or 0
                     price       = rec["current_price"]
                     tradeable   = rec["tradeable"]
                     note        = rec["note"]
