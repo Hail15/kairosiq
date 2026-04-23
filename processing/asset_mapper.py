@@ -262,7 +262,7 @@ def filter_assets_by_relevance(assets, description, event_category):
 
     # If filtering removed everything, return top 3 by accuracy as fallback
     if not filtered:
-        return sorted(assets, key=lambda a: a.get("accuracy", 0), reverse=True)[:3]
+        return sorted(assets, key=lambda a: a.get("accuracy") or 0, reverse=True)[:3]
 
     return filtered
 
