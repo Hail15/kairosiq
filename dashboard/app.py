@@ -5664,7 +5664,9 @@ if tab7 is not None:
                                     st.error("Failed to close — check logs")
 
         except Exception as e:
+            import traceback
             st.error(f"Trading tab error: {e}")
+            st.code(traceback.format_exc())
 
         st.markdown("""
         <div class="disclaimer">
